@@ -11,7 +11,7 @@
    - cartão "Família agora": quem está ao vivo, parado, em movimento, endereço
    - marcadores da família no mapa
    - botão SOS e aviso de SOS para todos que estão com o app aberto
-   - botão Pausar compartilhamento
+   - tipo de conta escolhido no cadastro: Frota, Família ou Combo (frota + família)
 
    Modelo de conta: a família cria UMA conta (e-mail e senha) e cada celular
    entra com ela, igual ao que a empresa já faz com os motoristas. Cada pessoa
@@ -26,7 +26,8 @@
   }
 
   /* ---------- utilidades ---------- */
-  var K_MODO = 'ev_modo', K_CONSENT = 'ev_consent_familia', K_PAUSA = 'ev_pausado', K_TIPO_PEND = 'ev_tipo_pendente';
+  var K_MODO = 'ev_modo', K_CONSENT = 'ev_consent_familia', K_PAUSA = 'ev_pausado', K_TIPO_PEND = 'ev_tipo_pendente', K_TIPO_CONTA = 'ev_tipo_conta', K_TIPO_EMP = 'ev_tipo_conta_empresa';
+  var TIPOS = ['frota', 'familia', 'combo'];
   var LS = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -62,10 +63,9 @@
 
   var modo = LS.get(K_MODO) === 'familia' ? 'familia' : 'frota';
   function consentido() { return LS.get(K_CONSENT) === '1'; }
-  function pausado() { return LS.get(K_PAUSA) === '1'; }
-  function bloqueado() { return modo === 'familia' && (!consentido() || pausado()); }
+  function bloqueado() { return modo === 'familia' && !consentido(); }
 
-  /* ---------- envio: no modo Família, só envia com autorização e sem pausa ---------- */
+  /* ---------- envio: no modo Família, só envia com autorização ---------- */
   var enviarOrig = (typeof enviarAtualizacoesFirebase === 'function') ? enviarAtualizacoesFirebase : null;
   if (enviarOrig) {
     window.enviarAtualizacoesFirebase = function (updates) {
@@ -120,6 +120,7 @@
     '.ev-sos{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:9000;width:72px;height:72px;border-radius:50%;border:3px solid #fff;background:var(--danger);color:#fff;font:700 1.15em var(--font-display);box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}' +
     '#evFamilia[hidden],#evSOS[hidden],#evModal[hidden]{display:none!important}' +
     '.ev-cfg{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-size:.85em}' +
+    '.ev-cfg[hidden]{display:none!important}' +
     '.ev-cfg summary{cursor:pointer;color:var(--text-dim);font-weight:600}' +
     '.ev-seg{display:flex;gap:8px;margin:10px 0 6px}' +
     '.ev-seg button{flex:1;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-weight:700;font-family:var(--font-display);cursor:pointer}' +
@@ -172,7 +173,7 @@
     var card = document.createElement('div');
     card.id = 'evFamilia'; card.className = 'ev-card'; card.hidden = true;
     card.innerHTML =
-      '<div class="ev-head"><span>👨‍👩‍👧 Família agora</span><button id="evPausar" class="ev-btn ev-sec" type="button">Pausar</button></div>' +
+      '<div class="ev-head"><span>👨‍👩‍👧 Família agora</span></div>' +
       '<div id="evAviso" class="ev-aviso"></div><div id="evAlertas"></div><div id="evLista"></div>' +
       '<button id="evVerTodos" class="ev-btn ev-sec ev-full" type="button">Ver todos no mapa</button>';
     container.insertBefore(card, container.firstChild);
@@ -195,30 +196,39 @@
     modal.id = 'evModal'; modal.className = 'ev-modal'; modal.hidden = true;
     document.body.appendChild(modal);
 
-    /* tipo de conta no cadastro */
+    /* tipo de conta no cadastro: é preciso escolher Frota, Família ou Combo */
     var painel = $('painelCadastro'), btnCad = $('btnConfirmarCadastro');
     if (painel && btnCad) {
       var tipo = document.createElement('div');
       tipo.className = 'ev-tipo';
       tipo.innerHTML =
-        '<div class="ev-lbl">Tipo de conta</div>' +
-        '<label><input type="radio" name="evTipo" value="frota" checked> Empresa ou frota de veículos</label>' +
-        '<label><input type="radio" name="evTipo" value="familia"> Família</label>';
+        '<div class="ev-lbl">Escolha o tipo de conta</div>' +
+        '<label><input type="radio" name="evTipo" value="frota"> Frota: empresa com veículos</label>' +
+        '<label><input type="radio" name="evTipo" value="familia"> Família: pessoas que compartilham a localização</label>' +
+        '<label><input type="radio" name="evTipo" value="combo"> Combo: frota e família juntas</label>';
       btnCad.parentNode.insertBefore(tipo, btnCad);
       tipo.addEventListener('change', function () {
-        var fam = tipo.querySelector('input[value="familia"]').checked;
+        var m = tipo.querySelector('input:checked');
+        var v = m ? m.value : 'frota';
         var rotulo = painel.querySelector('label');
         var campo = $('cadNomeEmpresa');
-        if (rotulo) rotulo.textContent = fam ? 'Nome da família' : 'Nome da empresa';
-        if (campo) campo.placeholder = fam ? 'Ex: Família Souza' : 'Ex: Transportes Silva Ltda';
+        if (rotulo) rotulo.textContent = v === 'familia' ? 'Nome da família' : (v === 'combo' ? 'Nome da empresa ou família' : 'Nome da empresa');
+        if (campo) campo.placeholder = v === 'familia' ? 'Ex: Família Souza' : (v === 'combo' ? 'Ex: Silva Transportes' : 'Ex: Transportes Silva Ltda');
       });
-      btnCad.addEventListener('click', function () {
-        var fam = tipo.querySelector('input[value="familia"]').checked;
-        LS.set(K_TIPO_PEND, (fam ? 'familia' : 'frota') + '|' + Date.now());
-      });
+      /* captura no painel: roda ANTES do clique do botão original e pode barrar o cadastro */
+      painel.addEventListener('click', function (e) {
+        var alvo = e.target && e.target.closest ? e.target.closest('#btnConfirmarCadastro') : null;
+        if (!alvo) return;
+        var marcado = tipo.querySelector('input:checked');
+        if (!marcado) {
+          e.stopPropagation(); e.preventDefault();
+          if (typeof mostrarErroAuth === 'function') mostrarErroAuth('Escolha o tipo de conta: Frota, Família ou Combo.');
+          return;
+        }
+        LS.set(K_TIPO_PEND, marcado.value + '|' + Date.now() + '|' + (typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : ''));
+      }, true);
     }
 
-    $('evPausar').addEventListener('click', alternarPausa);
     $('evVerTodos').addEventListener('click', verTodos);
     sos.addEventListener('click', enviarSOS);
     cfg.querySelectorAll('button[data-modo]').forEach(function (b) {
@@ -245,7 +255,6 @@
     } else {
       restaurarTextos();
     }
-    $('evPausar').textContent = pausado() ? 'Retomar' : 'Pausar';
     atualizarSOS();
     if (f) { garantirFamilia(); renderFamilia(); } else { pararFamilia(); }
   }
@@ -255,7 +264,10 @@
   }
 
   function definirModo(m) {
-    modo = (m === 'familia') ? 'familia' : 'frota';
+    var alvo = (m === 'familia') ? 'familia' : 'frota';
+    var t = tipoEfetivo();
+    if ((t === 'frota' && alvo === 'familia') || (t === 'familia' && alvo === 'frota')) return;  /* fora do plano da conta */
+    modo = alvo;
     LS.set(K_MODO, modo);
     aplicarModo();
     if (modo === 'familia' && !consentido()) mostrarConsentimento();
@@ -271,11 +283,11 @@
       '<ul>' +
       '<li><b>O que é enviado:</b> posição, velocidade e endereço aproximado.</li>' +
       '<li><b>Quando:</b> enquanto o compartilhamento estiver ligado. O Android mostra uma notificação fixa durante todo esse tempo.</li>' +
-      '<li><b>Como parar:</b> toque em Pausar no cartão "Família agora" a qualquer momento.</li>' +
+      '<li><b>Como parar:</b> remova o seu nome em "Pessoas neste aparelho" (o envio para na hora) ou desinstale o app.</li>' +
       '</ul>' +
       '<label><input type="checkbox" id="evAceito"><span>Entendi e autorizo o compartilhamento da minha localização.</span></label>' +
       '<button id="evOk" class="ev-btn" type="button" disabled>Autorizar e continuar</button>' +
-      '<button id="evVolta" class="ev-btn ev-sec" type="button">Voltar para o modo Frota</button>' +
+      (tipoEfetivo() === 'familia' ? '' : '<button id="evVolta" class="ev-btn ev-sec" type="button">Voltar para o modo Frota</button>') +
       '</div>';
     m.hidden = false;
     $('evAceito').addEventListener('change', function (e) { $('evOk').disabled = !e.target.checked; });
@@ -284,17 +296,11 @@
       m.hidden = true;
       aplicarModo();
     });
-    $('evVolta').addEventListener('click', function () {
+    var voltar = $('evVolta');
+    if (voltar) voltar.addEventListener('click', function () {
       m.hidden = true;
       definirModo('frota');
     });
-  }
-
-  function alternarPausa() {
-    var estavaPausado = pausado();
-    if (estavaPausado) LS.del(K_PAUSA); else LS.set(K_PAUSA, '1');
-    escreverAtual('pausado', estavaPausado ? null : true).catch(function (e) { console.warn('modo-familia: pausa', e); });
-    aplicarModo();
   }
 
   /* ---------- família: leitura dos outros aparelhos ---------- */
@@ -359,7 +365,6 @@
   function situacaoDe(d) {
     var ts = parseDH(d.data, d.hora);
     var idade = ts ? Date.now() - ts : null;
-    if (d.pausado) return { cls: 'sem', badge: 'PAUSADO', txt: 'pausou o compartilhamento' };
     if (idade == null || idade > 120000) return { cls: 'sem', badge: 'SEM SINAL', txt: 'sem sinal' + (idade != null ? ' há ' + tempo(idade) : '') };
     if (d.status === 'PARADO') {
       var t = (d.tempoParado && d.tempoParado !== '00:00:00') ? ' há ' + d.tempoParado : '';
@@ -455,7 +460,6 @@
     var msgs = [];
     av.className = 'ev-aviso';
     if (!proprios().length) msgs.push('Cadastre o nome de quem usa este aparelho (ex.: MÃE) para começar a compartilhar.');
-    if (pausado()) msgs.push('⏸ Seu compartilhamento está pausado. Ninguém vê sua localização.');
     if (fam.erro) { msgs.push('Não foi possível ler os outros aparelhos (' + fam.erro + '). Confira as regras do banco de dados.'); av.className = 'ev-aviso ev-erro'; }
     if (!chaves.length && !fam.erro && proprios().length) msgs.push('Aguardando a primeira posição da família...');
     av.textContent = msgs.join(' ');
@@ -498,41 +502,80 @@
     });
   }
 
+  /* ---------- tipo de conta: Frota, Família ou Combo ---------- */
+  var tipoRemoto = null, refTipo = null, empresaTipo = null, verificandoPend = false;
+
+  function tipoEfetivo() {
+    if (tipoRemoto) return tipoRemoto;
+    var local = LS.get(K_TIPO_CONTA);
+    if (local && LS.get(K_TIPO_EMP) === EMPRESA_ID && TIPOS.indexOf(local) !== -1) return local;
+    return 'combo';   /* contas antigas, sem tipo definido, continuam com tudo liberado */
+  }
+
+  function aplicarTipoConta() {
+    var t = tipoEfetivo();
+    var cfg = document.querySelector('.ev-cfg');
+    if (cfg) cfg.hidden = (t !== 'combo');   /* só o Combo pode alternar entre Frota e Família */
+    if (t === 'frota' && modo !== 'frota') definirModo('frota');
+    else if (t === 'familia' && modo !== 'familia') definirModo('familia');
+  }
+
+  function definirTipoConta(t) {
+    if (TIPOS.indexOf(t) === -1) return;
+    LS.set(K_TIPO_CONTA, t); LS.set(K_TIPO_EMP, EMPRESA_ID);
+    db.ref('empresas/' + san(EMPRESA_ID) + '/tipo').set(t).catch(function (e) {
+      console.warn('modo-familia: não foi possível gravar o tipo da conta no banco (fica salvo só neste aparelho).', e && e.message);
+    });
+    definirModo(t === 'familia' ? 'familia' : 'frota');
+    aplicarTipoConta();
+  }
+
+  function observarTipo() {
+    if (!auth.currentUser || !EMPRESA_ID || empresaTipo === EMPRESA_ID) return;
+    if (refTipo) { try { refTipo.off(); } catch (e) {} }
+    empresaTipo = EMPRESA_ID; tipoRemoto = null;
+    refTipo = db.ref('empresas/' + san(EMPRESA_ID) + '/tipo');
+    refTipo.on('value', function (s) {
+      var v = s.val();
+      tipoRemoto = (TIPOS.indexOf(v) !== -1) ? v : null;
+      aplicarTipoConta();
+    }, function () { /* sem permissão para ler: vale o que está salvo neste aparelho */ });
+  }
+
   /* ---------- verificação periódica: cadastro novo, tipo da conta, empresa trocada ---------- */
-  var lendoTipo = false, tentouLerTipo = false;
   function verificar() {
     if (!auth.currentUser || !EMPRESA_ID) return;
 
+    /* tipo escolhido no cadastro: só vale para a empresa recém-criada (criada há menos de 5 min) */
     var pend = LS.get(K_TIPO_PEND);
-    if (pend) {
-      LS.del(K_TIPO_PEND);
+    if (pend && !verificandoPend) {
       var partes = pend.split('|');
-      if (Date.now() - Number(partes[1]) < 120000) {
-        definirModo(partes[0]);
-        if (partes[0] === 'familia') {
-          db.ref('empresas/' + san(EMPRESA_ID) + '/tipo').set('familia').catch(function (e) {
-            console.warn('modo-familia: não foi possível gravar o tipo da conta (o modo fica salvo só neste aparelho).', e && e.message);
-          });
-        }
+      if (Date.now() - Number(partes[1]) >= 120000) {
+        LS.del(K_TIPO_PEND);
+      } else if (EMPRESA_ID !== (partes[2] || '')) {
+        verificandoPend = true;
+        db.ref('empresas/' + san(EMPRESA_ID) + '/criadoEm').once('value').then(function (s) {
+          var criado = Date.parse(s.val());
+          LS.del(K_TIPO_PEND);
+          if (criado && Date.now() - criado < 300000) definirTipoConta(partes[0]);
+        }).catch(function () { LS.del(K_TIPO_PEND); }).then(function () { verificandoPend = false; });
       }
     }
 
-    /* aparelho novo, sem escolha de modo: pergunta à conta se ela é de família */
-    if (LS.get(K_MODO) === null && !lendoTipo && !tentouLerTipo) {
-      lendoTipo = true; tentouLerTipo = true;
-      db.ref('empresas/' + san(EMPRESA_ID) + '/tipo').once('value').then(function (s) {
-        if (s.val() === 'familia') definirModo('familia'); else LS.set(K_MODO, 'frota');
-      }).catch(function () {}).then(function () { lendoTipo = false; });
-    }
-
+    observarTipo();
     if (modo === 'familia') { garantirFamilia(); atualizarSOS(); }
   }
 
   /* ---------- início ---------- */
+  LS.del(K_PAUSA);   /* a opção de pausar foi retirada: limpa qualquer pausa antiga guardada no aparelho */
   criarUI();
   aplicarModo();
-  if (modo === 'familia' && !consentido()) mostrarConsentimento();
+  aplicarTipoConta();
+  if (modo === 'familia' && !consentido() && $('evModal').hidden) mostrarConsentimento();
   setInterval(verificar, 3000);
   setInterval(renderFamilia, 10000);
-  auth.onAuthStateChanged(function () { verificar(); });
+  auth.onAuthStateChanged(function (u) {
+    if (!u) { empresaTipo = null; tipoRemoto = null; }
+    verificar();
+  });
 })();
