@@ -1,0 +1,16 @@
+{
+  "appId": "com.evertongps.app",
+  "appName": "Everton GPS",
+  "webDir": "www",
+  "android": {
+    "useLegacyBridge": true
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
