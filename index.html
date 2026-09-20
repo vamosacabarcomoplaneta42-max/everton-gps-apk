@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador Everton GPS - Multi-Frota</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #070a10;
+            --bg-panel: #0e1420;
+            --bg-card: #121a26;
+            --bg-input: #182131;
+            --border: rgba(255,255,255,.08);
+            --border-strong: rgba(255,255,255,.14);
+
+            --brand: #00e0a8;
+            --brand-dim: #00b389;
+            --accent: #34b3ff;
+            --warn: #ffb020;
+            --danger: #ff4d6d;
+
+            --text: #eef3f8;
+            --text-dim: #7c8aa0;
+            --text-faint: #4c5870;
+
+            --font-display: 'Space Grotesk', system-ui, sans-serif;
+            --font-body: 'Inter', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0; font-family: var(--font-body);
+            background: var(--bg-main); color: var(--text);
+            display: flex; flex-direction: column; height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .brand-bar {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 16px; background: var(--bg-panel);
+            border-bottom: 1px solid var(--border); flex-shrink: 0;
+            position: relative; z-index: 20;
+        }
+        .brand-mark {
+            width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+            background: linear-gradient(155deg, var(--brand), #0091c8);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.05em; box-shadow: 0 4px 14px rgba(0,224,168,.25);
+        }
+        .brand-text { line-height: 1.2; }
+        .brand-text .nome { font-family: var(--font-display); font-weight: 700; font-size: 1em; letter-spacing: .2px; }
+        .brand-text .tagline { font-size: .68em; color: var(--text-dim); letter-spacing: .3px; }
+        .brand-bar .conta-pill {
+            margin-left: auto; font-size: .68em; color: var(--text-dim);
+            border: 1px solid var(--border); padding: 4px 10px; border-radius: 999px;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .conta-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+        .conta-pill.ativa .dot { background: var(--brand); box-shadow: 0 0 6px var(--brand); }
+
+        #map { width: 100%; height: 30vh; background: #060810; flex-shrink: 0; }
+        .container { padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+
+        h4.section-label {
+            font-family: var(--font-display); font-size: .7em; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--text-dim); font-weight: 600; margin: 4px 0 0 2px;
+        }
+
+        .input-box { background: var(--bg-card); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); }
+        .input-box label { font-size: 0.72em; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim); display: block; margin-bottom: 7px; font-weight: 600; font-family: var(--font-display); }
+        .row { display: flex; gap: 8px; }
+        input {
+            flex: 1; background: var(--bg-input); border: 1px solid var(--border); padding: 12px 13px;
+            border-radius: var(--radius-sm); color: var(--text); font-size: .95em; font-family: var(--font-body);
+            transition: border-color .15s ease;
+        }
+        input::placeholder { color: var(--text-faint); }
+        input:focus { outline: none; border-color: var(--brand); }
+        button {
+            background: var(--brand); color: #04120e; border: none; padding: 12px 20px; font-weight: 700;
+            border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-display);
+            letter-spacing: .2px; transition: transform .1s ease, filter .15s ease;
+        }
+        button:active { transform: scale(.97); }
+        button:hover { filter: brightness(1.08); }
+
+        .frota-container { background: var(--bg-card); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); }
+        .frota-lista { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag-veiculo {
+            background: var(--bg-input); border: 1px solid var(--border); padding: 7px 8px 7px 14px;
+            border-radius: 20px; font-size: 0.83em; font-weight: 600; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-remover {
+            color: var(--danger); cursor: pointer; font-weight: bold; border: none; background: rgba(255,77,109,.12);
+            width: 20px; height: 20px; border-radius: 50%; padding: 0; font-size: 1em; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .status-bar {
+            padding: 13px; border-radius: var(--radius-sm); text-align: center; font-weight: 700;
+            font-size: 0.85em; font-family: var(--font-display); letter-spacing: .2px;
+        }
+        .status-online { background: rgba(0, 224, 168, 0.12); color: var(--brand); border: 1px solid rgba(0,224,168,.35); }
+        .status-offline { background: rgba(255, 176, 32, 0.12); color: var(--warn); border: 1px solid rgba(255,176,32,.35); }
+        .status-erro { background: rgba(255, 77, 109, 0.12); color: var(--danger); border: 1px solid rgba(255,77,109,.35); }
+        .status-bg { background: rgba(52, 179, 255, 0.12); color: var(--accent); border: 1px solid rgba(52,179,255,.35); }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn-force {
+            background: linear-gradient(135deg, var(--accent), #1b8fe0); color: #04141f; flex: 2; padding: 15px;
+            font-size: 0.88em; text-transform: uppercase; font-weight: 700; border-radius: var(--radius-sm);
+            border: none; cursor: pointer; font-family: var(--font-display); letter-spacing: .4px;
+        }
+        .btn-export {
+            background: var(--bg-card); color: var(--text); border: 1px solid var(--border); flex: 1; padding: 15px;
+            font-size: 0.82em; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-display);
+        }
+
+        .telemetry-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
+        .telemetry-row {
+            display: flex; justify-content: space-between; align-items: center; padding: 11px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.045); font-size: 0.88em; gap: 10px;
+        }
+        .telemetry-row span:first-child { color: var(--text-dim); font-size: .92em; }
+        .telemetry-row b, .telemetry-row span:last-child {
+            text-align: right; font-family: var(--font-mono); font-weight: 600; letter-spacing: .2px;
+        }
+        .telemetry-row:last-child { border-bottom: none; }
+
+        .badge { font-size: 0.72em; padding: 4px 10px; border-radius: 5px; font-weight: 700; font-family: var(--font-display); letter-spacing: .3px; }
+        .badge-movimento { background: rgba(0,224,168,0.14); color: var(--brand); }
+        .badge-parado { background: rgba(255, 176, 32, 0.14); color: var(--warn); }
+        .badge-perigo { background: rgba(255, 77, 109, 0.14); color: var(--danger); }
+
+        .gps-warning { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,.35); color: var(--danger); padding: 11px 13px; border-radius: var(--radius-sm); font-size: 0.83em; display: none; }
+        .linha-passo-rota { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
+        .linha-passo-rota:last-child { border-bottom: none; }
+        .linha-passo-rota.ativo { background: rgba(0,224,168,0.1); border-left: 3px solid var(--brand); }
+        .fila-info { font-size: 0.73em; color: var(--text-faint); text-align: center; }
+
+        .auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(4,6,10,0.92); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 10000; display: none; }
+        .auth-card {
+            background: var(--bg-panel); border: 1px solid var(--border-strong); padding: 28px 24px; border-radius: 18px;
+            width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,.5);
+        }
+        .auth-card .auth-logo {
+            width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 4px;
+            background: linear-gradient(155deg, var(--brand), #0091c8);
+            display: flex; align-items: center; justify-content: center; font-size: 1.5em;
+            box-shadow: 0 6px 20px rgba(0,224,168,.3);
+        }
+        .auth-card h3 { margin: 0; color: var(--text); font-size: 1.15em; text-align: center; font-family: var(--font-display); font-weight: 700; }
+        .btn-fechar-modal { position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--text-dim); font-size: 1.2em; cursor: pointer; padding: 0; }
+        .user-logado-info { font-size: 0.75em; color: var(--brand); text-align: center; margin-top: -4px; display: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="brand-bar">
+    <div class="brand-mark">📡</div>
+    <div class="brand-text">
+        <div class="nome">EVERTON GPS</div>
+        <div class="tagline">Rastreamento de frotas em tempo real</div>
+    </div>
+    <div class="conta-pill" id="pillConta"><span class="dot"></span><span id="pillContaTexto">sem empresa</span></div>
+</div>
+
+<div id="authModal" class="auth-overlay">
+    <div class="auth-card">
+        <div class="auth-logo">📡</div>
+        <h3 id="authTitulo">Login da Empresa</h3>
+        <p id="authSubtitulo" style="font-size:0.8em;color:var(--text-dim);text-align:center;margin:0 0 4px;">Faça login com o e-mail/senha da sua empresa para liberar o aplicativo. É só uma vez — o aparelho fica logado.</p>
+
+        <div id="painelLogin">
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">E-mail</label>
+                <input type="email" id="authEmail" placeholder="seu-email@gmail.com" autocomplete="off" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Senha</label>
+                <input type="password" id="authSenha" placeholder="******" autocomplete="new-password" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <button id="btnConfirmarLogin" style="background: var(--accent); color:#04141f; width: 100%; padding:14px; font-size:.95em;">Entrar e liberar o app</button>
+            <div style="text-align:center;margin-top:14px;font-size:0.82em;">
+                <span style="color:var(--text-dim);">Ainda não tem conta?</span>
+                <a href="#" id="linkIrParaCadastro" style="color:var(--brand);font-weight:bold;text-decoration:none;"> Criar conta — 7 dias grátis</a>
+            </div>
+        </div>
+
+        <div id="painelCadastro" style="display:none;">
+            <div class="beneficio-trial" style="background: rgba(0,255,166,.08); border: 1px solid rgba(0,255,166,.3); border-radius: 10px; padding: 10px 12px; font-size: .8em; color: var(--text-dim); margin-bottom: 14px; line-height: 1.5;">
+                <b style="color:var(--brand);">7 dias grátis</b> pra testar com sua frota. Sem cartão de crédito agora.
+            </div>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Nome da empresa</label>
+                <input type="text" id="cadNomeEmpresa" placeholder="Ex: Transportes Silva Ltda" autocomplete="off" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">E-mail</label>
+                <input type="email" id="cadEmail" placeholder="seu-email@gmail.com" autocomplete="off" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Crie uma senha</label>
+                <input type="password" id="cadSenha" placeholder="Mínimo 6 caracteres" autocomplete="new-password" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">WhatsApp (opcional)</label>
+                <input type="tel" id="cadTelefone" placeholder="(51) 99999-9999" autocomplete="off" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <button id="btnConfirmarCadastro" style="background: var(--brand); color:#04120e; width: 100%; padding:14px; font-size:.95em;">Criar conta e começar teste grátis</button>
+            <div style="text-align:center;margin-top:14px;font-size:0.82em;">
+                <span style="color:var(--text-dim);">Já tem conta?</span>
+                <a href="#" id="linkIrParaLogin" style="color:var(--accent);font-weight:bold;text-decoration:none;"> Fazer login</a>
+            </div>
+        </div>
+
+        <div id="authErro" style="display:none;color:var(--danger);font-size:.8em;text-align:center;margin-top:10px;"></div>
+    </div>
+</div>
+
+<div id="avisoSuspenso" style="display:none; position:fixed; inset:0; z-index:10001; background:var(--bg-main); flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center;">
+    <div style="width:88px; height:88px; border-radius:22px; background:linear-gradient(145deg,var(--danger),#a91c3e); display:flex; align-items:center; justify-content:center; font-size:2.4em; box-shadow:0 10px 28px rgba(255,77,109,0.3); margin-bottom:22px;">📡</div>
+    <div style="font-family:var(--font-display); font-size:1.05em; font-weight:700; color:var(--text); letter-spacing:0.8px; margin-bottom:26px;">EVERTON GPS</div>
+    <div style="border:1px solid rgba(255,77,109,.35); background:rgba(255,77,109,0.08); border-radius:16px; padding:24px 20px; max-width:340px;">
+        <div style="font-size:1.8em; margin-bottom:10px;">🚫</div>
+        <div style="color:var(--danger); font-weight:700; font-size:1.05em; line-height:1.5; font-family:var(--font-display);">Acesso suspenso</div>
+        <div style="color:var(--text-dim); font-size:0.88em; margin-top:8px; line-height:1.5;">Entre em contato com o suporte para regularizar o pagamento.</div>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<div class="container">
+    <div id="avisoGps" class="gps-warning"></div>
+    <div id="ultimoErroSync" style="display:none; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,.35); color: var(--danger); padding: 11px 13px; border-radius: 8px; font-size: 0.78em; white-space:pre-wrap; word-break:break-word;"></div>
+    <div id="avisoTeste" style="display:none; background: rgba(45,212,255,.12); border: 1px solid var(--accent); color: var(--accent); padding: 10px 12px; border-radius: 6px; font-size: .85em; text-align: center; font-weight: bold;"></div>
+
+    <div class="input-box">
+        <label>🏢 Empresa deste aparelho</label>
+        <div class="row">
+            <input type="text" id="empresaIdInput" placeholder="ID da empresa">
+            <button id="btnSalvarEmpresa">Salvar</button>
+        </div>
+        <div id="empresaSalvaInfo" style="font-size:0.75em;color:var(--text-dim);margin-top:6px;"></div>
+    </div>
+
+    <div class="input-box">
+        <label>Cadastrar Novo Veículo na Lista</label>
+        <div id="userLogadoInfo" class="user-logado-info">Sessão Administrador Ativa</div>
+        <div class="row" style="margin-top: 4px;">
+            <input type="text" id="veiculoInput" placeholder="Ex: NISSAN ISA, FIAT UNO">
+            <button id="btnAdicionar">Adicionar</button>
+        </div>
+    </div>
+
+    <div class="frota-container">
+        <div style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; font-weight: bold;">Veículos Monitorados Neste Aparelho</div>
+        <div class="frota-lista" id="listaFrotaLocal"></div>
+    </div>
+
+    <div class="input-box" id="boxRotaPlanejada">
+        <label>🧭 Traçar Rota até um Endereço</label>
+        <div class="row">
+            <input type="text" id="destinoInput" placeholder="Ex: Av. Brasil, 1000, Santa Cruz do Sul">
+            <button id="btnTracarRota">Traçar</button>
+        </div>
+        <div id="infoRotaPlanejada" style="display:none; margin-top:10px; font-size:0.83em;">
+            <div style="color:var(--text); font-weight:600; margin-bottom:4px;" id="txtDestinoRota">—</div>
+            <div style="color:var(--text-dim); margin-bottom:10px;" id="txtDistanciaDuracaoRota">—</div>
+
+            <div id="boxProximaManobra" style="display:flex; align-items:center; gap:10px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+                <span id="iconeProximaManobra" style="font-size:1.8em; line-height:1;">🚦</span>
+                <div style="flex:1; min-width:0;">
+                    <div id="textoProximaManobra" style="color:var(--text); font-weight:700; font-size:1em;">—</div>
+                    <div id="distanciaProximaManobra" style="color:var(--accent); font-family:var(--font-mono); font-size:0.85em; margin-top:2px;">—</div>
+                </div>
+            </div>
+
+            <button id="btnAlternarPassoAPasso" type="button" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); font-size:0.8em; padding:10px; margin-top:8px;">Ver passo a passo completo ▾</button>
+            <div id="listaPassosRota" style="display:none; max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:var(--radius-sm);"></div>
+
+            <button id="btnCancelarRota" style="background:var(--bg-input); color:var(--danger); border:1px solid var(--border); margin-top:10px; width:100%;">Cancelar Rota</button>
+        </div>
+    </div>
+
+    <div id="statusConexao" class="status-bar status-offline">MODO OFFLINE</div>
+    <div id="statusBackground" class="status-bar status-bg" style="display:none;"></div>
+    <div class="fila-info" id="filaInfo"></div>
+
+    <div class="btn-row">
+        <button id="btnForcar" class="btn-force">📡 Forçar Sincronização</button>
+        <button id="btnExportar" class="btn-export">⬇️ Exportar Rota (CSV)</button>
+    </div>
+    <button id="btnDiagnostico" class="btn-export" style="width:100%;">🔍 Testar Conexão com Serviço de Endereço</button>
+    <div id="diagnosticoResultado" class="fila-info" style="text-align:left; white-space:pre-wrap; word-break:break-word;"></div>
+
+    <div class="telemetry-card">
+        <div style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; font-weight: bold;">Última Telemetria Gerada</div>
+        <div class="telemetry-row"><span>Situação</span><span id="badStatus" class="badge badge-parado">PARADO</span></div>
+        <div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">—</b></div>
+        <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
+        <div class="telemetry-row"><span>Precisão GPS</span><b id="txtPrecisao">—</b></div>
+        <div class="telemetry-row"><span>Tempo de Parada</span><b id="txtTempoParado">00:00:00</b></div>
+        <div class="telemetry-row"><span>Coordenadas</span><b id="txtCoords">—</b></div>
+        <div class="telemetry-row"><span>Rua / Rodovia</span><b id="txtRua">—</b></div>
+        <div class="telemetry-row"><span>Bairro</span><b id="txtBairro">—</b></div>
+        <div class="telemetry-row"><span>Cidade</span><b id="txtCidade">—</b></div>
+        <div class="telemetry-row"><span>Estado (UF)</span><b id="txtEstado">—</b></div>
+        <div class="telemetry-row"><span>Data</span><b id="txtData">—</b></div>
+        <div class="telemetry-row"><span>Horário do último ponto</span><span id="txtHora" style="color:var(--accent)">—</span></div>
+        <div class="telemetry-row"><span>🌡️ Temperatura no local</span><b id="txtTemperatura">—</b></div>
+    </div>
+
+    <div class="telemetry-card">
+        <div style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; font-weight: bold;">🔍 Diagnóstico (números brutos)</div>
+        <div class="telemetry-row"><span>Vel. bruta do GPS (Doppler)</span><b id="diagVelRaw">—</b></div>
+        <div class="telemetry-row"><span>Vel. calc. por distância</span><b id="diagVelDistancia">—</b></div>
+        <div class="telemetry-row"><span>Vel. final usada</span><b id="diagVelFinal">—</b></div>
+        <div class="telemetry-row"><span>Considerado em movimento?</span><b id="diagEstaEmMovimento">—</b></div>
+        <div class="telemetry-row"><span>Distância até centro da parada</span><b id="diagDistCentroParada">—</b></div>
+        <div class="telemetry-row"><span>Leitura descartada (glitch)?</span><b id="diagGlitch">—</b></div>
+        <div class="telemetry-row"><span>Última posição de GPS há</span><b id="diagUltimaPosicaoHa">—</b></div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" crossorigin="anonymous"></script>
+<script src="capacitor.js"></script>
+
+<script>
+window.onerror = function(mensagem, origem, linha, coluna, erro) {
+    try {
+        var caixa = document.getElementById('avisoGps');
+        if (caixa) {
+            caixa.style.display = "block";
+            var arquivo = origem ? origem.split('/').pop() : "?";
+            var pilha = (erro && erro.stack) ? (" | " + erro.stack.split("\n").slice(0, 3).join(" › ")) : "";
+            caixa.textContent = "⚠️ ERRO NO APP: " + mensagem + " [arquivo: " + arquivo + ", linha " + linha + ":" + coluna + "]" + pilha;
+        }
+    } catch (e) {}
+    return false;
+};
+window.addEventListener('unhandledrejection', function(evento) {
+    try {
+        var caixa = document.getElementById('avisoGps');
+        if (caixa) {
+            caixa.style.display = "block";
+            caixa.textContent = "⚠️ ERRO (promise): " + (evento.reason && evento.reason.message ? evento.reason.message : evento.reason);
+        }
+    } catch (e) {}
+});
+
+var listaVeiculos = JSON.parse(localStorage.getItem('frota_veiculos') || "[]");
+var filaPendentes = JSON.parse(localStorage.getItem('fila_rastreio') || "[]");
+var filaGeocodificarDepois = JSON.parse(localStorage.getItem('fila_geocodificar') || "[]");
+var historicoCoordenadasLocais = JSON.parse(localStorage.getItem('historico_coords') || "[]");
+var registroCompleto = JSON.parse(localStorage.getItem('registro_completo') || "[]");
+var ultimoIdPontoParadaGravado = localStorage.getItem('ultimo_id_ponto_parada_gravado') || null;
+
+var appSuspenso = false;
+
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+// ===================== ENVIO VIA REST (nativo, via CapacitorHttp) =====================
+// O SDK do Firebase (db.ref().update(...)) manda os dados pela rede da WebView, que o
+// Android pode suspender/represar quando o app fica muito tempo em segundo plano ou a tela
+// apaga — mesmo com a conexão do Firebase forçada a reconectar. Esta função manda os
+// mesmos dados via fetch, com o CapacitorHttp habilitado (ver capacitor.config.json), que
+// faz a requisição pela camada NATIVA do Android em vez da WebView, contornando essa
+// limitação. (Já tentamos isso antes e revertemos achando que tinha piorado — mas na época
+// ainda existia o bug do empresaId errado causando PERMISSION_DENIED, que mascarava o
+// teste. Agora que esse bug já foi corrigido, vale testar de novo.)
+function atualizarViaRestApi(updates) {
+    if (!auth.currentUser) return Promise.reject(new Error("sem usuário logado"));
+    return auth.currentUser.getIdToken().then(function(token) {
+        var url = firebaseConfig.databaseURL + "/.json?auth=" + encodeURIComponent(token);
+        return fetchComTimeout(url, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updates)
+        }, 18000).then(function(res) {
+            if (!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + ": " + t); });
+            return res.json();
+        });
+    });
+}
+
+// CORREÇÃO (segundo plano): a REST acima ficava definida mas nunca era chamada de verdade
+// — todo o envio (posição ao vivo e fila de histórico) continuava indo só pelo SDK do
+// Firebase (db.ref().update), que é exatamente o caminho que trava quando o Android
+// suspende a rede da WebView em segundo plano. Esta função central decide o caminho:
+// no app nativo, tenta primeiro a via REST (rede nativa, via CapacitorHttp) e só cai pro
+// SDK do Firebase se a REST falhar; no navegador comum (sem Capacitor), usa direto o SDK.
+// Assim os pontos continuam sendo gravados mesmo com a tela apagada/app em 2º plano.
+function enviarAtualizacoesFirebase(updates) {
+    if (isNative && auth.currentUser) {
+        return atualizarViaRestApi(updates).catch(function(erroRest) {
+            console.warn("Envio via REST nativo falhou, tentando pelo SDK do Firebase:", erroRest);
+            return db.ref().update(updates);
+        });
+    }
+    return db.ref().update(updates);
+}
+
+// ===================== ROTA PLANEJADA (motorista digita um destino, tipo Waze) =====================
+// O motorista digita um endereço, o app geocodifica (Nominatim), pede o trajeto pro OSRM
+// (mesmo serviço de rotas público que o admin já usava) e desenha uma linha tracejada até
+// lá. Essa rota é só uma referência visual pro motorista — o app continua gravando o
+// trajeto REAL percorrido (linha verde sólida) normalmente, sem nenhuma mudança nisso. A
+// rota planejada também é sincronizada com o Firebase pra aparecer no painel do admin.
+var rotaPlanejadaAtual = (function() {
+    var raw = localStorage.getItem('rota_planejada');
+    try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+})();
+
+function salvarRotaPlanejadaLocal() {
+    if (rotaPlanejadaAtual) localStorage.setItem('rota_planejada', JSON.stringify(rotaPlanejadaAtual));
+    else localStorage.removeItem('rota_planejada');
+}
+
+function desenharRotaPlanejadaNoMapa() {
+    if (rotaPlanejadaAtual && rotaPlanejadaAtual.geometria && rotaPlanejadaAtual.geometria.length > 1) {
+        polilinhaRotaPlanejada.setLatLngs(rotaPlanejadaAtual.geometria);
+    } else {
+        polilinhaRotaPlanejada.setLatLngs([]);
+    }
+}
+
+function exibirInfoRotaPlanejadaNaTela() {
+    var caixa = document.getElementById('infoRotaPlanejada');
+    if (!rotaPlanejadaAtual) { caixa.style.display = 'none'; return; }
+    caixa.style.display = 'block';
+    document.getElementById('txtDestinoRota').textContent = "📍 " + rotaPlanejadaAtual.destino;
+    var km = (rotaPlanejadaAtual.distanciaMetros / 1000).toFixed(1);
+    var minutos = Math.round(rotaPlanejadaAtual.duracaoSegundos / 60);
+    document.getElementById('txtDistanciaDuracaoRota').textContent = km + " km · aprox. " + minutos + " min";
+    renderizarListaPassos();
+    atualizarBannerProximaManobra(ultimaLeituraCompleta ? ultimaLeituraCompleta.lat : null, ultimaLeituraCompleta ? ultimaLeituraCompleta.lon : null);
+}
+
+// Uma rota longa pode vir com milhares de pontos do serviço de rotas — mais do que precisa
+// pra desenhar uma linha suave no mapa, e pesado demais pra gravar no Firebase toda vez que
+// a rota muda. Reduz pra no máximo maxPontos, mantendo sempre o primeiro e o último ponto.
+function simplificarGeometriaRota(pontos, maxPontos) {
+    if (pontos.length <= maxPontos) return pontos;
+    var passo = pontos.length / maxPontos;
+    var resultado = [];
+    for (var i = 0; i < maxPontos; i++) {
+        resultado.push(pontos[Math.floor(i * passo)]);
+    }
+    resultado.push(pontos[pontos.length - 1]);
+    return resultado;
+}
+
+function geocodificarEndereco(endereco) {
+    var url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(endereco);
+    return fetchComTimeout(url, {}, TIMEOUT_FETCH_MS).then(function(res) { return res.json(); }).then(function(lista) {
+        if (!lista || lista.length === 0) return null;
+        return { lat: parseFloat(lista[0].lat), lon: parseFloat(lista[0].lon), nomeCompleto: lista[0].display_name };
+    });
+}
+
+// ===================== INSTRUÇÕES PASSO A PASSO (tipo Waze) =====================
+// O OSRM, com steps=true, já devolve cada manobra da rota (virar à direita, entrar na
+// rotatória, seguir em frente etc.) com o tipo/modificador em inglês — aqui a gente
+// traduz isso pra uma frase em português e um ícone de seta.
+function textoModificador(modifier) {
+    switch (modifier) {
+        case 'uturn': return 'faça o retorno';
+        case 'sharp right': return 'vire acentuadamente à direita';
+        case 'right': return 'vire à direita';
+        case 'slight right': return 'mantenha-se à direita';
+        case 'straight': return 'siga em frente';
+        case 'slight left': return 'mantenha-se à esquerda';
+        case 'left': return 'vire à esquerda';
+        case 'sharp left': return 'vire acentuadamente à esquerda';
+        default: return 'continue';
+    }
+}
+function capitalizar(txt) { return txt.charAt(0).toUpperCase() + txt.slice(1); }
+
+function descreverPasso(step) {
+    var m = step.maneuver || {};
+    var sufixoRua = step.name ? (' na ' + step.name) : '';
+    switch (m.type) {
+        case 'depart': return 'Siga' + sufixoRua;
+        case 'arrive': return 'Você chegou ao destino' + (step.name ? ' (' + step.name + ')' : '');
+        case 'roundabout':
+        case 'rotary':
+            var saida = m.exit ? (m.exit + 'ª saída') : 'a saída indicada';
+            return 'Entre na rotatória e pegue ' + saida + sufixoRua;
+        case 'merge':
+        case 'continue':
+        case 'new name':
+            return 'Continue' + sufixoRua;
+        case 'fork':
+        case 'end of road':
+        case 'turn':
+        default:
+            return capitalizar(textoModificador(m.modifier)) + sufixoRua;
+    }
+}
+
+function iconePasso(step) {
+    var m = step.maneuver || {};
+    if (m.type === 'arrive') return '🏁';
+    if (m.type === 'depart') return '🚦';
+    if (m.type === 'roundabout' || m.type === 'rotary') return '🔄';
+    switch (m.modifier) {
+        case 'uturn': return '↩️';
+        case 'sharp right': return '↘️';
+        case 'right': return '➡️';
+        case 'slight right': return '↗️';
+        case 'straight': return '⬆️';
+        case 'slight left': return '↖️';
+        case 'left': return '⬅️';
+        case 'sharp left': return '↙️';
+        default: return '⬆️';
+    }
+}
+
+function formatarDistanciaCurta(metros) {
+    if (metros == null) return "—";
+    if (metros >= 1000) return (metros / 1000).toFixed(1) + " km";
+    return Math.round(metros) + " m";
+}
+
+// ===================== RECÁLCULO AUTOMÁTICO (motorista saiu da rota) =====================
+// Se o motorista se afastar demais da linha da rota planejada (ex: perdeu uma saída, pegou
+// outro caminho), o app pede uma rota NOVA pro OSRM a partir da posição atual até o mesmo
+// destino — sem precisar cancelar e traçar de novo na mão, igual Waze/Google Maps.
+var LIMIAR_DESVIO_ROTA_M = 60;
+var CONFIRMACOES_DESVIO_NECESSARIAS = 3; // evita recalcular por causa de 1 leitura de GPS ruim isolada
+var contadorConfirmacaoDesvioRota = 0;
+var recalculandoRotaPlanejada = false;
+
+// Distância aproximada (em metros) de um ponto até o segmento de reta entre A e B. Converte
+// graus em metros localmente (equirretangular) — simples e rápido o bastante pra rodar a
+// cada leitura de GPS sem pesar no celular; não precisa da precisão de trigonometria
+// esférica completa só pra decidir "o motorista está perto ou longe da rota".
+function distanciaAteSegmento(lat, lon, latA, lonA, latB, lonB) {
+    var latMedia = (latA + latB) / 2 * Math.PI / 180;
+    var mPorGrauLat = 111320;
+    var mPorGrauLon = 111320 * Math.cos(latMedia);
+    var px = (lon - lonA) * mPorGrauLon, py = (lat - latA) * mPorGrauLat;
+    var vx = (lonB - lonA) * mPorGrauLon, vy = (latB - latA) * mPorGrauLat;
+    var compQuad = vx * vx + vy * vy;
+    var t = compQuad > 0 ? Math.max(0, Math.min(1, (px * vx + py * vy) / compQuad)) : 0;
+    var dx = px - vx * t, dy = py - vy * t;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function distanciaAteRotaPlanejada(lat, lon, geometria) {
+    var menorDist = Infinity;
+    for (var i = 0; i < geometria.length - 1; i++) {
+        var d = distanciaAteSegmento(lat, lon, geometria[i][0], geometria[i][1], geometria[i + 1][0], geometria[i + 1][1]);
+        if (d < menorDist) menorDist = d;
+    }
+    return menorDist;
+}
+
+function verificarDesvioRotaPlanejada(lat, lon) {
+    if (!rotaPlanejadaAtual || !rotaPlanejadaAtual.geometria || rotaPlanejadaAtual.geometria.length < 2) return;
+    if (recalculandoRotaPlanejada) return;
+    // Já chegou ao destino — não faz sentido recalcular rota depois de "chegou".
+    if (rotaPlanejadaAtual.passos && rotaPlanejadaAtual.passos.length && rotaPlanejadaAtual.indiceProximaManobra >= rotaPlanejadaAtual.passos.length) return;
+
+    var distanciaDaRota = distanciaAteRotaPlanejada(lat, lon, rotaPlanejadaAtual.geometria);
+    if (distanciaDaRota > LIMIAR_DESVIO_ROTA_M) {
+        contadorConfirmacaoDesvioRota++;
+        if (contadorConfirmacaoDesvioRota >= CONFIRMACOES_DESVIO_NECESSARIAS) {
+            contadorConfirmacaoDesvioRota = 0;
+            recalcularRotaPlanejadaAPartirDaPosicaoAtual(lat, lon);
+        }
+    } else {
+        contadorConfirmacaoDesvioRota = 0;
+    }
+}
+
+function recalcularRotaPlanejadaAPartirDaPosicaoAtual(lat, lon) {
+    if (!rotaPlanejadaAtual || recalculandoRotaPlanejada) return;
+    recalculandoRotaPlanejada = true;
+
+    var elIcone = document.getElementById('iconeProximaManobra');
+    var elTexto = document.getElementById('textoProximaManobra');
+    var elDistancia = document.getElementById('distanciaProximaManobra');
+    if (elTexto) { elIcone.textContent = '🔄'; elTexto.textContent = 'Recalculando rota...'; elDistancia.textContent = ''; }
+
+    var destinoLat = rotaPlanejadaAtual.destinoLat, destinoLon = rotaPlanejadaAtual.destinoLon, nomeDestino = rotaPlanejadaAtual.destino, criadoEmOriginal = rotaPlanejadaAtual.criadoEm;
+
+    calcularRotaOsrm(lat, lon, destinoLat, destinoLon).then(function(rota) {
+        if (!rota) return; // se o OSRM falhar, mantém a rota antiga em vez de apagar tudo
+        rotaPlanejadaAtual = {
+            destino: nomeDestino, destinoLat: destinoLat, destinoLon: destinoLon,
+            origemLat: lat, origemLon: lon,
+            distanciaMetros: rota.distanciaMetros, duracaoSegundos: rota.duracaoSegundos,
+            geometria: rota.geometria, passos: rota.passos,
+            indiceProximaManobra: (rota.passos && rota.passos.length > 1) ? 1 : 0,
+            criadoEm: criadoEmOriginal, recalculadaEm: new Date().toISOString()
+        };
+        salvarRotaPlanejadaLocal();
+        desenharRotaPlanejadaNoMapa();
+        exibirInfoRotaPlanejadaNaTela();
+        sincronizarRotaPlanejadaFirebase();
+    }).catch(function(e) {
+        console.warn("Falha ao recalcular rota após desvio:", e);
+    }).finally(function() {
+        recalculandoRotaPlanejada = false;
+    });
+}
+
+// Ao chegar perto o suficiente do ponto onde a PRÓXIMA manobra da lista acontece, avança o
+// "ponteiro" pra manobra seguinte — é isso que faz o balão de cima ir trocando sozinho
+// ("vire à direita" → "siga em frente" → ...) conforme o motorista dirige, sem precisar
+// tocar em nada.
+var LIMIAR_AVANCO_MANOBRA_M = 40;
+
+function atualizarProgressoRotaPlanejada(lat, lon) {
+    verificarDesvioRotaPlanejada(lat, lon);
+    if (!rotaPlanejadaAtual || !rotaPlanejadaAtual.passos || !rotaPlanejadaAtual.passos.length) return;
+    var passos = rotaPlanejadaAtual.passos;
+    var indice = rotaPlanejadaAtual.indiceProximaManobra != null ? rotaPlanejadaAtual.indiceProximaManobra : 1;
+    var mudou = false;
+
+    while (indice < passos.length) {
+        var alvo = passos[indice].localizacao;
+        if (calcularDistanciaMetros(lat, lon, alvo[0], alvo[1]) <= LIMIAR_AVANCO_MANOBRA_M) {
+            indice++; mudou = true;
+        } else {
+            break;
+        }
+    }
+
+    if (mudou) {
+        rotaPlanejadaAtual.indiceProximaManobra = indice;
+        salvarRotaPlanejadaLocal();
+        destacarPassoAtivoNaLista();
+        sincronizarRotaPlanejadaFirebase();
+    }
+
+    atualizarBannerProximaManobra(lat, lon);
+}
+
+function atualizarBannerProximaManobra(lat, lon) {
+    var elIcone = document.getElementById('iconeProximaManobra');
+    var elTexto = document.getElementById('textoProximaManobra');
+    var elDistancia = document.getElementById('distanciaProximaManobra');
+    if (!elTexto) return;
+    if (!rotaPlanejadaAtual || !rotaPlanejadaAtual.passos || !rotaPlanejadaAtual.passos.length) {
+        elIcone.textContent = '🚦'; elTexto.textContent = '—'; elDistancia.textContent = '—';
+        return;
+    }
+    var passos = rotaPlanejadaAtual.passos;
+    var indice = rotaPlanejadaAtual.indiceProximaManobra != null ? rotaPlanejadaAtual.indiceProximaManobra : 1;
+
+    if (indice >= passos.length) {
+        elIcone.textContent = '🏁';
+        elTexto.textContent = 'Você chegou ao destino!';
+        elDistancia.textContent = '';
+        return;
+    }
+    var passo = passos[indice];
+    elIcone.textContent = passo.icone;
+    elTexto.textContent = passo.instrucao;
+    elDistancia.textContent = (lat != null)
+        ? ('em ' + formatarDistanciaCurta(calcularDistanciaMetros(lat, lon, passo.localizacao[0], passo.localizacao[1])))
+        : '—';
+}
+
+function renderizarListaPassos() {
+    var container = document.getElementById('listaPassosRota');
+    if (!container) return;
+    if (!rotaPlanejadaAtual || !rotaPlanejadaAtual.passos) { container.innerHTML = ''; return; }
+    var html = '';
+    rotaPlanejadaAtual.passos.forEach(function(passo, i) {
+        html += '<div class="linha-passo-rota" id="passo-row-' + i + '">' +
+            '<span style="font-size:1.3em;">' + passo.icone + '</span>' +
+            '<div style="flex:1; min-width:0;">' +
+            '<div style="color:var(--text);">' + passo.instrucao + '</div>' +
+            (passo.distanciaMetros > 0 ? '<div style="color:var(--text-faint); font-size:0.78em;">' + formatarDistanciaCurta(passo.distanciaMetros) + '</div>' : '') +
+            '</div></div>';
+    });
+    container.innerHTML = html;
+    destacarPassoAtivoNaLista();
+}
+
+function destacarPassoAtivoNaLista() {
+    document.querySelectorAll('.linha-passo-rota').forEach(function(el) { el.classList.remove('ativo'); });
+    if (!rotaPlanejadaAtual) return;
+    var indice = rotaPlanejadaAtual.indiceProximaManobra;
+    var ativo = document.getElementById('passo-row-' + indice);
+    if (ativo) { ativo.classList.add('ativo'); try { ativo.scrollIntoView({ block: 'nearest' }); } catch(e) {} }
+}
+
+document.getElementById('btnAlternarPassoAPasso').addEventListener('click', function() {
+    var lista = document.getElementById('listaPassosRota');
+    var estaAberta = lista.style.display !== 'none';
+    lista.style.display = estaAberta ? 'none' : 'block';
+    this.textContent = estaAberta ? 'Ver passo a passo completo ▾' : 'Ocultar passo a passo ▴';
+});
+
+var URL_OSRM_ROTA = "https://router.project-osrm.org/route/v1/driving/";
+function calcularRotaOsrm(origemLat, origemLon, destinoLat, destinoLon) {
+    var url = URL_OSRM_ROTA + origemLon + "," + origemLat + ";" + destinoLon + "," + destinoLat + "?overview=full&geometries=geojson&steps=true";
+    return fetchComTimeout(url, {}, 12000).then(function(res) { return res.json(); }).then(function(data) {
+        if (!data || data.code !== "Ok" || !data.routes || data.routes.length === 0) return null;
+        var rota = data.routes[0];
+        var geometriaLatLon = rota.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+        var passos = [];
+        if (rota.legs && rota.legs[0] && rota.legs[0].steps) {
+            rota.legs[0].steps.forEach(function(step) {
+                var m = step.maneuver || {};
+                if (!m.location) return;
+                passos.push({
+                    instrucao: descreverPasso(step),
+                    icone: iconePasso(step),
+                    distanciaMetros: step.distance || 0,
+                    localizacao: [m.location[1], m.location[0]]
+                });
+            });
+        }
+        return { distanciaMetros: rota.distance, duracaoSegundos: rota.duration, geometria: simplificarGeometriaRota(geometriaLatLon, 150), passos: passos };
+    });
+}
+
+// Manda a rota planejada pro Firebase, no mesmo lugar de onde o admin lê os dados de cada
+// veículo. Quando a rota é cancelada (rotaPlanejadaAtual = null), o "null" aqui apaga o nó
+// no Firebase — o admin some com a linha tracejada automaticamente.
+function sincronizarRotaPlanejadaFirebase() {
+    if (!EMPRESA_ID || listaVeiculos.length === 0) return;
+    var updates = {};
+    listaVeiculos.forEach(function(vNome) {
+        var caminho = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/rotaPlanejada';
+        updates[caminho] = rotaPlanejadaAtual;
+    });
+    enviarAtualizacoesFirebase(updates).catch(function(e) { console.warn("Falha ao sincronizar rota planejada:", e); });
+}
+
+document.getElementById('btnTracarRota').addEventListener('click', function() {
+    var endereco = document.getElementById('destinoInput').value.trim();
+    if (!endereco) return alert("Digite um endereço de destino.");
+    if (!ultimaLeituraCompleta) return alert("Aguarde o GPS localizar o veículo antes de traçar a rota.");
+
+    var botao = document.getElementById('btnTracarRota');
+    botao.disabled = true; botao.textContent = "Traçando...";
+
+    geocodificarEndereco(endereco).then(function(destino) {
+        if (!destino) { alert("Endereço não encontrado. Tente ser mais específico."); return null; }
+        return calcularRotaOsrm(ultimaLeituraCompleta.lat, ultimaLeituraCompleta.lon, destino.lat, destino.lon).then(function(rota) {
+            if (!rota) { alert("Não foi possível calcular a rota até esse endereço."); return; }
+            rotaPlanejadaAtual = {
+                destino: destino.nomeCompleto,
+                destinoLat: destino.lat, destinoLon: destino.lon,
+                origemLat: ultimaLeituraCompleta.lat, origemLon: ultimaLeituraCompleta.lon,
+                distanciaMetros: rota.distanciaMetros, duracaoSegundos: rota.duracaoSegundos,
+                geometria: rota.geometria, passos: rota.passos,
+                indiceProximaManobra: (rota.passos && rota.passos.length > 1) ? 1 : 0,
+                criadoEm: new Date().toISOString()
+            };
+            salvarRotaPlanejadaLocal();
+            desenharRotaPlanejadaNoMapa();
+            exibirInfoRotaPlanejadaNaTela();
+            sincronizarRotaPlanejadaFirebase();
+            document.getElementById('destinoInput').value = "";
+            document.getElementById('listaPassosRota').style.display = 'none';
+            document.getElementById('btnAlternarPassoAPasso').textContent = 'Ver passo a passo completo ▾';
+        });
+    }).catch(function(e) {
+        console.warn(e);
+        alert("Erro ao traçar a rota. Verifique sua conexão e tente novamente.");
+    }).finally(function() {
+        botao.disabled = false; botao.textContent = "Traçar";
+    });
+});
+
+document.getElementById('btnCancelarRota').addEventListener('click', function() {
+    rotaPlanejadaAtual = null;
+    salvarRotaPlanejadaLocal();
+    desenharRotaPlanejadaNoMapa();
+    exibirInfoRotaPlanejadaNaTela();
+    sincronizarRotaPlanejadaFirebase();
+});
+
+var firebaseOnlineConfirmado = false;
+
+db.ref(".info/connected").on("value", function(snap) {
+    var estavaOffline = !firebaseOnlineConfirmado;
+    if (snap.val() === true) {
+        firebaseOnlineConfirmado = true;
+        if (estavaOffline) {
+            geocodificando = false; enviando = false;
+            processarFilaGeocodificacao();
+            enviarDadosFila();
+            sincronizarTempoRealImediato();
+        }
+    } else {
+        firebaseOnlineConfirmado = false;
+    }
+    atualizarInterfaceEstado();
+});
+
+var LIMITE_VELOCIDADE = 80;
+// Ajustado pra um meio-termo: 30m era exigente demais pro GPS de celular em uso normal
+// (em área urbana comum, ±20-40m de precisão é frequente mesmo em boas condições), o que
+// fazia o endereço quase nunca atualizar. 45m ainda é bem mais rígido que os 60m originais
+// (reduz o risco de mostrar a rua paralela errada), sem travar tanto as atualizações.
+var PRECISAO_MAXIMA_ACEITAVEL_M = 45;
+var EMPRESA_ID = localStorage.getItem('empresa_id') || "";
+document.getElementById('empresaIdInput').value = EMPRESA_ID;
+atualizarInfoEmpresaSalva();
+
+function atualizarInfoEmpresaSalva() {
+    document.getElementById('empresaSalvaInfo').textContent = EMPRESA_ID
+        ? "Enviando dados para: " + EMPRESA_ID
+        : "⚠️ Nenhuma empresa configurada — preencha o ID acima e toque em Salvar.";
+}
+
+var refStatusEmpresa = null;
+var refTrialEmpresa = null;
+var refAssinaturaEmpresa = null;
+var estadoEmpresaAtual = { status: null, trialExpiraEm: null, assinaturaExpiraEm: null };
+
+// Formata um intervalo de tempo (em ms) como "Xd Xh Xmin restantes" — cai fora as partes
+// zeradas do início (ex: com menos de 1 dia mostra só "Xh Xmin", com menos de 1 hora só
+// "Xmin"), pra não poluir a tela com "0d 0h 5min".
+function formatarContagemRegressiva(ms) {
+    ms = Math.max(0, ms);
+    var totalMinutos = Math.floor(ms / 60000);
+    var dias = Math.floor(totalMinutos / 1440);
+    var horas = Math.floor((totalMinutos % 1440) / 60);
+    var minutos = totalMinutos % 60;
+    var partes = [];
+    if (dias > 0) partes.push(dias + "d");
+    if (dias > 0 || horas > 0) partes.push(horas + "h");
+    partes.push(minutos + "min");
+    return partes.join(" ");
+}
+
+// Depois que o cliente paga, o admin muda o status da empresa no Firebase de 'trial' pra
+// 'ativo' e grava 'assinaturaExpiraEm' com a data 30 dias à frente (mesmo formato ISO já
+// usado em 'trialExpiraEm'). A partir daí o app conta os dias da assinatura em vez do
+// período de teste, e avisa quando ela vence — do mesmo jeito que avisa quando uma conta
+// nova é criada.
+function avaliarEstadoEmpresa() {
+    var testeVencido = estadoEmpresaAtual.status === 'trial' && estadoEmpresaAtual.trialExpiraEm && new Date(estadoEmpresaAtual.trialExpiraEm).getTime() < Date.now();
+    var assinaturaVencida = estadoEmpresaAtual.status === 'ativo' && estadoEmpresaAtual.assinaturaExpiraEm && new Date(estadoEmpresaAtual.assinaturaExpiraEm).getTime() < Date.now();
+    var suspenso = estadoEmpresaAtual.status === 'suspenso' || testeVencido || assinaturaVencida;
+    appSuspenso = suspenso;
+    document.getElementById('avisoSuspenso').style.display = suspenso ? 'flex' : 'none';
+
+    var faixaTeste = document.getElementById('avisoTeste');
+    if (!suspenso && estadoEmpresaAtual.status === 'trial' && estadoEmpresaAtual.trialExpiraEm) {
+        var restanteTeste = new Date(estadoEmpresaAtual.trialExpiraEm).getTime() - Date.now();
+        faixaTeste.style.display = 'block';
+        faixaTeste.style.background = "rgba(45,212,255,.12)"; faixaTeste.style.borderColor = "var(--accent)"; faixaTeste.style.color = "var(--accent)";
+        faixaTeste.textContent = "🎁 Período de teste grátis — " + formatarContagemRegressiva(restanteTeste) + " restantes";
+    } else if (!suspenso && estadoEmpresaAtual.status === 'ativo' && estadoEmpresaAtual.assinaturaExpiraEm) {
+        var restanteAssinatura = new Date(estadoEmpresaAtual.assinaturaExpiraEm).getTime() - Date.now();
+        faixaTeste.style.display = 'block';
+        faixaTeste.style.background = "rgba(0,224,168,.12)"; faixaTeste.style.borderColor = "var(--brand)"; faixaTeste.style.color = "var(--brand)";
+        faixaTeste.textContent = "✅ Faltam " + formatarContagemRegressiva(restanteAssinatura) + " de assinatura";
+    } else {
+        faixaTeste.style.display = 'none';
+    }
+
+    if (assinaturaVencida) { notificarAssinaturaVencidaSeNecessario(); }
+
+    atualizarInterfaceEstado();
+}
+
+// Manda o aviso de assinatura vencida só uma vez por vencimento (evita reenviar toda vez
+// que o app reabre ou o timer de 60s roda de novo). Se o admin renovar a assinatura com
+// uma data nova, essa checagem libera um novo aviso automaticamente pro próximo vencimento.
+function notificarAssinaturaVencidaSeNecessario() {
+    var chaveJaAvisado = 'assinatura_vencida_avisada_' + EMPRESA_ID + '_' + estadoEmpresaAtual.assinaturaExpiraEm;
+    if (localStorage.getItem(chaveJaAvisado)) return;
+    localStorage.setItem(chaveJaAvisado, 'true');
+    db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/nome').once('value').then(function(snap) {
+        var nomeEmpresa = snap.val() || EMPRESA_ID;
+        var texto = "🔴 Assinatura vencida - Everton GPS\n\n🏢 " + nomeEmpresa + "\n🆔 " + EMPRESA_ID +
+            "\n📅 Venceu em: " + new Date(estadoEmpresaAtual.assinaturaExpiraEm).toLocaleDateString('pt-BR');
+        var url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + encodeURIComponent(texto);
+        fetch(url).catch(function(e) { console.warn("Falha ao notificar Telegram (assinatura vencida):", e); });
+    }).catch(function(e) { console.warn(e); });
+}
+
+// Antes recalculava a cada 60s — com o contador agora mostrando minutos, isso deixava o
+// "minX" parado por até um minuto inteiro sem se mexer. 20s dá um contador visivelmente vivo
+// sem gerar leituras desnecessárias.
+setInterval(function() {
+    if (auth.currentUser) { avaliarEstadoEmpresa(); }
+}, 20000);
+
+function observarStatusEmpresa() {
+    if (refStatusEmpresa) { refStatusEmpresa.off(); }
+    if (refTrialEmpresa) { refTrialEmpresa.off(); }
+    if (refAssinaturaEmpresa) { refAssinaturaEmpresa.off(); }
+    if (!auth.currentUser) { return; }
+    refStatusEmpresa = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/status');
+    refTrialEmpresa = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/trialExpiraEm');
+    refAssinaturaEmpresa = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/assinaturaExpiraEm');
+    refStatusEmpresa.on('value', function(snap) {
+        estadoEmpresaAtual.status = snap.val();
+        avaliarEstadoEmpresa();
+    }, function(erro) {
+        console.warn(erro);
+    });
+    refTrialEmpresa.on('value', function(snap) {
+        estadoEmpresaAtual.trialExpiraEm = snap.val();
+        avaliarEstadoEmpresa();
+    }, function(erro) {
+        console.warn(erro);
+    });
+    refAssinaturaEmpresa.on('value', function(snap) {
+        estadoEmpresaAtual.assinaturaExpiraEm = snap.val();
+        avaliarEstadoEmpresa();
+    }, function(erro) {
+        console.warn(erro);
+    });
+}
+
+document.getElementById('btnSalvarEmpresa').addEventListener('click', function() {
+    var novo = document.getElementById('empresaIdInput').value.trim();
+    if (!novo) return alert("Digite um ID válido.");
+    localStorage.setItem('empresa_id', novo);
+    EMPRESA_ID = novo;
+    // CORREÇÃO: pontos que já estavam na fila de envio (filaPendentes) guardam o ID da
+    // empresa de quando foram criados. Se o campo acima estava errado e a gente corrige
+    // depois, esses pontos antigos ficavam presos pra sempre tentando enviar pro ID
+    // errado — mesmo com o campo já corrigido na tela. Agora, ao salvar um novo ID,
+    // qualquer ponto ainda pendente é realinhado pro ID atual.
+    var algumRealinhado = false;
+    filaPendentes.forEach(function(item) {
+        if (item.empresaId !== novo) { item.empresaId = novo; algumRealinhado = true; }
+    });
+    if (algumRealinhado) salvarTudo();
+    atualizarInfoEmpresaSalva();
+    observarStatusEmpresa();
+    sincronizarRotaPlanejadaFirebase();
+    alert("Empresa salva com sucesso!");
+});
+
+var URL_PROXY_GEOCODIFICACAO = "https://nominatim.openstreetmap.org/reverse";
+var INTERVALO_GEOCODIFICACAO_MS = 1100;
+var MAX_TENTATIVAS_GEOCODIFICACAO = 3;
+var TIMEOUT_FETCH_MS = 8000;
+
+function montarUrlGeocodificacao(lat, lon) {
+    // extratags=1 é o que traz o maxspeed (limite oficial da via) quando o mapa tem essa
+    // informação marcada.
+    return `${URL_PROXY_GEOCODIFICACAO}?format=jsonv2&addressdetails=1&extratags=1&lat=${lat}&lon=${lon}&zoom=18`;
+}
+
+// Lê o limite de velocidade oficial da via (tag "maxspeed" do OpenStreetMap) quando
+// disponível. Vem em formatos variados ("40", "40 km/h", "RS:urban" etc.) — aqui só
+// extraímos o primeiro número razoável. Se não vier nenhum limite marcado no mapa,
+// retorna null e quem chamar decide o padrão (30 km/h pras ruas sem essa marcação).
+function extrairLimiteVelocidadeTag(extratags) {
+    if (!extratags || !extratags.maxspeed) return null;
+    var m = String(extratags.maxspeed).match(/(\d+)/);
+    if (!m) return null;
+    var valor = parseInt(m[1], 10);
+    if (isNaN(valor) || valor <= 0 || valor > 150) return null;
+    return valor;
+}
+
+function fetchComTimeout(url, opcoes, timeoutMs) {
+    var controller = new AbortController();
+    var id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, Object.assign({}, opcoes, { signal: controller.signal })).finally(() => clearTimeout(id));
+}
+
+function comLimiteDeTempo(promessa, timeoutMs) {
+    return Promise.race([
+        promessa,
+        new Promise(function(_, reject) {
+            setTimeout(function() { reject(new Error("tempo esgotado")); }, timeoutMs);
+        })
+    ]);
+}
+
+// Quando um envio estoura o tempo, na maioria das vezes não é o Android bloqueando rede —
+// é a conexão (WebSocket) do próprio Firebase ficando "travada": parece conectada mas para
+// de responder, e o SDK só percebe isso sozinho depois de um tempo que pode passar bem dos
+// 10s que o app espera. Em vez de só esperar o Firebase se recuperar por conta própria,
+// aqui a gente derruba a conexão e força reconectar na hora — assim o próximo envio já
+// tenta numa conexão nova, sem depender de o SDK notar sozinho que a antiga travou.
+var ultimaReconexaoForcadaTs = 0;
+function forcarReconexaoFirebaseSeTravado() {
+    var agora = Date.now();
+    if (agora - ultimaReconexaoForcadaTs < 15000) return; // não força de novo se acabou de forçar
+    ultimaReconexaoForcadaTs = agora;
+    try {
+        db.goOffline();
+        setTimeout(function() { db.goOnline(); }, 400);
+    } catch (e) { console.warn("Falha ao forçar reconexão do Firebase:", e); }
+}
+
+function gerarIdPonto(ts) {
+    return ts + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+function sanitizarChavePath(valor) {
+    return String(valor).replace(/[.#$\[\]\/]/g, "_");
+}
+
+var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+var bgWatcherId = null;
+
+function atualizarBarraBackground(msg, mostrar) {
+    var el = document.getElementById('statusBackground');
+    if (!mostrar) { el.style.display = "none"; return; }
+    el.style.display = "block"; el.textContent = msg;
+}
+
+function checarContextoSeguro() {
+    if (isNative) return true;
+    var seguro = window.isSecureContext || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if (!seguro) {
+        mostrarAvisoGps("⚠️ Esta página precisa estar em HTTPS para acessar o GPS.");
+        return false;
+    }
+    return true;
+}
+function mostrarAvisoGps(msg) {
+    var box = document.getElementById('avisoGps');
+    box.textContent = msg; box.style.display = "block";
+}
+function esconderAvisoGps() { document.getElementById('avisoGps').style.display = "none"; }
+
+// Caixa separada só pra erros de sincronização com o Firebase. Diferente do aviso de GPS
+// (que some sozinho assim que chega uma posição nova, e por isso passa rápido demais pra
+// ler), esta fica na tela até você tocar nela pra fechar — assim dá tempo de ler e me
+// mandar o texto certinho.
+function mostrarErroSyncPersistente(msg) {
+    var box = document.getElementById('ultimoErroSync');
+    var agora = new Date().toLocaleTimeString('pt-BR');
+    box.textContent = "🔴 [" + agora + "] " + msg + "  (toque aqui pra fechar)";
+    box.style.display = "block";
+}
+document.getElementById('ultimoErroSync').addEventListener('click', function() {
+    this.style.display = "none";
+});
+
+// ===================== MAPA (fixo — não gira mais) =====================
+var map = L.map('map', { zoomControl: false }).setView([-29.6133, -52.1919], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+// ===================== ÍCONE DO VEÍCULO (giratório — aponta pra direção que ele anda) =====================
+// Em vez de girar o mapa inteiro (que deixava rua/bairro de cabeça pra baixo e confundia
+// motoristas), agora só a seta do veículo gira. O mapa sempre fica com o norte pra cima; a
+// seta é que aponta pra direção real do deslocamento — igual à maioria dos apps de
+// rastreamento comerciais.
+function criarIconeVeiculo(anguloGraus, cor) {
+    var corFinal = cor || '#00e0a8';
+    return L.divIcon({
+        className: 'icone-veiculo-rastreador',
+        html: '<div style="width:30px;height:30px;transform:rotate(' + anguloGraus + 'deg);transform-origin:50% 50%;filter:drop-shadow(0 2px 5px rgba(0,0,0,.5));">' +
+              '<svg viewBox="0 0 24 24" width="30" height="30">' +
+              '<path d="M12 1.5 L21 21 L12 16.5 L3 21 Z" fill="' + corFinal + '" stroke="#04120e" stroke-width="1.2" stroke-linejoin="round"/>' +
+              '</svg></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    });
+}
+
+var anguloAtualVeiculo = 0;
+// Se a seta parecer apontar pro lado errado em algum aparelho, troque para true.
+var INVERTER_ANGULO_VEICULO = false;
+var ultimaPosicaoParaRumo = null;
+
+function calcularRumoGraus(lat1, lon1, lat2, lon2) {
+    var toRad = function(g) { return g * Math.PI / 180; };
+    var toDeg = function(r) { return r * 180 / Math.PI; };
+    var dLon = toRad(lon2 - lon1);
+    var y = Math.sin(dLon) * Math.cos(toRad(lat2));
+    var x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    var rumo = toDeg(Math.atan2(y, x));
+    return (rumo + 360) % 360;
+}
+
+// Calcula (e memoriza) o ângulo da seta a partir do deslocamento entre a última posição
+// conhecida e a nova — só quando o veículo está de fato se movendo. Parado (ex: num
+// semáforo), a seta mantém a última direção conhecida em vez de "tremer" a cada leitura
+// de GPS ruidosa.
+function calcularAnguloVeiculo(lat, lon, velocidadeAtual) {
+    var VELOCIDADE_MINIMA_PARA_GIRAR_KMH = 5;
+    if (ultimaPosicaoParaRumo && (velocidadeAtual == null || velocidadeAtual >= VELOCIDADE_MINIMA_PARA_GIRAR_KMH)) {
+        var rumo = calcularRumoGraus(ultimaPosicaoParaRumo[0], ultimaPosicaoParaRumo[1], lat, lon);
+        if (INVERTER_ANGULO_VEICULO) rumo = (360 - rumo) % 360;
+        anguloAtualVeiculo = rumo;
+    }
+    ultimaPosicaoParaRumo = [lat, lon];
+    return anguloAtualVeiculo;
+}
+
+var marcador = L.marker([-29.6133, -52.1919], { icon: criarIconeVeiculo(0) }).addTo(map);
+var circuloPrecisao = L.circle([-29.6133, -52.1919], { radius: 0, color: '#2dd4ff', fillOpacity: 0.1, weight: 1 }).addTo(map);
+var polilinhaRota = L.polyline([], {color: '#00ffa6', weight: 5}).addTo(map);
+// Linha da rota PLANEJADA (destino digitado pelo motorista) — tracejada e de outra cor,
+// pra não se confundir com a linha sólida verde do trajeto já percorrido de verdade.
+var polilinhaRotaPlanejada = L.polyline([], {color: '#34b3ff', weight: 5, opacity: 0.85, dashArray: '8,8'}).addTo(map);
+
+var coordenadaParadaFixa = (function() {
+    var raw = localStorage.getItem('coordenada_parada_fixa');
+    try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+})();
+
+var viaState = (function() {
+    var raw = localStorage.getItem('via_state');
+    var padrao = { tipo: null, nome: null, kmBase: 0, odometroM: 0, kmSincronizado: null, limiteVelocidade: 30 };
+    try {
+        return raw ? Object.assign(padrao, JSON.parse(raw)) : padrao;
+    } catch (e) {
+        return padrao;
+    }
+})();
+function salvarViaState() { localStorage.setItem('via_state', JSON.stringify(viaState)); }
+var atualizandoKmRodovia = false;
+var ultimoRegistroViaTs = null;
+var viaAnterior = null;
+
+var REGEX_RODOVIA = /\b(br|rs|ers|rsc|sc|prc|pr|sp|mg|contorno)[\s-]?\d{2,4}\b/i;
+var TIPOS_OSM_RODOVIA = ["motorway", "trunk", "primary", "motorway_link", "trunk_link", "primary_link"];
+
+function classificarVia(rua, dadosResposta) {
+    var classe = (dadosResposta && (dadosResposta.class || dadosResposta.category)) || null;
+    var tipo = (dadosResposta && dadosResposta.type) || null;
+    if (classe === "highway" && TIPOS_OSM_RODOVIA.indexOf(tipo) !== -1) return "rodovia";
+    if (rua && REGEX_RODOVIA.test(rua)) return "rodovia";
+    return "rua";
+}
+
+var SERVIDORES_OVERPASS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+];
+var ultimaBuscaKmOficialTs = 0;
+var RAIO_BUSCA_MARCO_M = 1500;
+
+function extrairNumeroKm(tags) {
+    var candidatos = [tags.distance, tags.ref, tags.name, tags.note, tags["addr:housenumber"]];
+    for (var i = 0; i < candidatos.length; i++) {
+        var v = candidatos[i];
+        if (!v) continue;
+        var m = String(v).match(/(\d+(?:[.,]\d+)?)/);
+        if (m) return parseFloat(m[1].replace(',', '.'));
+    }
+    return null;
+}
+
+function consultarOverpass(servidorIndex, query) {
+    if (servidorIndex >= SERVIDORES_OVERPASS.length) return Promise.resolve(null);
+    var url = SERVIDORES_OVERPASS[servidorIndex] + "?data=" + encodeURIComponent(query);
+    return fetchComTimeout(url, {}, 9000)
+        .then(res => res.json())
+        .catch(() => consultarOverpass(servidorIndex + 1, query));
+}
+
+function buscarKmOficial(lat, lon) {
+    return new Promise(function(resolve) {
+        var agora = Date.now();
+        if (agora - ultimaBuscaKmOficialTs < 4000) { resolve(null); return; }
+        ultimaBuscaKmOficialTs = agora;
+        var query = `[out:json][timeout:8];node(around:${RAIO_BUSCA_MARCO_M},${lat},${lon})["highway"="milestone"];out body;`;
+        consultarOverpass(0, query).then(function(data) {
+            if (!data || !data.elements || data.elements.length === 0) { resolve(null); return; }
+            var melhorKm = null; var menorDist = Infinity;
+            data.elements.forEach(el => {
+                var km = extrairNumeroKm(el.tags || {});
+                if (km === null) return;
+                var d = calcularDistanciaMetros(lat, lon, el.lat, el.lon);
+                if (d < menorDist) { menorDist = d; melhorKm = km; }
+            });
+            resolve(melhorKm);
+        }).catch(function() { resolve(null); });
+    });
+}
+
+if (historicoCoordenadasLocais.length > 0) {
+    polilinhaRota.setLatLngs(historicoCoordenadasLocais);
+    var ultimo = historicoCoordenadasLocais[historicoCoordenadasLocais.length - 1];
+    map.setView(ultimo, 16); marcador.setLatLng(ultimo);
+}
+
+function salvarTudo() {
+    localStorage.setItem('frota_veiculos', JSON.stringify(listaVeiculos));
+    localStorage.setItem('fila_rastreio', JSON.stringify(filaPendentes));
+    localStorage.setItem('fila_geocodificar', JSON.stringify(filaGeocodificarDepois));
+    localStorage.setItem('historico_coords', JSON.stringify(historicoCoordenadasLocais));
+    if (registroCompleto.length > 5000) registroCompleto = registroCompleto.slice(-5000);
+    localStorage.setItem('registro_completo', JSON.stringify(registroCompleto));
+    if(ultimoIdPontoParadaGravado) localStorage.setItem('ultimo_id_ponto_parada_gravado', ultimoIdPontoParadaGravado);
+    if(coordenadaParadaFixa) localStorage.setItem('coordenada_parada_fixa', JSON.stringify(coordenadaParadaFixa));
+    salvarViaState();
+}
+
+var acaoPendente = null;
+function abrirModalLogin(callbackAcao) {
+    if (auth.currentUser) { callbackAcao(); return; }
+    acaoPendente = callbackAcao;
+    mostrarPainelLogin();
+    document.getElementById('authModal').style.display = "flex";
+}
+
+function mostrarPainelLogin() {
+    document.getElementById('painelLogin').style.display = 'block';
+    document.getElementById('painelCadastro').style.display = 'none';
+    document.getElementById('authTitulo').textContent = 'Login da Empresa';
+    document.getElementById('authSubtitulo').textContent = 'Faça login com o e-mail/senha da sua empresa para liberar o aplicativo. É só uma vez — o aparelho fica logado.';
+    document.getElementById('authErro').style.display = 'none';
+}
+function mostrarPainelCadastro() {
+    document.getElementById('painelLogin').style.display = 'none';
+    document.getElementById('painelCadastro').style.display = 'block';
+    document.getElementById('authTitulo').textContent = 'Criar conta';
+    document.getElementById('authSubtitulo').textContent = 'Cadastre sua empresa e comece a rastrear sua frota agora mesmo.';
+    document.getElementById('authErro').style.display = 'none';
+}
+document.getElementById('linkIrParaCadastro').addEventListener('click', function(e) { e.preventDefault(); mostrarPainelCadastro(); });
+document.getElementById('linkIrParaLogin').addEventListener('click', function(e) { e.preventDefault(); mostrarPainelLogin(); });
+
+function mostrarErroAuth(msg) {
+    var el = document.getElementById('authErro');
+    el.textContent = "⚠️ " + msg;
+    el.style.display = 'block';
+}
+
+document.getElementById('btnConfirmarLogin').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    if (!email || !senha) return mostrarErroAuth("Preencha tudo!");
+    document.getElementById('btnConfirmarLogin').disabled = true;
+    auth.signInWithEmailAndPassword(email, senha).then(() => {
+        document.getElementById('authModal').style.display = "none";
+        if (acaoPendente) { acaoPendente(); acaoPendente = null; }
+    }).catch(err => mostrarErroAuth(err.message)).finally(() => { document.getElementById('btnConfirmarLogin').disabled = false; });
+});
+
+var DIAS_TESTE_GRATIS = 7;
+
+var TELEGRAM_BOT_TOKEN = "8300711164:AAEB-bggEtUiI3gP1GOEsWSacGPzV1cLqhc";
+var TELEGRAM_CHAT_ID = "7337583011";
+
+function notificarNovoCadastroTelegram(nome, email, telefone, idEmpresa) {
+    if (!TELEGRAM_CHAT_ID) return;
+    var texto = "🆕 Novo cadastro (app) - Everton GPS\n\n🏢 " + nome + "\n📧 " + email +
+        (telefone ? "\n📱 " + telefone : "") + "\n🆔 " + idEmpresa + "\n⏳ Teste grátis: " + DIAS_TESTE_GRATIS + " dias";
+    var url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + encodeURIComponent(texto);
+    fetch(url).catch(function(e) { console.warn("Falha ao notificar Telegram:", e); });
+}
+
+document.getElementById('btnConfirmarCadastro').addEventListener('click', function() {
+    var nome = document.getElementById('cadNomeEmpresa').value.trim();
+    var email = document.getElementById('cadEmail').value.trim();
+    var senha = document.getElementById('cadSenha').value;
+    var telefone = document.getElementById('cadTelefone').value.trim();
+
+    if (!nome || !email || !senha) return mostrarErroAuth("Preencha nome da empresa, e-mail e senha.");
+    if (senha.length < 6) return mostrarErroAuth("A senha precisa ter pelo menos 6 caracteres.");
+
+    var idEmpresa = sanitizarChavePath(nome.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
+    if (!idEmpresa) return mostrarErroAuth("Digite um nome de empresa válido.");
+
+    document.getElementById('btnConfirmarCadastro').disabled = true;
+    document.getElementById('btnConfirmarCadastro').textContent = "Criando conta...";
+
+    var uidCriado = null;
+    auth.createUserWithEmailAndPassword(email, senha).then(function(cred) {
+        uidCriado = cred.user.uid;
+        return tentarGravarEmpresa(idEmpresa);
+    }).catch(function(erroGravacao) {
+        if (uidCriado && erroGravacao && erroGravacao.code === 'PERMISSION_DENIED') {
+            idEmpresa = idEmpresa + '_' + Math.random().toString(36).slice(2, 6);
+            return tentarGravarEmpresa(idEmpresa);
+        }
+        throw erroGravacao;
+    }).then(function(idFinal) {
+        notificarNovoCadastroTelegram(nome, email, telefone, idFinal);
+        localStorage.setItem('empresa_id', idFinal);
+        EMPRESA_ID = idFinal;
+        document.getElementById('empresaIdInput').value = EMPRESA_ID;
+        atualizarInfoEmpresaSalva();
+        observarStatusEmpresa();
+        document.getElementById('authModal').style.display = "none";
+        if (acaoPendente) { acaoPendente(); acaoPendente = null; }
+    }).catch(function(e) {
+        var msg = e.message || String(e);
+        if (e.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado. Use a aba de login.";
+        if (e.code === 'auth/weak-password') msg = "Senha muito fraca — use pelo menos 6 caracteres.";
+        if (e.code === 'PERMISSION_DENIED') msg = "Não foi possível salvar os dados da empresa. Tente novamente em instantes.";
+        mostrarErroAuth(msg);
+    }).finally(function() {
+        document.getElementById('btnConfirmarCadastro').disabled = false;
+        document.getElementById('btnConfirmarCadastro').textContent = "Criar conta e começar teste grátis";
+    });
+
+    function tentarGravarEmpresa(idParaTentar) {
+        var agora = new Date();
+        var trialExpira = new Date(agora.getTime() + DIAS_TESTE_GRATIS * 86400000);
+        var dadosEmpresa = {};
+        dadosEmpresa['empresas/' + idParaTentar + '/nome'] = nome;
+        dadosEmpresa['empresas/' + idParaTentar + '/status'] = 'trial';
+        dadosEmpresa['empresas/' + idParaTentar + '/criadoEm'] = agora.toISOString();
+        dadosEmpresa['empresas/' + idParaTentar + '/trialExpiraEm'] = trialExpira.toISOString();
+        if (telefone) dadosEmpresa['empresas/' + idParaTentar + '/telefone'] = telefone;
+
+        return db.ref().update(dadosEmpresa).then(function() {
+            return db.ref('mapaUsuarioEmpresa/' + uidCriado).set(idParaTentar);
+        }).then(function() { return idParaTentar; });
+    }
+});
+
+auth.onAuthStateChanged(user => {
+    document.getElementById('userLogadoInfo').style.display = user ? "block" : "none";
+    if (!user) {
+        appSuspenso = false;
+        document.getElementById('avisoSuspenso').style.display = 'none';
+        abrirModalLogin(function() {});
+    } else {
+        observarStatusEmpresa();
+    }
+});
+
+function renderizarFrotaLocal() {
+    var container = document.getElementById('listaFrotaLocal'); container.innerHTML = "";
+    if (listaVeiculos.length === 0) { container.innerHTML = "<span>Nenhum veículo adicionado.</span>"; return; }
+    listaVeiculos.forEach((nome, index) => {
+        var tag = document.createElement('div'); tag.className = "tag-veiculo";
+        tag.innerHTML = `🚗 <b>${nome}</b> <button class="btn-remover" onclick="removerVeiculoExigindoSenha(${index})">×</button>`;
+        container.appendChild(tag);
+    });
+}
+document.getElementById('btnAdicionar').addEventListener('click', function() {
+    var nome = document.getElementById('veiculoInput').value.trim().toUpperCase();
+    if (!nome) return alert('Digite um nome!');
+    if (listaVeiculos.includes(nome)) return alert('Já cadastrado!');
+    abrirModalLogin(function() {
+        listaVeiculos.push(nome); salvarTudo();
+        document.getElementById('veiculoInput').value = ""; renderizarFrotaLocal();
+        atualizarInterfaceEstado();
+    });
+});
+window.removerVeiculoExigindoSenha = function(index) {
+    abrirModalLogin(function() {
+        if (confirm(`Remover veículo?`)) { listaVeiculos.splice(index, 1); salvarTudo(); renderizarFrotaLocal(); atualizarInterfaceEstado(); }
+    });
+};
+
+var inicioParadaTs = localStorage.getItem('inicio_parada_ts') ? parseInt(localStorage.getItem('inicio_parada_ts'), 10) : null;
+var tempoParadoSegundos = 0;
+var jaGravouPontoInicialParada = localStorage.getItem('ja_gravou_parada') === 'true';
+var jaRegistrouEsteExcesso = false;
+
+function formatarTempoParado(segundos) {
+    var hrs = Math.floor(segundos / 3600).toString().padStart(2, '0');
+    var mins = Math.floor((segundos % 3600) / 60).toString().padStart(2, '0');
+    var segs = (segundos % 60).toString().padStart(2, '0');
+    return `${hrs}:${mins}:${segs}`;
+}
+
+function atualizarTextoTempoParado() {
+    if (document.getElementById('badStatus').textContent.indexOf("PARADO") !== -1 && inicioParadaTs) {
+        tempoParadoSegundos = Math.max(0, Math.floor((Date.now() - inicioParadaTs) / 1000));
+    } else {
+        tempoParadoSegundos = 0;
+    }
+    document.getElementById('txtTempoParado').textContent = formatarTempoParado(tempoParadoSegundos);
+}
+
+setInterval(function() {
+    atualizarTextoTempoParado();
+}, 1000);
+
+var ultimoPontoBruto = historicoCoordenadasLocais.length > 0 ? historicoCoordenadasLocais[historicoCoordenadasLocais.length - 1] : null;
+var ultimoTsPosicaoBruta = null;
+var ultimoPontoChecadoEndereco = null;
+var errosGpsConsecutivos = 0;
+var ultimaLeituraCompleta = null;
+var ultimaVelocidadeValida = 0;
+// NOVO: vigia de segundo plano. Guarda quando a última posição de GPS chegou de verdade
+// (independente de ser nativa ou web) e, a cada 30s, checa se faz tempo demais sem
+// nenhuma leitura nova — é o jeito mais direto de descobrir, testando com a tela apagada
+// ou o app em segundo plano, se o rastreio realmente continua funcionando ou morreu em
+// silêncio. Se o app estiver mesmo travado nesse estado, esse aviso só vai aparecer
+// quando a pessoa reabrir/olhar a tela — mas ainda assim é a evidência de que parou.
+var ultimaPosicaoRecebidaTs = null;
+setInterval(function() {
+    if (appSuspenso || listaVeiculos.length === 0) return;
+    if (!ultimaPosicaoRecebidaTs) return; // ainda esperando a primeira leitura, normal
+    var segundosSemPosicao = Math.floor((Date.now() - ultimaPosicaoRecebidaTs) / 1000);
+    if (segundosSemPosicao > 90) {
+        mostrarAvisoGps("⚠️ Sem nenhuma posição de GPS há " + segundosSemPosicao + "s — o rastreio pode ter parado (comum quando o app fica muito tempo em segundo plano sem a configuração nativa correta). Verifique se o app aparece na lista de exceções de otimização de bateria do Android.");
+    }
+}, 30000);
+// (variável de disjuntor de rejeições removida — a lógica de aceleração que a usava foi
+// simplificada, ver processarNovaPosicao)
+
+// Mantém o campo "Última posição de GPS há" do painel de diagnóstico sempre atualizado,
+// mesmo sem nenhuma leitura nova chegando — assim dá pra ver na tela, sem console, se o
+// GPS simplesmente parou de mandar atualizações (o que explicaria o status nunca mudar).
+setInterval(function() {
+    var elUltima = document.getElementById('diagUltimaPosicaoHa');
+    if (!elUltima) return;
+    elUltima.textContent = ultimaPosicaoRecebidaTs
+        ? Math.floor((Date.now() - ultimaPosicaoRecebidaTs) / 1000) + "s atrás"
+        : "nenhuma leitura ainda";
+}, 1000);
+var contadorConfirmacaoExcesso = 0;
+
+function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function valorOuTraco(valor, textoAusente) {
+    if (!valor) return "—";
+    if (textoAusente && valor === textoAusente) return "—";
+    return valor;
+}
+
+function registrarESincronizarPonto(lat, lon, situacao, velKmh, precisao, agora, enderecoInfo, motivo) {
+    if (appSuspenso) return;
+    var idPonto = gerarIdPonto(agora.getTime());
+    if (situacao === "PARADO") { ultimoIdPontoParadaGravado = idPonto; }
+
+    var ehRodovia = enderecoInfo.tipoVia === "rodovia";
+    var kmTxt = (enderecoInfo.km != null ? enderecoInfo.km : viaState.kmSincronizado);
+    var sufixoFonteKm = (ehRodovia && enderecoInfo.fonteKm === 'estimado') ? " (aprox.)" : "";
+    var ruaExibida = ehRodovia
+        ? (enderecoInfo.rua || "Rodovia") + (kmTxt != null ? (" - Km " + kmTxt + sufixoFonteKm) : " - Km não identificado")
+        : (enderecoInfo.rua || "Rua não localizada");
+    var bairroExibido = valorOuTraco(enderecoInfo.bairro, "Bairro não localizado");
+    var cidadeExibida = enderecoInfo.cidade || document.getElementById('txtCidade').textContent || "—";
+    var estadoExibido = enderecoInfo.estado || document.getElementById('txtEstado').textContent || "—";
+
+    document.getElementById('txtRua').textContent = ruaExibida;
+    document.getElementById('txtBairro').textContent = bairroExibido;
+    if (enderecoInfo.cidade) document.getElementById('txtCidade').textContent = enderecoInfo.cidade;
+    if (enderecoInfo.estado) document.getElementById('txtEstado').textContent = enderecoInfo.estado;
+
+    var registro = {
+        id: idPonto, lat: lat, lon: lon, velocidade: (situacao === "PARADO" ? 0 : velKmh), status: situacao,
+        tempoParado: document.getElementById('txtTempoParado').textContent,
+        hora: agora.toLocaleTimeString('pt-BR'), data: agora.toLocaleDateString('pt-BR'),
+        precisao: precisao || null,
+        precisaoBaixa: !!(precisao && precisao > PRECISAO_MAXIMA_ACEITAVEL_M),
+        rua: ruaExibida, bairro: bairroExibido, cidade: cidadeExibida, estado: estadoExibido,
+        endereco: ruaExibida + (bairroExibido !== "—" ? ", " + bairroExibido : "") + (cidadeExibida !== "—" ? " - " + cidadeExibida + "/" + estadoExibido : ""),
+        tipoVia: enderecoInfo.tipoVia, motivo: motivo, fonteKm: enderecoInfo.fonteKm || null,
+        limiteVia: enderecoInfo.limiteVia != null ? enderecoInfo.limiteVia : null,
+        excessoKmh: enderecoInfo.limiteVia != null ? Math.max(0, (situacao === "PARADO" ? 0 : velKmh) - enderecoInfo.limiteVia) : null
+    };
+    registroCompleto.push(registro);
+    if (listaVeiculos.length > 0) {
+        listaVeiculos.forEach(vNome => { filaPendentes.push(Object.assign({ vID: vNome, empresaId: EMPRESA_ID }, registro)); });
+    }
+    salvarTudo(); atualizarInterfaceEstado(); enviarDadosFila(); sincronizarTempoRealImediato();
+}
+
+function corVeiculoPorSituacao(situacao) {
+    if (situacao === "VELOCIDADE ACIMA DO LIMITE") return '#ff4d6d';
+    if (situacao === "EM MOVIMENTO") return '#00e0a8';
+    return '#ffb020';
+}
+
+function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
+    if (appSuspenso) return;
+    esconderAvisoGps(); errosGpsConsecutivos = 0;
+    ultimaPosicaoRecebidaTs = Date.now();
+    var precisao = precisaoRaw ? Math.round(precisaoRaw) : null;
+    var agora = new Date(); var agoraTs = agora.getTime();
+
+    var velCalculadaPorDistancia = 0;
+    var deltaSegundosBruto = null;
+    if (ultimoPontoBruto && ultimoTsPosicaoBruta) {
+        var distDesdeUltimoBruto = calcularDistanciaMetros(ultimoPontoBruto[0], ultimoPontoBruto[1], lat, lon);
+        deltaSegundosBruto = (agoraTs - ultimoTsPosicaoBruta) / 1000;
+        var limiarRuidoM = Math.max(3, precisao || 5);
+        if (deltaSegundosBruto > 0.5 && distDesdeUltimoBruto > limiarRuidoM) {
+            velCalculadaPorDistancia = (distDesdeUltimoBruto / deltaSegundosBruto) * 3.6;
+        }
+    }
+
+    var velPorRaw = (velRaw && velRaw > 0) ? Math.round(velRaw * 3.6) : null;
+    var velPorDistancia = Math.round(velCalculadaPorDistancia);
+
+    // CORREÇÃO: a versão anterior comparava a "aceleração implícita" entre leituras
+    // consecutivas pra decidir se um salto de velocidade era plausível. Parecia uma boa
+    // ideia, mas na prática é frágil: com leituras chegando a cada 1-2s (comum com GPS de
+    // alta precisão), qualquer arrancada normal do veículo parado (0 → 20-30 km/h em 1-2s,
+    // totalmente banal no trânsito) já ultrapassa qualquer limite de aceleração razoável e
+    // acabava sendo descartada como "erro de GPS" — travando o status em PARADO mesmo com
+    // o veículo se movendo de verdade. Removida essa lógica inteira. Agora a única proteção
+    // é: (1) se o valor bruto do GPS (efeito Doppler) e o valor calculado por distância
+    // discordam muito — um alto, outro perto de zero — confia no mais conservador (isso já
+    // existia e é o que evita o bug documentado de "180 km/h com o carro parado", causado
+    // por reflexo de sinal perto de prédios/garagens); (2) um teto de sanidade simples, sem
+    // matemática de física envolvida.
+    var MAX_VELOCIDADE_PLAUSIVEL_KMH = 180;
+    var vel = (velPorRaw != null && velPorDistancia < 5 && velPorRaw > 30)
+        ? velPorDistancia
+        : ((velPorRaw != null) ? velPorRaw : velPorDistancia);
+
+    var leituraDescartadaPorGlitch = false;
+    if (vel > MAX_VELOCIDADE_PLAUSIVEL_KMH) {
+        vel = ultimaVelocidadeValida;
+        leituraDescartadaPorGlitch = true;
+    }
+    ultimaVelocidadeValida = vel;
+    // A referência de posição/tempo avança sempre — assim a próxima leitura é sempre
+    // comparada contra uma posição recente, nunca contra uma posição de minutos atrás.
+    ultimoTsPosicaoBruta = agoraTs;
+
+    map.setView([lat, lon], map.getZoom() < 14 ? 16 : map.getZoom());
+    marcador.setLatLng([lat, lon]);
+    var anguloVeiculo = calcularAnguloVeiculo(lat, lon, vel);
+    if (precisao) { circuloPrecisao.setLatLng([lat, lon]).setRadius(precisao); }
+
+    document.getElementById('txtVelocidade').textContent = vel + " km/h";
+    document.getElementById('txtData').textContent = agora.toLocaleDateString('pt-BR');
+    document.getElementById('txtHora').textContent = agora.toLocaleTimeString('pt-BR');
+    document.getElementById('txtPrecisao').textContent = precisao ? `± ${precisao} m` : "—";
+    document.getElementById('txtCoords').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+    if (document.getElementById('txtTemperatura').textContent === "—") {
+        talvezBuscarTemperatura(lat, lon);
+    }
+
+    historicoCoordenadasLocais.push([lat, lon]);
+    if (historicoCoordenadasLocais.length > 2000) historicoCoordenadasLocais.shift();
+    polilinhaRota.setLatLngs(historicoCoordenadasLocais);
+
+    // Atualiza o balão "próxima manobra" da rota planejada (tipo Waze) a cada posição nova
+    // — troca de instrução sozinha conforme o motorista se aproxima de cada curva.
+    if (rotaPlanejadaAtual) atualizarProgressoRotaPlanejada(lat, lon);
+
+    var distanciaDoCentroDaParada = coordenadaParadaFixa ? calcularDistanciaMetros(coordenadaParadaFixa[0], coordenadaParadaFixa[1], lat, lon) : 0;
+    var LIMITE_MOVIMENTO_KMH = 5;
+    var RAIO_FALSO_MOVIMENTO_METROS = 50;
+    var VELOCIDADE_MOVIMENTO_CONFIAVEL_KMH = 15;
+    var situacao = "PARADO";
+    var badgeStatus = document.getElementById('badStatus');
+    var iniciouParadaAgora = false;
+    var iniciouExcessoAgora = false;
+
+    var estaEmMovimento = vel >= VELOCIDADE_MOVIMENTO_CONFIAVEL_KMH
+        ? true
+        : (vel >= LIMITE_MOVIMENTO_KMH && (!coordenadaParadaFixa || distanciaDoCentroDaParada > RAIO_FALSO_MOVIMENTO_METROS));
+
+    // Limite de velocidade da via atual — calculado sempre (parado ou em movimento) pra
+    // poder exibir na telemetria e usar na checagem de excesso logo abaixo. Tanto rodovia
+    // quanto rua agora usam o limite oficial (placa) lido do mapa quando disponível; 80
+    // só entra como padrão de rodovia sem placa marcada, e 30 como padrão de rua sem placa.
+    var limiteVelocidadeAtual = viaState.limiteVelocidade || (viaState.tipo === 'rodovia' ? LIMITE_VELOCIDADE : 30);
+    var elLimiteVia = document.getElementById('txtLimiteVia');
+    if (elLimiteVia) elLimiteVia.textContent = limiteVelocidadeAtual + " km/h";
+
+    // Painel de diagnóstico na tela — só leitura, não influencia a decisão em nada.
+    try {
+        var elVelRaw = document.getElementById('diagVelRaw');
+        var elVelDist = document.getElementById('diagVelDistancia');
+        var elVelFinal = document.getElementById('diagVelFinal');
+        var elEstaMovimento = document.getElementById('diagEstaEmMovimento');
+        var elDistCentro = document.getElementById('diagDistCentroParada');
+        var elGlitch = document.getElementById('diagGlitch');
+        if (elVelRaw) elVelRaw.textContent = (velPorRaw != null ? velPorRaw + " km/h" : "sem dado (null)");
+        if (elVelDist) elVelDist.textContent = velPorDistancia + " km/h";
+        if (elVelFinal) elVelFinal.textContent = vel + " km/h";
+        if (elEstaMovimento) elEstaMovimento.textContent = estaEmMovimento ? "SIM" : "NÃO";
+        if (elDistCentro) elDistCentro.textContent = coordenadaParadaFixa ? Math.round(distanciaDoCentroDaParada) + " m" : "sem parada fixa ainda";
+        if (elGlitch) elGlitch.textContent = leituraDescartadaPorGlitch ? "SIM (descartou leitura!)" : "não";
+    } catch (erroDiag) { /* diagnóstico nunca deve quebrar o rastreio */ }
+
+    if (estaEmMovimento) {
+        // CORREÇÃO: reflexo de sinal de GPS perto de prédios/garagens pode gerar uma leitura
+        // de velocidade alta momentânea mesmo com o veículo parado no mesmo lugar — o teto de
+        // "implausível" (180 km/h) não pega isso porque o limite de excesso (80 km/h) é bem
+        // menor. Fisicamente, não dá pra estar de verdade acima do limite ainda "no mesmo
+        // lugar" de instantes atrás — então só classifica como excesso se o veículo também já
+        // tiver se afastado de verdade do centro da última parada. Não afeta em nada a
+        // detecção normal de EM MOVIMENTO, só evita o alarme falso de excesso.
+        var aindaPertoDoUltimoLocalParado = coordenadaParadaFixa && distanciaDoCentroDaParada <= RAIO_FALSO_MOVIMENTO_METROS;
+        var ehExcessoDeVerdade = vel > limiteVelocidadeAtual && !aindaPertoDoUltimoLocalParado;
+        situacao = ehExcessoDeVerdade ? "VELOCIDADE ACIMA DO LIMITE" : "EM MOVIMENTO";
+        badgeStatus.textContent = ehExcessoDeVerdade
+            ? situacao + " (" + vel + " km/h, via de " + limiteVelocidadeAtual + " km/h)"
+            : situacao;
+        badgeStatus.className = ehExcessoDeVerdade ? "badge badge-perigo" : "badge badge-movimento";
+
+        if (situacao === "VELOCIDADE ACIMA DO LIMITE") {
+            contadorConfirmacaoExcesso++;
+            if (!jaRegistrouEsteExcesso && contadorConfirmacaoExcesso >= 2) {
+                iniciouExcessoAgora = true; jaRegistrouEsteExcesso = true;
+            }
+        } else {
+            jaRegistrouEsteExcesso = false;
+            contadorConfirmacaoExcesso = 0;
+        }
+
+        // NOVO: quando o veículo sai de PARADO pra EM MOVIMENTO, se havia uma parada em
+        // andamento, grava o horário exato de término e a duração total precisa nesse mesmo
+        // ponto de início — antes disso, a única atualização de "tempoParado" vinha de um
+        // patch a cada 30s, que podia ficar até meio minuto desatualizado no momento exato
+        // em que o veículo saiu. Isso não muda mais nada do resto: continua sendo o MESMO
+        // ponto (não cria um ponto novo), só fica com a hora final e o total certinhos.
+        // Protegido com try/catch: qualquer falha aqui nunca deve impedir a detecção de
+        // movimento nem as próximas leituras de GPS de continuarem funcionando normalmente.
+        try {
+            if (ultimoIdPontoParadaGravado && inicioParadaTs && EMPRESA_ID && listaVeiculos.length > 0) {
+                var duracaoFinalSegundos = Math.max(0, Math.floor((agoraTs - inicioParadaTs) / 1000));
+                var idParadaEncerrada = ultimoIdPontoParadaGravado;
+                var patchFinalParada = {};
+                listaVeiculos.forEach(function(vNome) {
+                    var pathParada = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/historico/' + idParadaEncerrada + '/';
+                    patchFinalParada[pathParada + 'tempoParado'] = formatarTempoParado(duracaoFinalSegundos);
+                    patchFinalParada[pathParada + 'horaFinalParada'] = agora.toLocaleTimeString('pt-BR');
+                });
+                enviarAtualizacoesFirebase(patchFinalParada).catch(function(e) { console.warn(e); });
+            }
+        } catch (erroFechamentoParada) {
+            console.warn("Falha ao fechar registro de parada (não afeta o rastreio):", erroFechamentoParada);
+        }
+
+        inicioParadaTs = null; jaGravouPontoInicialParada = false; ultimoIdPontoParadaGravado = null; coordenadaParadaFixa = null;
+        localStorage.removeItem('inicio_parada_ts');
+        localStorage.removeItem('ja_gravou_parada');
+        localStorage.removeItem('ultimo_id_ponto_parada_gravado');
+        localStorage.removeItem('coordenada_parada_fixa');
+    } else {
+        situacao = "PARADO"; badgeStatus.textContent = "PARADO"; badgeStatus.className = "badge badge-parado";
+        jaRegistrouEsteExcesso = false;
+        contadorConfirmacaoExcesso = 0;
+        if (!inicioParadaTs) { inicioParadaTs = agoraTs; localStorage.setItem('inicio_parada_ts', String(inicioParadaTs)); }
+        if (!coordenadaParadaFixa) { coordenadaParadaFixa = [lat, lon]; localStorage.setItem('coordenada_parada_fixa', JSON.stringify(coordenadaParadaFixa)); }
+        if (!jaGravouPontoInicialParada) { iniciouParadaAgora = true; jaGravouPontoInicialParada = true; localStorage.setItem('ja_gravou_parada', 'true'); }
+    }
+    atualizarTextoTempoParado();
+    marcador.setIcon(criarIconeVeiculo(anguloVeiculo, corVeiculoPorSituacao(situacao)));
+
+    ultimaLeituraCompleta = {
+        lat: lat, lon: lon, velocidade: (situacao === "PARADO" ? 0 : vel), status: situacao, precisao: precisao,
+        hora: agora.toLocaleTimeString('pt-BR'), data: agora.toLocaleDateString('pt-BR'),
+        tempoParado: document.getElementById('txtTempoParado').textContent
+    };
+
+    var kmMudou = false;
+    // O odômetro de rodovia só soma distância em leituras confiáveis (protege contra
+    // somar um "salto" de GPS como se fosse km rodado de verdade).
+    if (!leituraDescartadaPorGlitch && ultimoPontoBruto && viaState.tipo === 'rodovia' && !atualizandoKmRodovia) {
+        var delta = calcularDistanciaMetros(ultimoPontoBruto[0], ultimoPontoBruto[1], lat, lon);
+        if (delta > 2 && delta < 500) { viaState.odometroM += delta; }
+        var kmEstimadoAtual = viaState.kmBase + Math.floor(viaState.odometroM / 1000);
+        if (viaState.kmSincronizado === null || kmEstimadoAtual !== viaState.kmSincronizado) {
+            kmMudou = true;
+        }
+        salvarViaState();
+    }
+    // CORREÇÃO: esta referência agora avança SEMPRE (não só quando a leitura passa no
+    // filtro) — ver comentário na checagem de velocidade acima. Mantê-la sempre atual é o
+    // que evita a próxima leitura parecer "um salto" cada vez maior.
+    ultimoPontoBruto = [lat, lon];
+
+    if (iniciouParadaAgora) {
+        (function(latP, lonP, situacaoP, velP, precisaoP, agoraP, inicioParadaTsNoMomento) {
+            setTimeout(function() {
+                // CORREÇÃO: antes disso, o app esperava 4s e gravava a parada sem checar se
+                // ela ainda estava acontecendo — um soluço de GPS de um instante só (comum em
+                // curvas, viadutos, perto de prédios) já bastava pra criar uma "seta de
+                // parada" falsa no meio de um trajeto contínuo, mesmo o veículo nunca tendo
+                // parado de verdade. Agora, só grava se o veículo ainda estiver parado nesse
+                // momento (inicioParadaTs não pode ter mudado nem sido zerado nesse meio
+                // tempo por um movimento real detectado). O prazo também subiu de 4s pra 1
+                // minuto — combinado que só conta como "parada" de verdade (semáforo, fila de
+                // trânsito etc. não geram mais seta, só param contínuas de 1min+).
+                if (inicioParadaTs !== inicioParadaTsNoMomento) {
+                    return; // já voltou a se mover (ou começou outra parada) — não era de verdade
+                }
+                var latConsulta = latP, lonConsulta = lonP;
+                if (ultimaLeituraCompleta && ultimaLeituraCompleta.precisao != null &&
+                    (precisaoP == null || ultimaLeituraCompleta.precisao < precisaoP)) {
+                    latConsulta = ultimaLeituraCompleta.lat; lonConsulta = ultimaLeituraCompleta.lon;
+                }
+                buscarEnderecoImediato(latConsulta, lonConsulta).then(function(fresco) {
+                    // Confere de novo depois do fetch do endereço (que também leva um tempo) —
+                    // mesma lógica: se já voltou a se mover, cancela.
+                    if (inicioParadaTs !== inicioParadaTsNoMomento) { return; }
+                    var ruaBase = (fresco && fresco.rua) || viaState.nome || null;
+                    var ruaFinal = (fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                    registrarESincronizarPonto(latP, lonP, situacaoP, velP, precisaoP, agoraP, {
+                        rua: ruaFinal,
+                        bairro: (fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                        cidade: (fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                        estado: (fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                        tipoVia: (fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                        km: viaState.kmSincronizado
+                    }, 'inicio_parada');
+                });
+            }, 60000);
+        })(lat, lon, situacao, vel, precisao, agora, inicioParadaTs);
+    } else if (iniciouExcessoAgora) {
+        (function(latE, lonE, situacaoE, velE, precisaoE, agoraE, limiteViaNoMomento) {
+            buscarEnderecoImediato(latE, lonE).then(function(fresco) {
+                var ruaBase = (fresco && fresco.rua) || viaState.nome || null;
+                var ruaFinal = (fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                registrarESincronizarPonto(latE, lonE, situacaoE, velE, precisaoE, agoraE, {
+                    rua: ruaFinal,
+                    bairro: (fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                    cidade: (fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                    estado: (fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                    tipoVia: (fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                    km: viaState.kmSincronizado,
+                    limiteVia: limiteViaNoMomento
+                }, 'excesso_velocidade');
+            });
+        })(lat, lon, situacao, vel, precisao, agora, limiteVelocidadeAtual);
+    } else if (kmMudou) {
+        atualizandoKmRodovia = true;
+        buscarKmOficial(lat, lon).then(function(kmOficial) {
+            var kmFinal, fonte;
+            if (kmOficial !== null) {
+                kmFinal = Math.round(kmOficial); fonte = 'oficial';
+            } else {
+                kmFinal = viaState.kmBase + Math.round(viaState.odometroM / 1000); fonte = 'estimado';
+            }
+            viaState.kmBase = kmFinal; viaState.odometroM = 0; viaState.kmSincronizado = kmFinal;
+            salvarViaState();
+            atualizandoKmRodovia = false;
+            registrarESincronizarPonto(lat, lon, situacao, vel, precisao, agora, {
+                rua: viaState.nome,
+                bairro: document.getElementById('txtBairro').textContent,
+                cidade: document.getElementById('txtCidade').textContent,
+                estado: document.getElementById('txtEstado').textContent,
+                tipoVia: 'rodovia', km: kmFinal, fonteKm: fonte
+            }, 'km_rodovia');
+        }).catch(function() { atualizandoKmRodovia = false; });
+    } else {
+        sincronizarTempoRealImediato();
+    }
+
+    var limiarChecagemM = (viaState.tipo === 'rodovia') ? 300 : 60;
+    var distanciaChecagem = ultimoPontoChecadoEndereco ? calcularDistanciaMetros(ultimoPontoChecadoEndereco[0], ultimoPontoChecadoEndereco[1], lat, lon) : Infinity;
+    var precisaoAceitavel = !precisao || precisao <= PRECISAO_MAXIMA_ACEITAVEL_M;
+    if (distanciaChecagem >= limiarChecagemM && precisaoAceitavel) {
+        ultimoPontoChecadoEndereco = [lat, lon];
+        var idFixoPonto = gerarIdPonto(agoraTs);
+        var jaExisteFila = filaGeocodificarDepois.some(p => calcularDistanciaMetros(p.lat, p.lon, lat, lon) < 20);
+        if (!jaExisteFila) {
+            filaGeocodificarDepois.push({ id: idFixoPonto, lat: lat, lon: lon, ts: agoraTs, velocidadeNoMomento: vel, statusNoMomento: situacao, precisaoNoMomento: precisao });
+            salvarTudo();
+            processarFilaGeocodificacao();
+        }
+    }
+}
+
+function sincronizarTempoRealImediato() {
+    if (appSuspenso) return;
+    if (!EMPRESA_ID) return;
+    if (!ultimaLeituraCompleta || listaVeiculos.length === 0) return;
+    var updates = {};
+    listaVeiculos.forEach(vNome => {
+        var basePath = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/atual/';
+        updates[basePath + 'lat'] = ultimaLeituraCompleta.lat;
+        updates[basePath + 'lon'] = ultimaLeituraCompleta.lon;
+        updates[basePath + 'velocidade'] = ultimaLeituraCompleta.velocidade;
+        updates[basePath + 'status'] = ultimaLeituraCompleta.status;
+        updates[basePath + 'hora'] = ultimaLeituraCompleta.hora;
+        updates[basePath + 'data'] = ultimaLeituraCompleta.data;
+        updates[basePath + 'tempoParado'] = document.getElementById('txtTempoParado').textContent;
+
+        updates[basePath + 'rua'] = document.getElementById('txtRua').textContent;
+        updates[basePath + 'bairro'] = document.getElementById('txtBairro').textContent;
+        updates[basePath + 'cidade'] = document.getElementById('txtCidade').textContent;
+        updates[basePath + 'estado'] = document.getElementById('txtEstado').textContent;
+    });
+    comLimiteDeTempo(enviarAtualizacoesFirebase(updates), 18000).then(() => {
+        if(!firebaseOnlineConfirmado) { firebaseOnlineConfirmado = true; atualizarInterfaceEstado(); }
+    }).catch(e => {
+        console.warn(e);
+        var agora = Date.now();
+        if (e && e.message === "tempo esgotado") { forcarReconexaoFirebaseSeTravado(); }
+        var msgErro1 = "Firebase recusou salvar posição ao vivo: " + (e && e.message ? e.message : e) + " [empresaId: " + EMPRESA_ID + ", logado: " + (auth.currentUser ? auth.currentUser.email : "NÃO") + "]";
+        mostrarErroSyncPersistente(msgErro1);
+        if (agora - ultimoAvisoErroEnvioTs > 60000) {
+            ultimoAvisoErroEnvioTs = agora;
+            mostrarAvisoGps("⚠️ " + msgErro1);
+        }
+    });
+}
+
+setInterval(function() {
+    if (appSuspenso) return;
+    var statusAtual = document.getElementById('badStatus').textContent;
+    if (statusAtual.indexOf("PARADO") !== -1 && ultimoIdPontoParadaGravado && listaVeiculos.length > 0 && firebaseOnlineConfirmado) {
+        var tempoAtualizado = document.getElementById('txtTempoParado').textContent;
+        var agoraStr = new Date().toLocaleTimeString('pt-BR');
+        var patchHistorico = {};
+
+        listaVeiculos.forEach(vNome => {
+            var path = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/historico/' + ultimoIdPontoParadaGravado + '/';
+            patchHistorico[path + 'tempoParado'] = tempoAtualizado;
+            patchHistorico[path + 'horaFinalParada'] = agoraStr;
+        });
+
+        enviarAtualizacoesFirebase(patchHistorico).catch(e => console.warn(e));
+    }
+}, 30000);
+
+function tratarErroGps(erro) {
+    console.error(erro); errosGpsConsecutivos++;
+    if (erro.code === 1) mostrarAvisoGps("⚠️ Permissão de localização negada.");
+    else if (errosGpsConsecutivos >= 4) mostrarAvisoGps("⚠️ Instabilidade no sinal do GPS.");
+}
+
+function iniciarRastreioNativoBackground() {
+    var BG = window.Capacitor.Plugins.BackgroundGeolocation;
+    if (!BG) {
+        // CORREÇÃO: antes, se o plugin nativo não estivesse presente no app compilado, o
+        // código caía pro GPS comum do navegador (iniciarRastreioWeb) completamente em
+        // silêncio — sem nenhum aviso na tela. Isso é perigoso porque o GPS do navegador
+        // dentro do WebView normalmente PARA de atualizar quando a tela apaga ou o app vai
+        // pra segundo plano no Android — ou seja, o rastreio parece funcionar durante o
+        // teste (com a tela ligada, olhando o app) e falha silenciosamente assim que o
+        // motorista guarda o celular no bolso ou apaga a tela. Agora isso gera um aviso
+        // visível, pra não passar despercebido num teste rápido.
+        mostrarAvisoGps("⚠️ Plugin nativo de rastreio em segundo plano NÃO encontrado neste app — usando GPS do navegador, que tende a PARAR quando a tela apaga ou o app sai de primeiro plano. Rastreio em 2º plano real não está garantido.");
+        iniciarRastreioWeb();
+        return;
+    }
+    atualizarBarraBackground("🟢 Rastreio em segundo plano ATIVO", true);
+    var resultadoWatcher = BG.addWatcher({
+        backgroundMessage: "Gravando rotas e telemetria em tempo real...",
+        backgroundTitle: "Everton GPS Corporativo",
+        requestPermissions: true, stale: false, distanceFilter: 0
+    }, function(location, error) {
+        if (error) {
+            // CORREÇÃO: erros do watcher nativo eram descartados em silêncio (if (error)
+            // return;) — se o Android negasse a permissão de localização em segundo plano,
+            // ou o serviço em primeiro plano fosse encerrado pelo sistema, o app ficava
+            // "rastreando" sem nunca mais receber nenhuma posição, sem nenhum aviso.
+            mostrarAvisoGps("⚠️ Erro no rastreio em segundo plano: " + (error && error.message ? error.message : error));
+            return;
+        }
+        if (location) processarNovaPosicao(location.latitude, location.longitude, location.accuracy, location.speed);
+    });
+    if (resultadoWatcher && typeof resultadoWatcher.then === 'function') {
+        resultadoWatcher.then(function(id) { bgWatcherId = id; }).catch(function(erro) {
+            console.error(erro);
+            mostrarAvisoGps("⚠️ Falha ao iniciar GPS em segundo plano (plugin nativo): " + (erro && erro.message ? erro.message : erro) + " — usando GPS padrão do navegador.");
+            atualizarBarraBackground("", false);
+            iniciarRastreioWeb();
+        });
+    } else {
+        bgWatcherId = resultadoWatcher;
+    }
+}
+
+function iniciarRastreioWeb() {
+    if (!checarContextoSeguro() || !navigator.geolocation) return;
+    navigator.geolocation.watchPosition(position => {
+        processarNovaPosicao(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.coords.speed);
+    // CORREÇÃO: maximumAge era 3000 (aceitava uma posição em cache de até 3s) — em troca de
+    // um pouco mais de bateria, agora sempre pede a leitura mais fresca disponível, o que
+    // reduz o atraso perceptível entre o veículo se mover e o app mostrar isso na tela.
+    }, tratarErroGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+}
+
+function iniciarRastreioGps() {
+    try {
+        if (isNative) { iniciarRastreioNativoBackground(); } else { iniciarRastreioWeb(); }
+    } catch (erro) {
+        console.error(erro);
+        mostrarAvisoGps("⚠️ Erro ao iniciar o GPS nativo: " + (erro && erro.message ? erro.message : erro) + " — usando GPS padrão do navegador.");
+        atualizarBarraBackground("", false);
+        iniciarRastreioWeb();
+    }
+}
+iniciarRastreioGps();
+
+var ultimaBuscaTempTs = 0; var buscandoTemp = false;
+function talvezBuscarTemperatura(lat, lon) {
+    var agora = Date.now(); if (buscandoTemp || (agora - ultimaBuscaTempTs) < 300000) return;
+    buscandoTemp = true; ultimaBuscaTempTs = agora;
+    fetchComTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature&temperature_unit=celsius&timezone=auto`, {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json()).then(data => {
+            if (data && data.current && typeof data.current.temperature_2m === "number") {
+                var sensacao = typeof data.current.apparent_temperature === "number" ? ` (sensação ${data.current.apparent_temperature.toFixed(1)}°C)` : "";
+                document.getElementById('txtTemperatura').textContent = data.current.temperature_2m.toFixed(1) + " °C" + sensacao;
+            }
+        }).catch(e => console.warn(e)).finally(() => { buscandoTemp = false; });
+}
+
+function aplicarEnderecoNoPonto(lat, lon, rua, bairro, cidade, estado, dadosResposta, velocidadeNoMomento, statusNoMomento, tsNoMomento, precisaoNoMomento, numero) {
+    var tipoVia = classificarVia(rua, dadosResposta);
+    var ruaComNumero = (rua && numero) ? (rua + ", " + numero) : rua;
+
+    if (tipoVia === "rodovia") {
+        var kmExibicao = viaState.kmSincronizado !== null && viaState.tipo === 'rodovia' && viaState.nome === rua ? viaState.kmSincronizado : "—";
+        document.getElementById('txtRua').textContent = rua + " (rodovia) - Km " + kmExibicao;
+        document.getElementById('txtBairro').textContent = valorOuTraco(bairro, "Bairro não localizado");
+    } else {
+        document.getElementById('txtRua').textContent = ruaComNumero;
+        document.getElementById('txtBairro').textContent = valorOuTraco(bairro, "Bairro não localizado");
+    }
+    document.getElementById('txtCidade').textContent = cidade;
+    document.getElementById('txtEstado').textContent = estado;
+
+    var mudouDeVia = (viaState.tipo !== tipoVia) || (viaState.nome !== rua);
+
+    var velNoMomentoNum = velocidadeNoMomento != null ? velocidadeNoMomento : 0;
+    var tsEfetivo = tsNoMomento || Date.now();
+    var pareceRuidoDeGps = mudouDeVia && rua === viaAnterior && velNoMomentoNum < 15 && ultimoRegistroViaTs && (tsEfetivo - ultimoRegistroViaTs) < 15000;
+
+    if (pareceRuidoDeGps) {
+        salvarTudo();
+        sincronizarTempoRealImediato();
+    } else if (mudouDeVia && tipoVia === "rodovia" && !atualizandoKmRodovia) {
+        atualizandoKmRodovia = true;
+        buscarKmOficial(lat, lon).then(function(kmOficial) {
+            var kmFinal = (kmOficial !== null) ? Math.round(kmOficial) : null;
+            var fonte = (kmOficial !== null) ? 'oficial' : 'desconhecido';
+            viaAnterior = viaState.nome;
+            var limiteTagRodovia = extrairLimiteVelocidadeTag(dadosResposta && dadosResposta.extratags);
+            viaState = { tipo: 'rodovia', nome: rua, kmBase: kmFinal != null ? kmFinal : 0, odometroM: 0, kmSincronizado: kmFinal, limiteVelocidade: limiteTagRodovia || LIMITE_VELOCIDADE };
+            salvarViaState();
+            atualizandoKmRodovia = false;
+            ultimoRegistroViaTs = tsNoMomento || Date.now();
+
+            var agora = tsNoMomento ? new Date(tsNoMomento) : new Date();
+            var velAtual = velocidadeNoMomento != null ? velocidadeNoMomento : (ultimaLeituraCompleta ? ultimaLeituraCompleta.velocidade : 0);
+            var statusAtual = statusNoMomento || (ultimaLeituraCompleta ? ultimaLeituraCompleta.status : "PARADO");
+            registrarESincronizarPonto(lat, lon, statusAtual, velAtual, precisaoNoMomento != null ? precisaoNoMomento : null, agora, { rua: rua, bairro: bairro, cidade: cidade, estado: estado, tipoVia: "rodovia", km: kmFinal, fonteKm: fonte }, "entrada_rodovia");
+        }).catch(function() { atualizandoKmRodovia = false; });
+    } else if (mudouDeVia) {
+        viaAnterior = viaState.nome;
+        var limiteTagRua = extrairLimiteVelocidadeTag(dadosResposta && dadosResposta.extratags);
+        viaState = { tipo: 'rua', nome: rua, kmBase: 0, odometroM: 0, kmSincronizado: null, limiteVelocidade: limiteTagRua || 30 };
+        salvarViaState();
+        ultimoRegistroViaTs = tsNoMomento || Date.now();
+
+        var agora2 = tsNoMomento ? new Date(tsNoMomento) : new Date();
+        var velAtual2 = velocidadeNoMomento != null ? velocidadeNoMomento : (ultimaLeituraCompleta ? ultimaLeituraCompleta.velocidade : 0);
+        var statusAtual2 = statusNoMomento || (ultimaLeituraCompleta ? ultimaLeituraCompleta.status : "PARADO");
+        registrarESincronizarPonto(lat, lon, statusAtual2, velAtual2, precisaoNoMomento != null ? precisaoNoMomento : null, agora2, { rua: ruaComNumero, bairro: bairro, cidade: cidade, estado: estado, tipoVia: "rua" }, "troca_rua");
+    } else {
+        salvarTudo();
+        sincronizarTempoRealImediato();
+    }
+}
+
+var IDADE_MAXIMA_FILA_ENDERECO_MS = 45000;
+var TAMANHO_MAXIMO_FILA_ENDERECO = 8;
+
+function podarFilaGeocodificacao() {
+    var agora = Date.now();
+    var tamanhoAntes = filaGeocodificarDepois.length;
+    filaGeocodificarDepois = filaGeocodificarDepois.filter(function(p) {
+        return (agora - p.ts) <= IDADE_MAXIMA_FILA_ENDERECO_MS;
+    });
+    if (filaGeocodificarDepois.length > TAMANHO_MAXIMO_FILA_ENDERECO) {
+        filaGeocodificarDepois.splice(0, filaGeocodificarDepois.length - TAMANHO_MAXIMO_FILA_ENDERECO);
+    }
+    if (filaGeocodificarDepois.length !== tamanhoAntes) salvarTudo();
+}
+
+function bairroDoEndereco(addr) {
+    return addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.city_district || null;
+}
+function cidadeDoEndereco(addr) {
+    return addr.city || addr.town || addr.village || addr.municipality || addr.county || null;
+}
+
+function buscarEnderecoImediato(lat, lon) {
+    return fetchComTimeout(montarUrlGeocodificacao(lat, lon), {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json())
+        .then(data => {
+            var addr = data.address || {};
+            var rua = addr.road || addr.pedestrian || null;
+            return {
+                rua: rua,
+                numero: addr.house_number || null,
+                bairro: bairroDoEndereco(addr),
+                cidade: cidadeDoEndereco(addr),
+                estado: addr.state || null,
+                tipoVia: classificarVia(rua || "", data)
+            };
+        })
+        .catch(function() { return null; });
+}
+
+var geocodificando = false;
+function processarFilaGeocodificacao() {
+    if (appSuspenso) return;
+    podarFilaGeocodificacao();
+    if (geocodificando || filaGeocodificarDepois.length === 0) return;
+    geocodificando = true; atualizarInterfaceEstado();
+    var ponto = filaGeocodificarDepois[filaGeocodificarDepois.length - 1];
+
+    fetchComTimeout(montarUrlGeocodificacao(ponto.lat, ponto.lon), {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json()).then(data => {
+            var addr = data.address || {};
+            var rua = addr.road || addr.pedestrian || "Rua não localizada";
+            var numero = addr.house_number || null;
+            var bairro = bairroDoEndereco(addr) || "Bairro não localizado";
+            var cidade = cidadeDoEndereco(addr) || "Cidade não localizada";
+            var estado = addr.state || "Estado não localizado";
+            aplicarEnderecoNoPonto(ponto.lat, ponto.lon, rua, bairro, cidade, estado, data, ponto.velocidadeNoMomento, ponto.statusNoMomento, ponto.ts, ponto.precisaoNoMomento, numero);
+            filaGeocodificarDepois.pop();
+        }).catch(err => {
+            ponto.tentativas = (ponto.tentativas || 0) + 1;
+            if (ponto.tentativas >= MAX_TENTATIVAS_GEOCODIFICACAO) filaGeocodificarDepois.pop();
+        }).finally(() => {
+            geocodificando = false; salvarTudo(); atualizarInterfaceEstado();
+            if (filaGeocodificarDepois.length > 0) setTimeout(processarFilaGeocodificacao, INTERVALO_GEOCODIFICACAO_MS);
+        });
+}
+
+var enviando = false; var falhasConsecutivasLote = 0;
+var ultimoAvisoErroEnvioTs = 0;
+var MAX_FILA_PENDENTES = 300;
+// CORREÇÃO (segundo plano travando a fila pra sempre): se o fetch/SDK do Firebase ficar
+// "pendurado" (nunca chama nem sucesso nem erro — algo que pode acontecer quando o Android
+// suspende a rede da WebView com a tela apagada), a trava "enviando" ficava true pra
+// sempre, e TODA a fila parava de ser enviada — mesmo depois da tela voltar a ligar,
+// porque nada nunca chamava o .finally() que destrava. Este relógio guarda quando o envio
+// atual começou, pra o vigia abaixo poder destravar à força se isso acontecer.
+var ultimaVezQueComecouEnvio = null;
+function enviarDadosFila() {
+    if (appSuspenso) return;
+    if (!EMPRESA_ID) return;
+    if (enviando || filaPendentes.length === 0) { atualizarInterfaceEstado(); return; }
+    if (filaPendentes.length > MAX_FILA_PENDENTES) {
+        filaPendentes.splice(0, filaPendentes.length - MAX_FILA_PENDENTES);
+        salvarTudo();
+    }
+    enviando = true; ultimaVezQueComecouEnvio = Date.now(); var lote = filaPendentes.slice(0, 25); var updates = {};
+    try {
+        lote.forEach(item => {
+            var basePath = 'empresas/' + sanitizarChavePath(item.empresaId || EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(item.vID) + '/historico/' + item.id;
+            updates[basePath] = item;
+        });
+        comLimiteDeTempo(enviarAtualizacoesFirebase(updates), 18000).then(() => {
+            filaPendentes.splice(0, lote.length); falhasConsecutivasLote = 0; firebaseOnlineConfirmado = true; salvarTudo();
+        }).catch(e => {
+            falhasConsecutivasLote++; if (falhasConsecutivasLote >= 20) { filaPendentes.shift(); falhasConsecutivasLote = 0; salvarTudo(); }
+            var agora = Date.now();
+            if (e && e.message === "tempo esgotado") { forcarReconexaoFirebaseSeTravado(); }
+            var empresaIdsDoLote = Array.from(new Set(lote.map(function(it) { return it.empresaId || EMPRESA_ID; })));
+            var msgErro2 = "Firebase recusou salvar os dados: " + (e && e.message ? e.message : e) + " [empresaId do(s) item(ns) que falharam: " + empresaIdsDoLote.join(", ") + " | empresaId atual do campo: " + EMPRESA_ID + ", logado: " + (auth.currentUser ? auth.currentUser.email : "NÃO") + "]";
+            mostrarErroSyncPersistente(msgErro2);
+            if (agora - ultimoAvisoErroEnvioTs > 60000) {
+                ultimoAvisoErroEnvioTs = agora;
+                mostrarAvisoGps("⚠️ " + msgErro2);
+            }
+        }).finally(() => {
+            enviando = false; ultimaVezQueComecouEnvio = null; atualizarInterfaceEstado();
+            if (filaPendentes.length > 0 && !appSuspenso) {
+                var esperaMs = Math.min(30000, 1000 * Math.pow(2, Math.min(falhasConsecutivasLote, 5)));
+                setTimeout(enviarDadosFila, falhasConsecutivasLote > 0 ? esperaMs : 0);
+            }
+        });
+    } catch (e) { filaPendentes.shift(); enviando = false; ultimaVezQueComecouEnvio = null; atualizarInterfaceEstado(); }
+}
+
+// VIGIA: se o envio ficar "pendurado" (nem sucesso, nem erro) por mais de 25s — o que só
+// deveria acontecer se até o timeout interno de 18s (comLimiteDeTempo) falhar em disparar
+// — destrava à força e tenta de novo. Roda a cada 10s. É a rede de segurança final contra
+// a fila travar pra sempre em segundo plano.
+setInterval(function() {
+    if (enviando && ultimaVezQueComecouEnvio && (Date.now() - ultimaVezQueComecouEnvio) > 25000) {
+        console.warn("Envio da fila travado há mais de 25s — destravando e tentando de novo.");
+        enviando = false;
+        ultimaVezQueComecouEnvio = null;
+        forcarReconexaoFirebaseSeTravado();
+        mostrarErroSyncPersistente("⏱️ Envio ficou travado por mais de 25s (comum quando a tela fica muito tempo apagada) — destravado automaticamente e tentando de novo.");
+        enviarDadosFila();
+    }
+}, 10000);
+
+function atualizarInterfaceEstado() {
+    var barra = document.getElementById('statusConexao'); var totalPendente = filaPendentes.length + filaGeocodificarDepois.length;
+    if (!EMPRESA_ID) {
+        barra.className = "status-bar status-offline"; barra.innerHTML = "⚠️ Configure o ID da empresa acima pra começar";
+    } else if (appSuspenso) {
+        barra.className = "status-bar status-erro"; barra.innerHTML = "🚫 CONTA SUSPENSA — Sincronização pausada";
+    } else if (listaVeiculos.length === 0) {
+        barra.className = "status-bar status-offline"; barra.innerHTML = "MODO OFFLINE — Adicione um Veículo";
+    } else if (firebaseOnlineConfirmado && totalPendente === 0) {
+        barra.className = "status-bar status-online"; barra.innerHTML = "📡 SISTEMA ONLINE — Sincronizado!";
+    } else if (firebaseOnlineConfirmado) {
+        barra.className = "status-bar status-online"; barra.innerHTML = `📡 ONLINE — Sincronizando... <span>(${totalPendente} pendentes)</span>`;
+    } else {
+        barra.className = "status-bar status-offline"; barra.innerHTML = `MODO OFFLINE <span>(${totalPendente} pendentes)</span>`;
+    }
+    document.getElementById('filaInfo').textContent = registroCompleto.length + " pontos gravados localmente (" + filaPendentes.length + " no Firebase)";
+
+    var pill = document.getElementById('pillConta'); var pillTxt = document.getElementById('pillContaTexto');
+    if (pill && pillTxt) {
+        if (!EMPRESA_ID) { pill.className = "conta-pill"; pillTxt.textContent = "sem empresa"; }
+        else if (appSuspenso) { pill.className = "conta-pill"; pillTxt.textContent = "suspensa"; }
+        else if (firebaseOnlineConfirmado) { pill.className = "conta-pill ativa"; pillTxt.textContent = EMPRESA_ID; }
+        else { pill.className = "conta-pill"; pillTxt.textContent = EMPRESA_ID + " · offline"; }
+    }
+}
+
+window.addEventListener('online', function() { firebaseOnlineConfirmado = true; atualizarInterfaceEstado(); processarFilaGeocodificacao(); enviarDadosFila(); });
+window.addEventListener('offline', function() { firebaseOnlineConfirmado = false; atualizarInterfaceEstado(); });
+
+document.getElementById('btnForcar').addEventListener('click', function() {
+    if (appSuspenso) { alert("Conta suspensa por falta de pagamento. Entre em contato com o suporte."); return; }
+    geocodificando = false;
+    enviando = false;
+    processarFilaGeocodificacao();
+    enviarDadosFila();
+    sincronizarTempoRealImediato();
+});
+
+document.getElementById('btnExportar').addEventListener('click', async function() {
+    if (registroCompleto.length === 0) return alert("Sem pontos.");
+    var lines = ["Data;Hora;Latitude;Longitude;Velocidade(km/h);Situacao;Rua;Bairro;Cidade;Estado;Motivo;FonteKm;LimiteVia;ExcessoKmh"];
+    registroCompleto.forEach(p => { lines.push([p.data, p.hora, p.lat, p.lon, p.velocidade, p.status, p.rua, p.bairro, p.cidade, p.estado, p.motivo || "", p.fonteKm || "", p.limiteVia != null ? p.limiteVia : "", p.excessoKmh != null ? p.excessoKmh : ""].join(";")); });
+    var conteudoCsv = lines.join("\n");
+    var nomeArquivo = "rota_real_" + new Date().toISOString().slice(0,10) + ".csv";
+    var out = document.getElementById('diagnosticoResultado');
+
+    try {
+        if (isNative && window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share) {
+            var Filesystem = window.Capacitor.Plugins.Filesystem;
+            var Share = window.Capacitor.Plugins.Share;
+            var resultado = await Filesystem.writeFile({
+                path: nomeArquivo,
+                data: conteudoCsv,
+                directory: 'CACHE',
+                encoding: 'utf8'
+            });
+            await Share.share({ title: "Rota exportada", url: resultado.uri });
+            out.textContent = "✅ Exportado e compartilhado com sucesso.";
+            return;
+        }
+    } catch (e) {
+        console.warn(e);
+        out.textContent = "⚠️ Falha ao exportar via plugin nativo: " + (e && e.message ? e.message : e) + " — tentando alternativa...";
+    }
+    try {
+        var arquivo = new File([conteudoCsv], nomeArquivo, { type: "text/csv" });
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+            await navigator.share({ files: [arquivo], title: "Rota exportada - " + nomeArquivo });
+            out.textContent = "✅ Compartilhado com sucesso.";
+            return;
+        }
+    } catch (e2) { console.warn(e2); }
+    var blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob); var a = document.createElement("a"); a.href = url; a.download = nomeArquivo; a.click(); URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnDiagnostico').addEventListener('click', function() {
+    var out = document.getElementById('diagnosticoResultado'); out.textContent = "Testando...";
+    fetchComTimeout(montarUrlGeocodificacao(-29.6133, -52.1919), {}, 10000)
+        .then(res => res.text()).then(txt => { out.textContent = "✅ SUCESSO\n\n" + txt.slice(0, 300); }).catch(e => { out.textContent = "❌ ERRO: " + e.message; });
+});
+
+renderizarFrotaLocal(); atualizarInterfaceEstado(); checarContextoSeguro();
+desenharRotaPlanejadaNoMapa(); exibirInfoRotaPlanejadaNaTela(); sincronizarRotaPlanejadaFirebase();
+
+setInterval(function() { sincronizarTempoRealImediato(); }, 3000);
+setInterval(function() { if (filaGeocodificarDepois.length > 0) processarFilaGeocodificacao(); if (filaPendentes.length > 0) enviarDadosFila(); }, 6000);
+
+var ultimoPulsoTs = 0;
+var INTERVALO_PULSO_MS = 15000;
+setInterval(function() {
+    if (appSuspenso) return;
+    if (!ultimaLeituraCompleta || listaVeiculos.length === 0) return;
+    var agoraPulso = new Date();
+    if (agoraPulso.getTime() - ultimoPulsoTs < INTERVALO_PULSO_MS) return;
+    ultimoPulsoTs = agoraPulso.getTime();
+
+    // CORREÇÃO: enquanto o veículo já está PARADO e o ponto de início dessa mesma parada já
+    // foi gravado (ultimoIdPontoParadaGravado), o pulso não cria mais um ponto novo a cada
+    // 15s — isso é o que fazia uma única parada longa aparecer como várias "setas de parada"
+    // separadas no histórico/painel admin. O tempo de parada continua sendo atualizado
+    // normalmente no MESMO ponto original pelo patch que já roda a cada 30s, então nada é
+    // perdido — só para de duplicar pontos. O pulso continua gravando normalmente quando o
+    // veículo está em movimento (pra manter o traçado da rota), e volta a criar um ponto novo
+    // de parada assim que houver movimento real entre uma parada e outra.
+    if (ultimaLeituraCompleta.status === "PARADO" && ultimoIdPontoParadaGravado) {
+        return;
+    }
+
+    // CORREÇÃO: aqui o "rua" era lido de volta do texto já exibido na tela
+    // (document.getElementById('txtRua').textContent) — só que, em rodovia, esse texto já
+    // vem com o sufixo " - Km X" colado (é só pra exibição). Como esse valor era reenviado
+    // pra registrarESincronizarPonto, que TAMBÉM cola " - Km X" no final quando é rodovia,
+    // cada pulso (a cada 15s) duplicava o sufixo em cima do que já estava duplicado —
+    // depois de alguns pulsos virava "RSC-287 - Km 78 - Km 78 - Km 78 - Km 78...".  Agora
+    // usa viaState.nome (o nome puro da via, sem nenhum sufixo) como fonte — igual todo
+    // outro lugar do código já fazia — e deixa registrarESincronizarPonto colar o "- Km X"
+    // uma única vez, na hora certa.
+    registrarESincronizarPonto(
+        ultimaLeituraCompleta.lat, ultimaLeituraCompleta.lon, ultimaLeituraCompleta.status,
+        ultimaLeituraCompleta.velocidade, ultimaLeituraCompleta.precisao, agoraPulso,
+        {
+            rua: (viaState.tipo === 'rodovia') ? viaState.nome : document.getElementById('txtRua').textContent,
+            bairro: document.getElementById('txtBairro').textContent,
+            cidade: document.getElementById('txtCidade').textContent,
+            estado: document.getElementById('txtEstado').textContent,
+            tipoVia: viaState.tipo || 'rua', km: viaState.kmSincronizado
+        }, 'pulso'
+    );
+}, 15000);
+</script>
+</body>
+          </html>
