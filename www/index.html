@@ -238,6 +238,8 @@
 
 <div id="map"></div>
 
+<audio id="evManterAtivo" loop playsinline style="display:none"></audio>
+
 <div class="container">
     <div id="avisoGps" class="gps-warning"></div>
     <div id="ultimoErroSync" style="display:none; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,.35); color: var(--danger); padding: 11px 13px; border-radius: 8px; font-size: 0.78em; white-space:pre-wrap; word-break:break-word;"></div>
@@ -413,15 +415,46 @@ function atualizarViaRestApi(updates) {
 // no app nativo, tenta primeiro a via REST (rede nativa, via CapacitorHttp) e só cai pro
 // SDK do Firebase se a REST falhar; no navegador comum (sem Capacitor), usa direto o SDK.
 // Assim os pontos continuam sendo gravados mesmo com a tela apagada/app em 2º plano.
-function enviarAtualizacoesFirebase(updates) {
+//
+// CORREÇÃO (retry com token novo): antes, se a REST falhasse (ex: token expirado /
+// PERMISSION_DENIED momentâneo), a função já caía direto pro SDK do Firebase na primeira
+// falha — que é justamente o caminho que trava em segundo plano. Agora, antes de desistir
+// da via REST, ela tenta de novo pegando um token de autenticação FORÇADAMENTE renovado
+// (getIdToken(true)), até 3 tentativas no total, com uma pequena espera entre elas. Só cai
+// pro SDK do Firebase depois que a 3ª tentativa via REST também falhar.
+function enviarAtualizacoesFirebase(updates, tentativa) {
+    tentativa = tentativa || 1;
     if (isNative && auth.currentUser) {
-        return atualizarViaRestApi(updates).catch(function(erroRest) {
-            console.warn("Envio via REST nativo falhou, tentando pelo SDK do Firebase:", erroRest);
-            return db.ref().update(updates);
+        var pedido = (tentativa >= 2)
+            ? auth.currentUser.getIdToken(true).then(function() { return atualizarViaRestApi(updates); })
+            : atualizarViaRestApi(updates);
+        return pedido.catch(function(erroRest) {
+            console.warn("Envio via REST nativo falhou (tentativa " + tentativa + "):", erroRest);
+            if (tentativa < 3) {
+                return new Promise(function (resolve) { setTimeout(resolve, 1500); })
+                    .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
+            }
+            return db.ref().update(updates);   // último recurso, só depois de 3 tentativas pela via direta
         });
     }
     return db.ref().update(updates);
 }
+
+// ===================== MANTER APP ATIVO (áudio silencioso em loop) =====================
+// Truque comum em apps de rastreamento/navegação: tocar um áudio silencioso em loop faz o
+// Android tratar a aba/app como estando "reproduzindo mídia", o que reduz a chance do
+// sistema suspender a WebView/JS enquanto a tela está apagada ou o app está em segundo
+// plano. Não substitui o plugin nativo de rastreio em segundo plano (BackgroundGeolocation)
+// quando ele existe — é só uma camada extra de proteção, principalmente útil no modo web
+// (sem plugin nativo) ou como reforço quando o plugin existe mas o aparelho é agressivo
+// com otimização de bateria.
+(function () {
+    var au = document.getElementById('evManterAtivo');
+    if (!au) return;
+    au.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+    au.volume = 0.01;
+    window.evManterAppAtivo = function () { au.play().catch(function () {}); };
+})();
 
 // ===================== ROTA PLANEJADA (motorista digita um destino, tipo Waze) =====================
 // O motorista digita um endereço, o app geocodifica (Nominatim), pede o trajeto pro OSRM
@@ -1902,6 +1935,7 @@ function iniciarRastreioGps() {
     }
 }
 iniciarRastreioGps();
+if (window.evManterAppAtivo) window.evManterAppAtivo();
 
 var ultimaBuscaTempTs = 0; var buscandoTemp = false;
 function talvezBuscarTemperatura(lat, lon) {
@@ -2235,4 +2269,4 @@ setInterval(function() {
 }, 15000);
 </script>
 </body>
-          </html>
+</html>
