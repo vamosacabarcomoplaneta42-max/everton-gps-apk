@@ -1479,7 +1479,14 @@ function registrarESincronizarPonto(lat, lon, situacao, velKmh, precisao, agora,
 
     var registro = {
         id: idPonto, lat: lat, lon: lon, velocidade: (situacao === "PARADO" ? 0 : velKmh), status: situacao,
-        tempoParado: document.getElementById('txtTempoParado').textContent,
+        // CORREÇÃO: antes lia o texto exibido em tela (#txtTempoParado) no momento da
+        // gravação. Normalmente esse texto já estava certo, mas em leituras que chegam em
+        // lote (comum quando o app volta de um período congelado em segundo plano) o texto
+        // podia ainda não ter sido atualizado para o status novo — gerando um registro
+        // contraditório no painel, tipo "33 km/h · VELOCIDADE ACIMA DO LIMITE" junto com
+        // "parado há 5min". Agora, fora do status PARADO, o tempo parado é sempre zerado
+        // na hora de montar o registro, não importa o que a tela estava mostrando.
+        tempoParado: situacao === "PARADO" ? document.getElementById('txtTempoParado').textContent : "00:00:00",
         hora: agora.toLocaleTimeString('pt-BR'), data: agora.toLocaleDateString('pt-BR'),
         precisao: precisao || null,
         precisaoBaixa: !!(precisao && precisao > PRECISAO_MAXIMA_ACEITAVEL_M),
@@ -1591,7 +1598,15 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
 
     if (estaEmMovimento) {
         var aindaPertoDoUltimoLocalParado = coordenadaParadaFixa && distanciaDoCentroDaParada <= RAIO_FALSO_MOVIMENTO_METROS;
-        var ehExcessoDeVerdade = vel > limiteVelocidadeAtual && !aindaPertoDoUltimoLocalParado;
+        // CORREÇÃO: um reflexo de sinal perto de prédios (comum no Centro) pode gerar, numa
+        // única leitura, tanto uma velocidade calculada alta quanto um "salto" de posição
+        // grande o bastante pra escapar do raio de 50m acima — as duas coisas de uma vez,
+        // sem o veículo ter se movido de verdade. Como toda leitura de GPS vem com uma
+        // precisão estimada, exige-se agora que ela esteja dentro do aceitável para contar
+        // como excesso de verdade; sem isso, uma leitura ruim é tratada como "em movimento"
+        // (sem alarme de velocidade nem gravação imediata) até a precisão melhorar.
+        var precisaoBoaParaExcesso = precisao == null || precisao <= PRECISAO_MAXIMA_ACEITAVEL_M;
+        var ehExcessoDeVerdade = vel > limiteVelocidadeAtual && !aindaPertoDoUltimoLocalParado && precisaoBoaParaExcesso;
         situacao = ehExcessoDeVerdade ? "VELOCIDADE ACIMA DO LIMITE" : "EM MOVIMENTO";
         badgeStatus.textContent = ehExcessoDeVerdade
             ? situacao + " (" + vel + " km/h, via de " + limiteVelocidadeAtual + " km/h)"
@@ -1671,14 +1686,20 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
                 }
                 buscarEnderecoImediato(latConsulta, lonConsulta).then(function(fresco) {
                     if (inicioParadaTs !== inicioParadaTsNoMomento) { return; }
-                    var ruaBase = (fresco && fresco.rua) || viaState.nome || null;
-                    var ruaFinal = (fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                    // CORREÇÃO: com GPS de baixa precisão (comum perto de prédios, no
+                    // Centro), a coordenada consultada pode estar dezenas de metros errada
+                    // — e o endereço buscado nessa coordenada sai errado junto, mesmo que a
+                    // rua em si esteja certa fisicamente. Com precisão ruim, mantém a última
+                    // via conhecida (viaState.nome) em vez de confiar no endereço novo.
+                    var precisaoOk = precisaoP == null || precisaoP <= PRECISAO_MAXIMA_ACEITAVEL_M;
+                    var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
+                    var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
                     registrarESincronizarPonto(latP, lonP, situacaoP, velP, precisaoP, agoraP, {
                         rua: ruaFinal,
-                        bairro: (fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
-                        cidade: (fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
-                        estado: (fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
-                        tipoVia: (fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                        bairro: (precisaoOk && fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                        cidade: (precisaoOk && fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                        estado: (precisaoOk && fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                        tipoVia: (precisaoOk && fresco && fresco.tipoVia) || viaState.tipo || 'rua',
                         km: viaState.kmSincronizado
                     }, 'inicio_parada');
                 });
@@ -1687,14 +1708,18 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
     } else if (iniciouExcessoAgora) {
         (function(latE, lonE, situacaoE, velE, precisaoE, agoraE, limiteViaNoMomento) {
             buscarEnderecoImediato(latE, lonE).then(function(fresco) {
-                var ruaBase = (fresco && fresco.rua) || viaState.nome || null;
-                var ruaFinal = (fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                // Mesma proteção do início de parada: um endereço buscado com GPS impreciso
+                // pode sair errado, e é justamente numa leitura ruim que uma velocidade
+                // falsa (reflexo de sinal perto de prédios) tem mais chance de aparecer.
+                var precisaoOk = precisaoE == null || precisaoE <= PRECISAO_MAXIMA_ACEITAVEL_M;
+                var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
+                var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
                 registrarESincronizarPonto(latE, lonE, situacaoE, velE, precisaoE, agoraE, {
                     rua: ruaFinal,
-                    bairro: (fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
-                    cidade: (fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
-                    estado: (fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
-                    tipoVia: (fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                    bairro: (precisaoOk && fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                    cidade: (precisaoOk && fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                    estado: (precisaoOk && fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                    tipoVia: (precisaoOk && fresco && fresco.tipoVia) || viaState.tipo || 'rua',
                     km: viaState.kmSincronizado,
                     limiteVia: limiteViaNoMomento
                 }, 'excesso_velocidade');
