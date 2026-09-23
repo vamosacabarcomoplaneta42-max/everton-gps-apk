@@ -424,7 +424,12 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
                 return new Promise(function (resolve) { setTimeout(resolve, 800); })
                     .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
             }
-            return db.ref().update(updates);   // último recurso, só depois de 3 tentativas pela via direta
+            // Último recurso, só depois de 3 tentativas pela via direta. Antes esta chamada
+            // (SDK do Firebase) não tinha limite de tempo — podia travar por minutos em
+            // segundo plano, só sendo destravada pelo vigia de 25s (ver setInterval mais
+            // abaixo). Agora ela também tem um teto de 8s: se travar, falha rápido e cai no
+            // reenvio normal da fila, em vez de ficar presa.
+            return comLimiteDeTempo(db.ref().update(updates), 8000);
         });
     }
     return db.ref().update(updates);
