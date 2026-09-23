@@ -392,13 +392,13 @@ var auth = firebase.auth();
 // limitação.
 function atualizarViaRestApi(updates, tokenForcarNovo) {
     if (!auth.currentUser) return Promise.reject(new Error("sem usuário logado"));
-    return auth.currentUser.getIdToken(!!tokenForcarNovo).then(function(token) {
+    return comLimiteDeTempo(auth.currentUser.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
         var url = firebaseConfig.databaseURL + "/.json?auth=" + encodeURIComponent(token);
         return fetchComTimeout(url, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updates)
-        }, 18000).then(function(res) {
+        }, 6000).then(function(res) {
             if (!res.ok) return res.text().then(function(t){ throw new Error("HTTP " + res.status + ": " + t); });
             return res.json();
         });
@@ -416,12 +416,12 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
     tentativa = tentativa || 1;
     if (isNative && auth.currentUser) {
         var pedido = (tentativa >= 2)
-            ? auth.currentUser.getIdToken(true).then(function() { return atualizarViaRestApi(updates); })
+            ? comLimiteDeTempo(auth.currentUser.getIdToken(true), 6000).then(function() { return atualizarViaRestApi(updates); })
             : atualizarViaRestApi(updates);
         return pedido.catch(function(erroRest) {
             console.warn("Envio via REST nativo falhou (tentativa " + tentativa + "):", erroRest);
             if (tentativa < 3) {
-                return new Promise(function (resolve) { setTimeout(resolve, 1500); })
+                return new Promise(function (resolve) { setTimeout(resolve, 800); })
                     .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
             }
             return db.ref().update(updates);   // último recurso, só depois de 3 tentativas pela via direta
@@ -1754,7 +1754,7 @@ function sincronizarTempoRealImediato() {
         updates[basePath + 'cidade'] = document.getElementById('txtCidade').textContent;
         updates[basePath + 'estado'] = document.getElementById('txtEstado').textContent;
     });
-    comLimiteDeTempo(enviarAtualizacoesFirebase(updates), 18000).then(() => {
+    enviarAtualizacoesFirebase(updates).then(() => {
         if(!firebaseOnlineConfirmado) { firebaseOnlineConfirmado = true; atualizarInterfaceEstado(); }
     }).catch(e => {
         console.warn(e);
@@ -2000,7 +2000,7 @@ function enviarDadosFila() {
             var basePath = 'empresas/' + sanitizarChavePath(item.empresaId || EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(item.vID) + '/historico/' + item.id;
             updates[basePath] = item;
         });
-        comLimiteDeTempo(enviarAtualizacoesFirebase(updates), 18000).then(() => {
+        enviarAtualizacoesFirebase(updates).then(() => {
             filaPendentes.splice(0, lote.length); falhasConsecutivasLote = 0; firebaseOnlineConfirmado = true; salvarTudo();
         }).catch(e => {
             falhasConsecutivasLote++; if (falhasConsecutivasLote >= 20) { filaPendentes.shift(); falhasConsecutivasLote = 0; salvarTudo(); }
