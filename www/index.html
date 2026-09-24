@@ -392,12 +392,6 @@ var db = firebase.database();
 var auth = firebase.auth();
 
 // ===================== ENVIO VIA REST (nativo, via CapacitorHttp) =====================
-// O SDK do Firebase (db.ref().update(...)) manda os dados pela rede da WebView, que o
-// Android pode suspender/represar quando o app fica muito tempo em segundo plano ou a tela
-// apaga — mesmo com a conexão do Firebase forçada a reconectar. Esta função manda os
-// mesmos dados via fetch, com o CapacitorHttp habilitado (ver capacitor.config.json), que
-// faz a requisição pela camada NATIVA do Android em vez da WebView, contornando essa
-// limitação.
 function atualizarViaRestApi(updates, tokenForcarNovo) {
     if (!auth.currentUser) return Promise.reject(new Error("sem usuário logado"));
     return comLimiteDeTempo(auth.currentUser.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
@@ -413,13 +407,6 @@ function atualizarViaRestApi(updates, tokenForcarNovo) {
     });
 }
 
-// CORREÇÃO (segundo plano travando após ~30 min): depois de um tempo com a tela apagada, o
-// token de autenticação pode ficar velho (o relógio que o renova sozinho fica pausado pelo
-// Android) e/ou a conexão em tempo real do Firebase trava esperando resposta. Antes, uma
-// falha na via REST caía direto para o SDK do Firebase (db.ref().update), que é o caminho
-// mais sujeito a travar em segundo plano. Agora insiste pela via REST, pedindo um token
-// NOVO a partir da 2ª tentativa, e só usa o SDK do Firebase como último recurso, depois de
-// 3 tentativas.
 function enviarAtualizacoesFirebase(updates, tentativa) {
     tentativa = tentativa || 1;
     if (isNative && auth.currentUser) {
@@ -432,11 +419,6 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
                 return new Promise(function (resolve) { setTimeout(resolve, 800); })
                     .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
             }
-            // Último recurso, só depois de 3 tentativas pela via direta. Antes esta chamada
-            // (SDK do Firebase) não tinha limite de tempo — podia travar por minutos em
-            // segundo plano, só sendo destravada pelo vigia de 25s (ver setInterval mais
-            // abaixo). Agora ela também tem um teto de 8s: se travar, falha rápido e cai no
-            // reenvio normal da fila, em vez de ficar presa.
             return comLimiteDeTempo(db.ref().update(updates), 8000);
         });
     }
@@ -444,11 +426,6 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
 }
 
 // ===================== ROTA PLANEJADA (motorista digita um destino, tipo Waze) =====================
-// O motorista digita um endereço, o app geocodifica (Nominatim), pede o trajeto pro OSRM
-// (mesmo serviço de rotas público que o admin já usava) e desenha uma linha tracejada até
-// lá. Essa rota é só uma referência visual pro motorista — o app continua gravando o
-// trajeto REAL percorrido (linha verde sólida) normalmente, sem nenhuma mudança nisso. A
-// rota planejada também é sincronizada com o Firebase pra aparecer no painel do admin.
 var rotaPlanejadaAtual = (function() {
     var raw = localStorage.getItem('rota_planejada');
     try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
@@ -479,9 +456,6 @@ function exibirInfoRotaPlanejadaNaTela() {
     atualizarBannerProximaManobra(ultimaLeituraCompleta ? ultimaLeituraCompleta.lat : null, ultimaLeituraCompleta ? ultimaLeituraCompleta.lon : null);
 }
 
-// Uma rota longa pode vir com milhares de pontos do serviço de rotas — mais do que precisa
-// pra desenhar uma linha suave no mapa, e pesado demais pra gravar no Firebase toda vez que
-// a rota muda. Reduz pra no máximo maxPontos, mantendo sempre o primeiro e o último ponto.
 function simplificarGeometriaRota(pontos, maxPontos) {
     if (pontos.length <= maxPontos) return pontos;
     var passo = pontos.length / maxPontos;
@@ -501,10 +475,6 @@ function geocodificarEndereco(endereco) {
     });
 }
 
-// ===================== INSTRUÇÕES PASSO A PASSO (tipo Waze) =====================
-// O OSRM, com steps=true, já devolve cada manobra da rota (virar à direita, entrar na
-// rotatória, seguir em frente etc.) com o tipo/modificador em inglês — aqui a gente
-// traduz isso pra uma frase em português e um ícone de seta.
 function textoModificador(modifier) {
     switch (modifier) {
         case 'uturn': return 'faça o retorno';
@@ -566,19 +536,11 @@ function formatarDistanciaCurta(metros) {
     return Math.round(metros) + " m";
 }
 
-// ===================== RECÁLCULO AUTOMÁTICO (motorista saiu da rota) =====================
-// Se o motorista se afastar demais da linha da rota planejada (ex: perdeu uma saída, pegou
-// outro caminho), o app pede uma rota NOVA pro OSRM a partir da posição atual até o mesmo
-// destino — sem precisar cancelar e traçar de novo na mão, igual Waze/Google Maps.
 var LIMIAR_DESVIO_ROTA_M = 60;
-var CONFIRMACOES_DESVIO_NECESSARIAS = 3; // evita recalcular por causa de 1 leitura de GPS ruim isolada
+var CONFIRMACOES_DESVIO_NECESSARIAS = 3;
 var contadorConfirmacaoDesvioRota = 0;
 var recalculandoRotaPlanejada = false;
 
-// Distância aproximada (em metros) de um ponto até o segmento de reta entre A e B. Converte
-// graus em metros localmente (equirretangular) — simples e rápido o bastante pra rodar a
-// cada leitura de GPS sem pesar no celular; não precisa da precisão de trigonometria
-// esférica completa só pra decidir "o motorista está perto ou longe da rota".
 function distanciaAteSegmento(lat, lon, latA, lonA, latB, lonB) {
     var latMedia = (latA + latB) / 2 * Math.PI / 180;
     var mPorGrauLat = 111320;
@@ -603,7 +565,6 @@ function distanciaAteRotaPlanejada(lat, lon, geometria) {
 function verificarDesvioRotaPlanejada(lat, lon) {
     if (!rotaPlanejadaAtual || !rotaPlanejadaAtual.geometria || rotaPlanejadaAtual.geometria.length < 2) return;
     if (recalculandoRotaPlanejada) return;
-    // Já chegou ao destino — não faz sentido recalcular rota depois de "chegou".
     if (rotaPlanejadaAtual.passos && rotaPlanejadaAtual.passos.length && rotaPlanejadaAtual.indiceProximaManobra >= rotaPlanejadaAtual.passos.length) return;
 
     var distanciaDaRota = distanciaAteRotaPlanejada(lat, lon, rotaPlanejadaAtual.geometria);
@@ -630,7 +591,7 @@ function recalcularRotaPlanejadaAPartirDaPosicaoAtual(lat, lon) {
     var destinoLat = rotaPlanejadaAtual.destinoLat, destinoLon = rotaPlanejadaAtual.destinoLon, nomeDestino = rotaPlanejadaAtual.destino, criadoEmOriginal = rotaPlanejadaAtual.criadoEm;
 
     calcularRotaOsrm(lat, lon, destinoLat, destinoLon).then(function(rota) {
-        if (!rota) return; // se o OSRM falhar, mantém a rota antiga em vez de apagar tudo
+        if (!rota) return;
         rotaPlanejadaAtual = {
             destino: nomeDestino, destinoLat: destinoLat, destinoLon: destinoLon,
             origemLat: lat, origemLon: lon,
@@ -650,10 +611,6 @@ function recalcularRotaPlanejadaAPartirDaPosicaoAtual(lat, lon) {
     });
 }
 
-// Ao chegar perto o suficiente do ponto onde a PRÓXIMA manobra da lista acontece, avança o
-// "ponteiro" pra manobra seguinte — é isso que faz o balão de cima ir trocando sozinho
-// ("vire à direita" → "siga em frente" → ...) conforme o motorista dirige, sem precisar
-// tocar em nada.
 var LIMIAR_AVANCO_MANOBRA_M = 40;
 
 function atualizarProgressoRotaPlanejada(lat, lon) {
@@ -764,9 +721,6 @@ function calcularRotaOsrm(origemLat, origemLon, destinoLat, destinoLon) {
     });
 }
 
-// Manda a rota planejada pro Firebase, no mesmo lugar de onde o admin lê os dados de cada
-// veículo. Quando a rota é cancelada (rotaPlanejadaAtual = null), o "null" aqui apaga o nó
-// no Firebase — o admin some com a linha tracejada automaticamente.
 function sincronizarRotaPlanejadaFirebase() {
     if (!EMPRESA_ID || listaVeiculos.length === 0) return;
     var updates = {};
@@ -841,10 +795,6 @@ db.ref(".info/connected").on("value", function(snap) {
 });
 
 var LIMITE_VELOCIDADE = 80;
-// Ajustado pra um meio-termo: 30m era exigente demais pro GPS de celular em uso normal
-// (em área urbana comum, ±20-40m de precisão é frequente mesmo em boas condições), o que
-// fazia o endereço quase nunca atualizar. 45m ainda é bem mais rígido que os 60m originais
-// (reduz o risco de mostrar a rua paralela errada), sem travar tanto as atualizações.
 var PRECISAO_MAXIMA_ACEITAVEL_M = 45;
 var EMPRESA_ID = (localStorage.getItem('empresa_id') || "").trim().toLowerCase();
 document.getElementById('empresaIdInput').value = EMPRESA_ID;
@@ -857,14 +807,6 @@ function atualizarInfoEmpresaSalva() {
     atualizarVisibilidadeBoxAssinar();
 }
 
-// ===================== ASSINAR / TROCAR DE PLANO (sem pagamento automático) =====================
-// O sistema não tem cobrança automática: o cliente escolhe o plano aqui, o app manda uma
-// mensagem pronta pro WhatsApp com o ID da empresa e o plano exato escolhido, e você libera
-// manualmente no Firebase (campo 'status' e 'assinaturaExpiraEm', em empresas/{id}).
-// IMPORTANTE: ao liberar, ajuste também o campo 'tipo' para o MESMO plano escolhido aqui —
-// é o 'tipo' que trava o app em Frota ou Família (a chave de trocar de modo só aparece
-// quando 'tipo' é 'combo'). Sem ajustar o 'tipo', um cliente que testou o Combo grátis e
-// pagou só por um dos dois continua com acesso aos dois depois de você liberar o pagamento.
 var WHATSAPP_SUPORTE = "5551985803243";
 var PLANOS_ASSINATURA = [
     { id: 'frota', nome: 'Frota', preco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.' },
@@ -915,9 +857,6 @@ var refTrialEmpresa = null;
 var refAssinaturaEmpresa = null;
 var estadoEmpresaAtual = { status: null, trialExpiraEm: null, assinaturaExpiraEm: null };
 
-// Formata um intervalo de tempo (em ms) como "Xd Xh Xmin restantes" — cai fora as partes
-// zeradas do início (ex: com menos de 1 dia mostra só "Xh Xmin", com menos de 1 hora só
-// "Xmin"), pra não poluir a tela com "0d 0h 5min".
 function formatarContagemRegressiva(ms) {
     ms = Math.max(0, ms);
     var totalMinutos = Math.floor(ms / 60000);
@@ -931,11 +870,6 @@ function formatarContagemRegressiva(ms) {
     return partes.join(" ");
 }
 
-// Depois que o cliente paga, o admin muda o status da empresa no Firebase de 'trial' pra
-// 'ativo' e grava 'assinaturaExpiraEm' com a data 30 dias à frente (mesmo formato ISO já
-// usado em 'trialExpiraEm'). A partir daí o app conta os dias da assinatura em vez do
-// período de teste, e avisa quando ela vence — do mesmo jeito que avisa quando uma conta
-// nova é criada.
 function avaliarEstadoEmpresa() {
     var testeVencido = estadoEmpresaAtual.status === 'trial' && estadoEmpresaAtual.trialExpiraEm && new Date(estadoEmpresaAtual.trialExpiraEm).getTime() < Date.now();
     var assinaturaVencida = estadoEmpresaAtual.status === 'ativo' && estadoEmpresaAtual.assinaturaExpiraEm && new Date(estadoEmpresaAtual.assinaturaExpiraEm).getTime() < Date.now();
@@ -963,9 +897,6 @@ function avaliarEstadoEmpresa() {
     atualizarInterfaceEstado();
 }
 
-// Manda o aviso de assinatura vencida só uma vez por vencimento (evita reenviar toda vez
-// que o app reabre ou o timer de 60s roda de novo). Se o admin renovar a assinatura com
-// uma data nova, essa checagem libera um novo aviso automaticamente pro próximo vencimento.
 function notificarAssinaturaVencidaSeNecessario() {
     var chaveJaAvisado = 'assinatura_vencida_avisada_' + EMPRESA_ID + '_' + estadoEmpresaAtual.assinaturaExpiraEm;
     if (localStorage.getItem(chaveJaAvisado)) return;
@@ -979,9 +910,6 @@ function notificarAssinaturaVencidaSeNecessario() {
     }).catch(function(e) { console.warn(e); });
 }
 
-// Antes recalculava a cada 60s — com o contador agora mostrando minutos, isso deixava o
-// "minX" parado por até um minuto inteiro sem se mexer. 20s dá um contador visivelmente vivo
-// sem gerar leituras desnecessárias.
 setInterval(function() {
     if (auth.currentUser) { avaliarEstadoEmpresa(); }
 }, 20000);
@@ -1019,11 +947,6 @@ document.getElementById('btnSalvarEmpresa').addEventListener('click', function()
     if (!novo) return alert("Digite um ID válido.");
     localStorage.setItem('empresa_id', novo);
     EMPRESA_ID = novo;
-    // CORREÇÃO: pontos que já estavam na fila de envio (filaPendentes) guardam o ID da
-    // empresa de quando foram criados. Se o campo acima estava errado e a gente corrige
-    // depois, esses pontos antigos ficavam presos pra sempre tentando enviar pro ID
-    // errado — mesmo com o campo já corrigido na tela. Agora, ao salvar um novo ID,
-    // qualquer ponto ainda pendente é realinhado pro ID atual.
     var algumRealinhado = false;
     filaPendentes.forEach(function(item) {
         if (item.empresaId !== novo) { item.empresaId = novo; algumRealinhado = true; }
@@ -1041,15 +964,9 @@ var MAX_TENTATIVAS_GEOCODIFICACAO = 3;
 var TIMEOUT_FETCH_MS = 8000;
 
 function montarUrlGeocodificacao(lat, lon) {
-    // extratags=1 é o que traz o maxspeed (limite oficial da via) quando o mapa tem essa
-    // informação marcada.
     return `${URL_PROXY_GEOCODIFICACAO}?format=jsonv2&addressdetails=1&extratags=1&lat=${lat}&lon=${lon}&zoom=18`;
 }
 
-// Lê o limite de velocidade oficial da via (tag "maxspeed" do OpenStreetMap) quando
-// disponível. Vem em formatos variados ("40", "40 km/h", "RS:urban" etc.) — aqui só
-// extraímos o primeiro número razoável. Se não vier nenhum limite marcado no mapa,
-// retorna null e quem chamar decide o padrão (30 km/h pras ruas sem essa marcação).
 function extrairLimiteVelocidadeTag(extratags) {
     if (!extratags || !extratags.maxspeed) return null;
     var m = String(extratags.maxspeed).match(/(\d+)/);
@@ -1074,16 +991,10 @@ function comLimiteDeTempo(promessa, timeoutMs) {
     ]);
 }
 
-// Quando um envio estoura o tempo, na maioria das vezes não é o Android bloqueando rede —
-// é a conexão (WebSocket) do próprio Firebase ficando "travada": parece conectada mas para
-// de responder, e o SDK só percebe isso sozinho depois de um tempo que pode passar bem dos
-// 10s que o app espera. Em vez de só esperar o Firebase se recuperar por conta própria,
-// aqui a gente derruba a conexão e força reconectar na hora — assim o próximo envio já
-// tenta numa conexão nova, sem depender de o SDK notar sozinho que a antiga travou.
 var ultimaReconexaoForcadaTs = 0;
 function forcarReconexaoFirebaseSeTravado() {
     var agora = Date.now();
-    if (agora - ultimaReconexaoForcadaTs < 15000) return; // não força de novo se acabou de forçar
+    if (agora - ultimaReconexaoForcadaTs < 15000) return;
     ultimaReconexaoForcadaTs = agora;
     try {
         db.goOffline();
@@ -1123,10 +1034,6 @@ function mostrarAvisoGps(msg) {
 }
 function esconderAvisoGps() { document.getElementById('avisoGps').style.display = "none"; }
 
-// Caixa separada só pra erros de sincronização com o Firebase. Diferente do aviso de GPS
-// (que some sozinho assim que chega uma posição nova, e por isso passa rápido demais pra
-// ler), esta fica na tela até você tocar nela pra fechar — assim dá tempo de ler e me
-// mandar o texto certinho.
 function mostrarErroSyncPersistente(msg) {
     var box = document.getElementById('ultimoErroSync');
     var agora = new Date().toLocaleTimeString('pt-BR');
@@ -1141,11 +1048,6 @@ document.getElementById('ultimoErroSync').addEventListener('click', function() {
 var map = L.map('map', { zoomControl: false }).setView([-29.6133, -52.1919], 13);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-// ===================== ÍCONE DO VEÍCULO (giratório — aponta pra direção que ele anda) =====================
-// Em vez de girar o mapa inteiro (que deixava rua/bairro de cabeça pra baixo e confundia
-// motoristas), agora só a seta do veículo gira. O mapa sempre fica com o norte pra cima; a
-// seta é que aponta pra direção real do deslocamento — igual à maioria dos apps de
-// rastreamento comerciais.
 function criarIconeVeiculo(anguloGraus, cor) {
     var corFinal = cor || '#00e0a8';
     return L.divIcon({
@@ -1160,7 +1062,6 @@ function criarIconeVeiculo(anguloGraus, cor) {
 }
 
 var anguloAtualVeiculo = 0;
-// Se a seta parecer apontar pro lado errado em algum aparelho, troque para true.
 var INVERTER_ANGULO_VEICULO = false;
 var ultimaPosicaoParaRumo = null;
 
@@ -1174,10 +1075,6 @@ function calcularRumoGraus(lat1, lon1, lat2, lon2) {
     return (rumo + 360) % 360;
 }
 
-// Calcula (e memoriza) o ângulo da seta a partir do deslocamento entre a última posição
-// conhecida e a nova — só quando o veículo está de fato se movendo. Parado (ex: num
-// semáforo), a seta mantém a última direção conhecida em vez de "tremer" a cada leitura
-// de GPS ruidosa.
 function calcularAnguloVeiculo(lat, lon, velocidadeAtual) {
     var VELOCIDADE_MINIMA_PARA_GIRAR_KMH = 5;
     if (ultimaPosicaoParaRumo && (velocidadeAtual == null || velocidadeAtual >= VELOCIDADE_MINIMA_PARA_GIRAR_KMH)) {
@@ -1192,8 +1089,6 @@ function calcularAnguloVeiculo(lat, lon, velocidadeAtual) {
 var marcador = L.marker([-29.6133, -52.1919], { icon: criarIconeVeiculo(0) }).addTo(map);
 var circuloPrecisao = L.circle([-29.6133, -52.1919], { radius: 0, color: '#2dd4ff', fillOpacity: 0.1, weight: 1 }).addTo(map);
 var polilinhaRota = L.polyline([], {color: '#00ffa6', weight: 5}).addTo(map);
-// Linha da rota PLANEJADA (destino digitado pelo motorista) — tracejada e de outra cor,
-// pra não se confundir com a linha sólida verde do trajeto já percorrido de verdade.
 var polilinhaRotaPlanejada = L.polyline([], {color: '#34b3ff', weight: 5, opacity: 0.85, dashArray: '8,8'}).addTo(map);
 
 var coordenadaParadaFixa = (function() {
@@ -1475,27 +1370,16 @@ var ultimoPontoChecadoEndereco = null;
 var errosGpsConsecutivos = 0;
 var ultimaLeituraCompleta = null;
 var ultimaVelocidadeValida = 0;
-// NOVO: vigia de segundo plano. Guarda quando a última posição de GPS chegou de verdade
-// (independente de ser nativa ou web) e, a cada 30s, checa se faz tempo demais sem
-// nenhuma leitura nova — é o jeito mais direto de descobrir, testando com a tela apagada
-// ou o app em segundo plano, se o rastreio realmente continua funcionando ou morreu em
-// silêncio. Se o app estiver mesmo travado nesse estado, esse aviso só vai aparecer
-// quando a pessoa reabrir/olhar a tela — mas ainda assim é a evidência de que parou.
 var ultimaPosicaoRecebidaTs = null;
 setInterval(function() {
     if (appSuspenso || listaVeiculos.length === 0) return;
-    if (!ultimaPosicaoRecebidaTs) return; // ainda esperando a primeira leitura, normal
+    if (!ultimaPosicaoRecebidaTs) return;
     var segundosSemPosicao = Math.floor((Date.now() - ultimaPosicaoRecebidaTs) / 1000);
     if (segundosSemPosicao > 90) {
         mostrarAvisoGps("⚠️ Sem nenhuma posição de GPS há " + segundosSemPosicao + "s — o rastreio pode ter parado (comum quando o app fica muito tempo em segundo plano sem a configuração nativa correta). Verifique se o app aparece na lista de exceções de otimização de bateria do Android.");
     }
 }, 30000);
-// (variável de disjuntor de rejeições removida — a lógica de aceleração que a usava foi
-// simplificada, ver processarNovaPosicao)
 
-// Mantém o campo "Última posição de GPS há" do painel de diagnóstico sempre atualizado,
-// mesmo sem nenhuma leitura nova chegando — assim dá pra ver na tela, sem console, se o
-// GPS simplesmente parou de mandar atualizações (o que explicaria o status nunca mudar).
 setInterval(function() {
     var elUltima = document.getElementById('diagUltimaPosicaoHa');
     if (!elUltima) return;
@@ -1504,6 +1388,12 @@ setInterval(function() {
         : "nenhuma leitura ainda";
 }, 1000);
 var contadorConfirmacaoExcesso = 0;
+// NOVO: confirmação de movimento lento e sustentado (ver processarNovaPosicao). Evita que
+// uma única leitura de GPS ruim libere o status de movimento, mas sem depender de o
+// veículo já ter se afastado 50m de onde parou — que era o que travava o status em
+// "PARADO" com o veículo andando devagar (trânsito, filas, 5–14 km/h).
+var contadorConfirmacaoMovimentoLento = 0;
+var CONFIRMACOES_MOVIMENTO_LENTO_NECESSARIAS = 3;
 
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     var R = 6371000;
@@ -1541,13 +1431,6 @@ function registrarESincronizarPonto(lat, lon, situacao, velKmh, precisao, agora,
 
     var registro = {
         id: idPonto, lat: lat, lon: lon, velocidade: (situacao === "PARADO" ? 0 : velKmh), status: situacao,
-        // CORREÇÃO: antes lia o texto exibido em tela (#txtTempoParado) no momento da
-        // gravação. Normalmente esse texto já estava certo, mas em leituras que chegam em
-        // lote (comum quando o app volta de um período congelado em segundo plano) o texto
-        // podia ainda não ter sido atualizado para o status novo — gerando um registro
-        // contraditório no painel, tipo "33 km/h · VELOCIDADE ACIMA DO LIMITE" junto com
-        // "parado há 5min". Agora, fora do status PARADO, o tempo parado é sempre zerado
-        // na hora de montar o registro, não importa o que a tela estava mostrando.
         tempoParado: situacao === "PARADO" ? document.getElementById('txtTempoParado').textContent : "00:00:00",
         hora: agora.toLocaleTimeString('pt-BR'), data: agora.toLocaleDateString('pt-BR'),
         precisao: precisao || null,
@@ -1635,9 +1518,25 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
     var iniciouParadaAgora = false;
     var iniciouExcessoAgora = false;
 
-    var estaEmMovimento = vel >= VELOCIDADE_MOVIMENTO_CONFIAVEL_KMH
-        ? true
-        : (vel >= LIMITE_MOVIMENTO_KMH && (!coordenadaParadaFixa || distanciaDoCentroDaParada > RAIO_FALSO_MOVIMENTO_METROS));
+    // CORREÇÃO (bug do print: veículo em movimento ficava marcado como PARADO): antes, uma
+    // velocidade entre 5 e 14 km/h só contava como "em movimento" se o veículo já tivesse
+    // se afastado mais de 50m de onde parou da última vez (RAIO_FALSO_MOVIMENTO_METROS).
+    // Isso funcionava bem pra filtrar ruído de GPS com o veículo parado, mas também
+    // travava em "PARADO" um veículo andando devagar de verdade (trânsito, filas, saída de
+    // semáforo) enquanto ele não completasse esses 50m. Agora, em vez de depender da
+    // distância percorrida, confirma-se o movimento lento por LEITURAS CONSECUTIVAS de
+    // velocidade ≥ 5 km/h — 3 leituras seguidas bastam pra liberar "EM MOVIMENTO", o que
+    // reage bem mais rápido (poucos segundos) e não exige nenhum deslocamento mínimo em
+    // metros. Isso ainda protege contra uma única leitura ruim isolada (reflexo de sinal
+    // etc.), que reseta o contador e não confirma o movimento.
+    if (vel >= LIMITE_MOVIMENTO_KMH) {
+        contadorConfirmacaoMovimentoLento++;
+    } else {
+        contadorConfirmacaoMovimentoLento = 0;
+    }
+    var movimentoLentoConfirmado = contadorConfirmacaoMovimentoLento >= CONFIRMACOES_MOVIMENTO_LENTO_NECESSARIAS;
+
+    var estaEmMovimento = vel >= VELOCIDADE_MOVIMENTO_CONFIAVEL_KMH || movimentoLentoConfirmado;
 
     var limiteVelocidadeAtual = viaState.limiteVelocidade || (viaState.tipo === 'rodovia' ? LIMITE_VELOCIDADE : 30);
     var elLimiteVia = document.getElementById('txtLimiteVia');
@@ -1660,13 +1559,6 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
 
     if (estaEmMovimento) {
         var aindaPertoDoUltimoLocalParado = coordenadaParadaFixa && distanciaDoCentroDaParada <= RAIO_FALSO_MOVIMENTO_METROS;
-        // CORREÇÃO: um reflexo de sinal perto de prédios (comum no Centro) pode gerar, numa
-        // única leitura, tanto uma velocidade calculada alta quanto um "salto" de posição
-        // grande o bastante pra escapar do raio de 50m acima — as duas coisas de uma vez,
-        // sem o veículo ter se movido de verdade. Como toda leitura de GPS vem com uma
-        // precisão estimada, exige-se agora que ela esteja dentro do aceitável para contar
-        // como excesso de verdade; sem isso, uma leitura ruim é tratada como "em movimento"
-        // (sem alarme de velocidade nem gravação imediata) até a precisão melhorar.
         var precisaoBoaParaExcesso = precisao == null || precisao <= PRECISAO_MAXIMA_ACEITAVEL_M;
         var ehExcessoDeVerdade = vel > limiteVelocidadeAtual && !aindaPertoDoUltimoLocalParado && precisaoBoaParaExcesso;
         situacao = ehExcessoDeVerdade ? "VELOCIDADE ACIMA DO LIMITE" : "EM MOVIMENTO";
@@ -1739,7 +1631,7 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
         (function(latP, lonP, situacaoP, velP, precisaoP, agoraP, inicioParadaTsNoMomento) {
             setTimeout(function() {
                 if (inicioParadaTs !== inicioParadaTsNoMomento) {
-                    return; // já voltou a se mover (ou começou outra parada) — não era de verdade
+                    return;
                 }
                 var latConsulta = latP, lonConsulta = lonP;
                 if (ultimaLeituraCompleta && ultimaLeituraCompleta.precisao != null &&
@@ -1748,11 +1640,6 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
                 }
                 buscarEnderecoImediato(latConsulta, lonConsulta).then(function(fresco) {
                     if (inicioParadaTs !== inicioParadaTsNoMomento) { return; }
-                    // CORREÇÃO: com GPS de baixa precisão (comum perto de prédios, no
-                    // Centro), a coordenada consultada pode estar dezenas de metros errada
-                    // — e o endereço buscado nessa coordenada sai errado junto, mesmo que a
-                    // rua em si esteja certa fisicamente. Com precisão ruim, mantém a última
-                    // via conhecida (viaState.nome) em vez de confiar no endereço novo.
                     var precisaoOk = precisaoP == null || precisaoP <= PRECISAO_MAXIMA_ACEITAVEL_M;
                     var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
                     var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
@@ -1770,9 +1657,6 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
     } else if (iniciouExcessoAgora) {
         (function(latE, lonE, situacaoE, velE, precisaoE, agoraE, limiteViaNoMomento) {
             buscarEnderecoImediato(latE, lonE).then(function(fresco) {
-                // Mesma proteção do início de parada: um endereço buscado com GPS impreciso
-                // pode sair errado, e é justamente numa leitura ruim que uma velocidade
-                // falsa (reflexo de sinal perto de prédios) tem mais chance de aparecer.
                 var precisaoOk = precisaoE == null || precisaoE <= PRECISAO_MAXIMA_ACEITAVEL_M;
                 var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
                 var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
@@ -2241,11 +2125,6 @@ setInterval(function() {
 }, 15000);
 
 // ===================== MANTER O APP ATIVO EM SEGUNDO PLANO =====================
-// O Android "congela" a página depois de um tempo com a tela apagada (mesmo com a
-// notificação fixa do rastreio), o que pausa toda a execução do JavaScript — inclusive a
-// renovação automática do token e o envio de posição. Tocar um som silencioso em loop
-// avisa o sistema que o app está "reproduzindo mídia" e evita esse congelamento, o mesmo
-// truque usado por apps de música e de navegação.
 (function () {
     var au = document.getElementById('evManterAtivo');
     if (!au) return;
