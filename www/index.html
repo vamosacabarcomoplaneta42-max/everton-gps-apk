@@ -244,6 +244,14 @@
     <div id="ultimoErroSync" style="display:none; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,.35); color: var(--danger); padding: 11px 13px; border-radius: 8px; font-size: 0.78em; white-space:pre-wrap; word-break:break-word;"></div>
     <div id="avisoTeste" style="display:none; background: rgba(45,212,255,.12); border: 1px solid var(--accent); color: var(--accent); padding: 10px 12px; border-radius: 6px; font-size: .85em; text-align: center; font-weight: bold;"></div>
 
+    <div class="input-box" id="boxAssinar" style="display:none;">
+        <label>💳 Assinar / trocar de plano</label>
+        <p style="font-size:0.82em; color:var(--text-dim); margin:0 0 10px;">Escolha o plano que você quer <b>pagar a partir de agora</b>. Isso vale mesmo que você tenha testado outro plano nos 7 dias grátis — é este que conta.</p>
+        <div style="display:flex; flex-direction:column; gap:8px;" id="listaPlanosAssinar"></div>
+        <div id="assinarConfirmado" style="display:none; margin-top:10px; font-size:0.85em; color:var(--brand);">✅ Pedido enviado pelo WhatsApp. Aguarde a confirmação para o plano ser liberado.</div>
+    </div>
+
+
     <div class="input-box">
         <label>🏢 Empresa deste aparelho</label>
         <div class="row">
@@ -846,7 +854,61 @@ function atualizarInfoEmpresaSalva() {
     document.getElementById('empresaSalvaInfo').textContent = EMPRESA_ID
         ? "Enviando dados para: " + EMPRESA_ID
         : "⚠️ Nenhuma empresa configurada — preencha o ID acima e toque em Salvar.";
+    atualizarVisibilidadeBoxAssinar();
 }
+
+// ===================== ASSINAR / TROCAR DE PLANO (sem pagamento automático) =====================
+// O sistema não tem cobrança automática: o cliente escolhe o plano aqui, o app manda uma
+// mensagem pronta pro WhatsApp com o ID da empresa e o plano exato escolhido, e você libera
+// manualmente no Firebase (campo 'status' e 'assinaturaExpiraEm', em empresas/{id}).
+// IMPORTANTE: ao liberar, ajuste também o campo 'tipo' para o MESMO plano escolhido aqui —
+// é o 'tipo' que trava o app em Frota ou Família (a chave de trocar de modo só aparece
+// quando 'tipo' é 'combo'). Sem ajustar o 'tipo', um cliente que testou o Combo grátis e
+// pagou só por um dos dois continua com acesso aos dois depois de você liberar o pagamento.
+var WHATSAPP_SUPORTE = "5551985803243";
+var PLANOS_ASSINATURA = [
+    { id: 'frota', nome: 'Frota', preco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.' },
+    { id: 'familia', nome: 'Família', preco: 'R$ 9,90/mês (até 5 pessoas)', desc: 'Só o modo Família.' },
+    { id: 'combo', nome: 'Combo — Frota + Família', preco: 'o preço da Frota + R$ 6,90/mês', desc: 'Os dois juntos, no mesmo app.' }
+];
+
+function montarBoxAssinar() {
+    var lista = document.getElementById('listaPlanosAssinar');
+    if (!lista || lista.childElementCount) return;
+    PLANOS_ASSINATURA.forEach(function (p) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.style.textAlign = 'left';
+        b.style.background = 'var(--bg-input)';
+        b.style.color = 'var(--text)';
+        b.style.border = '1px solid var(--border)';
+        b.innerHTML = '<b>' + p.nome + '</b><br><span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">' + p.preco + ' · ' + p.desc + '</span>';
+        b.addEventListener('click', function () { pedirAssinatura(p); });
+        lista.appendChild(b);
+    });
+}
+
+function pedirAssinatura(plano) {
+    if (!EMPRESA_ID) { alert('Configure e salve o ID da empresa antes de assinar.'); return; }
+    var email = auth.currentUser ? auth.currentUser.email : '(não logado)';
+    var texto = "Quero assinar o Everton GPS\n\n" +
+        "Plano escolhido: " + plano.nome + " (" + plano.preco + ")\n" +
+        "ID da empresa: " + EMPRESA_ID + "\n" +
+        "E-mail da conta: " + email + "\n\n" +
+        "Este é o plano que eu quero pagar a partir de agora, mesmo que eu tenha testado outro plano nos 7 dias grátis.";
+    var url = "https://wa.me/" + WHATSAPP_SUPORTE + "?text=" + encodeURIComponent(texto);
+    window.open(url, '_blank');
+    var conf = document.getElementById('assinarConfirmado');
+    if (conf) conf.style.display = 'block';
+}
+
+function atualizarVisibilidadeBoxAssinar() {
+    var box = document.getElementById('boxAssinar');
+    if (!box) return;
+    box.style.display = EMPRESA_ID ? 'block' : 'none';
+}
+montarBoxAssinar();
+atualizarVisibilidadeBoxAssinar();
 
 var refStatusEmpresa = null;
 var refTrialEmpresa = null;
