@@ -15,10 +15,23 @@ permissoes = [
     "INTERNET",
     "ACCESS_FINE_LOCATION",
     "ACCESS_COARSE_LOCATION",
+    # CORREÇÃO: faltava esta permissão. Sem ela, no Android 10+ o sistema nem
+    # oferece a opção "Permitir o tempo todo" na tela de permissão de
+    # localização — só "Permitir enquanto usa o app" ou "Não permitir". Mesmo
+    # com o serviço em primeiro plano rodando, isso faz vários fabricantes
+    # (Xiaomi, Samsung, Motorola etc.) cortarem o GPS assim que o app sai da
+    # tela, porque a permissão de segundo plano nunca chegou a ser concedida.
+    "ACCESS_BACKGROUND_LOCATION",
     "FOREGROUND_SERVICE",
     "FOREGROUND_SERVICE_LOCATION",  # obrigatória no Android 14+
     "POST_NOTIFICATIONS",           # notificação fixa no Android 13+
     "WAKE_LOCK",
+    # Permite o app pedir ao usuário, via diálogo do sistema, para ser
+    # excluído da otimização de bateria — outra causa muito comum de
+    # rastreio parar sozinho em segundo plano em aparelhos como Xiaomi,
+    # Samsung e Motorola. Esta permissão sozinha não desativa a otimização;
+    # ela só permite que o app abra o diálogo pedindo a exceção.
+    "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
 ]
 linhas = ""
 for p in permissoes:
