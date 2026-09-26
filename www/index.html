@@ -251,6 +251,20 @@
         <div id="assinarConfirmado" style="display:none; margin-top:10px; font-size:0.85em; color:var(--brand);">✅ Pedido enviado pelo WhatsApp. Aguarde a confirmação para o plano ser liberado.</div>
     </div>
 
+    <div id="modalQuantidade" class="auth-overlay" style="display:none;">
+        <div class="auth-card">
+            <h3 id="qtdTituloPlano" style="margin:0;">Plano</h3>
+            <p style="font-size:0.82em; color:var(--text-dim); text-align:center; margin:0;">Quantos veículos vão ser rastreados?</p>
+            <div>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Quantidade de veículos</label>
+                <input type="number" id="qtdInput" min="1" step="1" value="1" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div id="qtdPreview" style="text-align:center; font-size:1em; font-weight:700; color:var(--brand);"></div>
+            <button id="btnConfirmarQuantidade" style="background: var(--accent); color:#04141f; width: 100%; padding:14px; font-size:.95em;">Continuar pro WhatsApp</button>
+            <button id="btnCancelarQuantidade" style="background: var(--bg-input); color:var(--text); border:1px solid var(--border); width: 100%; padding:12px; font-size:.9em;">Cancelar</button>
+        </div>
+    </div>
+
 
     <div class="input-box">
         <label>🏢 Empresa deste aparelho</label>
@@ -808,11 +822,18 @@ function atualizarInfoEmpresaSalva() {
 }
 
 var WHATSAPP_SUPORTE = "5551985803243";
+// Frota e Combo cobram por veículo (pedeQuantidade: true) — o preço exato só é
+// calculado depois que o cliente informa quantos veículos tem, no modal de
+// quantidade. Família tem preço fixo (até 5 pessoas), sem depender de quantidade.
 var PLANOS_ASSINATURA = [
-    { id: 'frota', nome: 'Frota', preco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.' },
-    { id: 'familia', nome: 'Família', preco: 'R$ 9,90/mês (até 5 pessoas)', desc: 'Só o modo Família.' },
-    { id: 'combo', nome: 'Combo — Frota + Família', preco: 'o preço da Frota + R$ 6,90/mês', desc: 'Os dois juntos, no mesmo app.' }
+    { id: 'frota', nome: 'Frota', descPreco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 0 },
+    { id: 'familia', nome: 'Família', descPreco: 'R$ 9,90/mês (até 5 pessoas)', desc: 'Só o modo Família.', pedeQuantidade: false, precoFixo: 9.90 },
+    { id: 'combo', nome: 'Combo — Frota + Família', descPreco: 'o preço da Frota + R$ 6,90/mês', desc: 'Os dois juntos, no mesmo app.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 6.90 }
 ];
+
+function formatarPrecoReais(v) {
+    return "R$ " + v.toFixed(2).replace('.', ',');
+}
 
 function montarBoxAssinar() {
     var lista = document.getElementById('listaPlanosAssinar');
@@ -824,17 +845,68 @@ function montarBoxAssinar() {
         b.style.background = 'var(--bg-input)';
         b.style.color = 'var(--text)';
         b.style.border = '1px solid var(--border)';
-        b.innerHTML = '<b>' + p.nome + '</b><br><span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">' + p.preco + ' · ' + p.desc + '</span>';
-        b.addEventListener('click', function () { pedirAssinatura(p); });
+        b.innerHTML = '<b>' + p.nome + '</b><br><span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">' + p.descPreco + ' · ' + p.desc + '</span>';
+        b.addEventListener('click', function () {
+            if (p.pedeQuantidade) abrirModalQuantidade(p);
+            else pedirAssinatura(p);
+        });
         lista.appendChild(b);
     });
 }
 
-function pedirAssinatura(plano) {
+// Mostra o modal pedindo a quantidade de veículos, com o valor total já
+// calculado em tempo real conforme o cliente digita, antes de ir pro WhatsApp.
+var planoQuantidadeAtual = null;
+function abrirModalQuantidade(plano) {
+    planoQuantidadeAtual = plano;
+    document.getElementById('qtdTituloPlano').textContent = plano.nome;
+    var input = document.getElementById('qtdInput');
+    input.value = 1;
+    atualizarPreviewQuantidade();
+    document.getElementById('modalQuantidade').style.display = 'flex';
+    input.focus();
+}
+
+function atualizarPreviewQuantidade() {
+    var plano = planoQuantidadeAtual;
+    var preview = document.getElementById('qtdPreview');
+    if (!plano) { preview.textContent = ''; return; }
+    var qtd = parseInt(document.getElementById('qtdInput').value, 10);
+    if (!qtd || qtd < 1) { preview.textContent = 'Digite uma quantidade válida.'; return; }
+    var total = plano.precoUnitario * qtd + (plano.precoAdicional || 0);
+    var detalhe = qtd + ' veículo' + (qtd > 1 ? 's' : '') + ' × ' + formatarPrecoReais(plano.precoUnitario)
+        + (plano.precoAdicional ? ' + ' + formatarPrecoReais(plano.precoAdicional) + ' (Família)' : '');
+    preview.textContent = detalhe + ' = ' + formatarPrecoReais(total) + '/mês';
+}
+document.getElementById('qtdInput').addEventListener('input', atualizarPreviewQuantidade);
+
+document.getElementById('btnConfirmarQuantidade').addEventListener('click', function () {
+    var plano = planoQuantidadeAtual;
+    if (!plano) return;
+    var qtd = parseInt(document.getElementById('qtdInput').value, 10);
+    if (!qtd || qtd < 1) { alert('Digite uma quantidade válida de veículos.'); return; }
+    var total = plano.precoUnitario * qtd + (plano.precoAdicional || 0);
+    document.getElementById('modalQuantidade').style.display = 'none';
+    pedirAssinatura(plano, qtd, total);
+});
+document.getElementById('btnCancelarQuantidade').addEventListener('click', function () {
+    document.getElementById('modalQuantidade').style.display = 'none';
+});
+
+function pedirAssinatura(plano, quantidade, valorTotal) {
     if (!EMPRESA_ID) { alert('Configure e salve o ID da empresa antes de assinar.'); return; }
     var email = auth.currentUser ? auth.currentUser.email : '(não logado)';
+    var linhaValor;
+    if (quantidade != null && valorTotal != null) {
+        linhaValor = "Quantidade de veículos: " + quantidade + "\nValor mensal calculado: " + formatarPrecoReais(valorTotal);
+    } else if (plano.precoFixo != null) {
+        linhaValor = "Valor: " + formatarPrecoReais(plano.precoFixo) + "/mês";
+    } else {
+        linhaValor = "Valor: " + plano.descPreco;
+    }
     var texto = "Quero assinar o Everton GPS\n\n" +
-        "Plano escolhido: " + plano.nome + " (" + plano.preco + ")\n" +
+        "Plano escolhido: " + plano.nome + "\n" +
+        linhaValor + "\n" +
         "ID da empresa: " + EMPRESA_ID + "\n" +
         "E-mail da conta: " + email + "\n\n" +
         "Este é o plano que eu quero pagar a partir de agora, mesmo que eu tenha testado outro plano nos 7 dias grátis.";
