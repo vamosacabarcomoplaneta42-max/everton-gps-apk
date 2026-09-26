@@ -2173,5 +2173,9 @@ setInterval(function() {
     }, 20000);
 })();
 </script>
+<!-- modo-familia.js precisa vir DEPOIS do script principal acima, porque ele usa
+     variáveis e funções (db, auth, map, EMPRESA_ID, listaVeiculos, etc.) que só
+     existem depois que esse script principal termina de rodar. -->
+<script src="modo-familia.js"></script>
 </body>
 </html>
