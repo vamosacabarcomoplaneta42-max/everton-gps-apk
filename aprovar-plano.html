@@ -146,21 +146,36 @@ function mostrarMsg(texto, tipo) {
 
 var empresaIdAtual = null;
 
+// CORREÇÃO: as regras de segurança do Firebase recusam ler o nó
+// 'empresas/{id}' inteiro de uma vez (mesmo problema já corrigido no painel
+// admin) — só liberam ler campos específicos, um por um. Por isso agora lê
+// cada campo separadamente com Promise.all, em vez de um único
+// db.ref('empresas/'+id).once('value').
 document.getElementById('btnBuscar').addEventListener('click', function() {
     var id = document.getElementById('empresaIdInput').value.trim().toLowerCase();
     if (!id) return alert("Digite o ID da empresa.");
     id = sanitizarChavePath(id);
     empresaIdAtual = id;
 
-    db.ref('empresas/' + id).once('value').then(function(snap) {
-        if (!snap.exists()) {
+    var base = 'empresas/' + id + '/';
+    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm'];
+
+    Promise.all(campos.map(function(campo) {
+        return db.ref(base + campo).once('value')
+            .then(function(snap) { return snap.val(); })
+            .catch(function(e) { console.warn("Falha ao ler '" + campo + "':", e); return undefined; });
+    })).then(function(valores) {
+        var dados = {};
+        campos.forEach(function(campo, i) { dados[campo] = valores[i]; });
+
+        if (dados.nome === undefined && dados.status === undefined && dados.tipo === undefined) {
             document.getElementById('boxInfo').style.display = 'none';
             document.getElementById('boxPlanos').style.display = 'none';
             document.getElementById('boxSuspender').style.display = 'none';
-            mostrarMsg("Nenhuma empresa encontrada com esse ID.", "erro");
+            mostrarMsg("Nenhuma empresa encontrada com esse ID (ou sem permissão pra ler nenhum campo dela — confira se está logado com o e-mail de admin certo).", "erro");
             return;
         }
-        var dados = snap.val();
+
         document.getElementById('txtNome').textContent = dados.nome || id;
         document.getElementById('txtTipo').textContent = dados.tipo || "— (ainda não definido)";
         document.getElementById('txtTrial').textContent = dados.trialExpiraEm ? new Date(dados.trialExpiraEm).toLocaleString('pt-BR') : "—";
@@ -179,8 +194,6 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         document.getElementById('boxInfo').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
         document.getElementById('boxSuspender').style.display = 'block';
-    }).catch(function(e) {
-        mostrarMsg("Erro ao buscar: " + e.message, "erro");
     });
 });
 
