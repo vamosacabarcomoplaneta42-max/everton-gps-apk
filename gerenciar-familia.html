@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerenciar Família - Everton GPS</title>
+<style>
+:root {
+    --bg-main: #0a0d12;
+    --bg-card: #131820;
+    --border: rgba(255,255,255,.08);
+    --brand: #00ffa6;
+    --accent: #2dd4ff;
+    --danger: #ff5470;
+    --warn: #ffb020;
+    --text: #eef2f6;
+    --text-dim: #74808f;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 16px; font-family: system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text); max-width: 480px; margin: 0 auto;
+}
+h2 { color: var(--accent); font-size: 1.2em; margin-bottom: 4px; }
+.sub { color: var(--text-dim); font-size: 0.85em; margin-bottom: 20px; }
+.box { background: var(--bg-card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+label { font-size: 0.75em; text-transform: uppercase; color: var(--text-dim); font-weight: bold; display: block; margin-bottom: 6px; }
+input {
+    width: 100%; background: #1a212b; border: 1px solid var(--border);
+    padding: 12px; border-radius: 6px; color: white; font-size: 1em; box-sizing: border-box;
+}
+button {
+    padding: 12px; border-radius: 8px; border: none; font-weight: bold;
+    font-size: 0.9em; cursor: pointer;
+}
+.btn-buscar { width: 100%; background: var(--accent); color: #04141f; margin-top: 8px; }
+.pessoa {
+    display: flex; align-items: center; gap: 10px; padding: 12px 0;
+    border-top: 1px solid var(--border);
+}
+.pessoa:first-of-type { border-top: none; }
+.pessoa .av {
+    flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--brand);
+    color: #04120e; display: flex; align-items: center; justify-content: center; font-weight: bold;
+}
+.pessoa .info { flex: 1; min-width: 0; }
+.pessoa .info b { display: block; }
+.pessoa .info small { display: block; color: var(--text-dim); font-size: 0.8em; }
+.pessoa .btn-remover { background: var(--danger); color: white; flex: none; padding: 10px 14px; font-size: 0.82em; }
+.vazio { color: var(--text-dim); font-size: 0.85em; text-align: center; padding: 12px 0; }
+#msg { margin-top: 12px; font-size: 0.85em; padding: 10px; border-radius: 6px; display: none; }
+#msg.ok { background: rgba(0,255,166,.12); color: var(--brand); border: 1px solid var(--brand); display: block; }
+#msg.erro { background: rgba(255,84,112,.12); color: var(--danger); border: 1px solid var(--danger); display: block; }
+.auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h3 style="margin:0;text-align:center;">🔐 Gerenciar Família</h3>
+        <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+        <input type="password" id="authSenha" placeholder="senha">
+        <button class="btn-buscar" id="btnEntrar">Entrar</button>
+        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<h2>👨‍👩‍👧 Gerenciar Família</h2>
+<div class="sub">Veja quem está numa família e remova quem for preciso.</div>
+
+<div class="box">
+    <label>ID da família</label>
+    <input type="text" id="empresaIdInput" placeholder="ex: familia_souza" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="btn-buscar" id="btnBuscar">🔍 Buscar pessoas</button>
+</div>
+
+<div class="box" id="boxPessoas" style="display:none;">
+    <div id="listaPessoas"></div>
+</div>
+
+<div id="msg"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+function sanitizarChavePath(valor) {
+    return String(valor).replace(/[.#$\[\]\/]/g, "_");
+}
+
+document.getElementById('btnEntrar').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    if (!email || !senha) return alert("Preencha tudo!");
+    auth.signInWithEmailAndPassword(email, senha).catch(function(e) {
+        document.getElementById('erroLogin').textContent = "Acesso negado: " + e.message;
+        document.getElementById('erroLogin').style.display = 'block';
+    });
+});
+
+auth.onAuthStateChanged(function(user) {
+    document.getElementById('authOverlay').style.display = user ? 'none' : 'flex';
+});
+
+function mostrarMsg(texto, tipo) {
+    var el = document.getElementById('msg');
+    el.textContent = texto;
+    el.className = tipo;
+    setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 6000);
+}
+
+function iniciais(nome) {
+    var partes = String(nome).replace(/_/g, ' ').trim().split(/\s+/);
+    return (partes[0].charAt(0) + (partes[1] ? partes[1].charAt(0) : '')).toUpperCase();
+}
+
+var empresaIdAtual = null;
+
+document.getElementById('btnBuscar').addEventListener('click', function() {
+    var id = document.getElementById('empresaIdInput').value.trim().toLowerCase();
+    if (!id) return alert("Digite o ID da família.");
+    id = sanitizarChavePath(id);
+    empresaIdAtual = id;
+
+    db.ref('empresas/' + id + '/veiculos').once('value').then(function(snap) {
+        var container = document.getElementById('listaPessoas');
+        container.innerHTML = '';
+        document.getElementById('boxPessoas').style.display = 'block';
+
+        if (!snap.exists()) {
+            container.innerHTML = '<div class="vazio">Nenhuma pessoa cadastrada com esse ID.</div>';
+            return;
+        }
+
+        snap.forEach(function(child) {
+            var chave = child.key;
+            var dados = child.val() || {};
+            var atual = dados.atual || {};
+            var nomeExibido = chave.replace(/_/g, ' ');
+            var status = atual.status || '—';
+            var hora = atual.hora ? (atual.data + ' ' + atual.hora) : 'sem posição ainda';
+
+            var row = document.createElement('div');
+            row.className = 'pessoa';
+            row.innerHTML =
+                '<div class="av">' + iniciais(nomeExibido) + '</div>' +
+                '<div class="info"><b>' + nomeExibido + '</b><small>' + status + ' · ' + hora + '</small></div>' +
+                '<button class="btn-remover" data-chave="' + chave + '" data-nome="' + nomeExibido + '">Remover</button>';
+            container.appendChild(row);
+        });
+
+        container.querySelectorAll('.btn-remover').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                removerPessoa(btn.getAttribute('data-chave'), btn.getAttribute('data-nome'));
+            });
+        });
+    }).catch(function(e) {
+        mostrarMsg("Erro ao buscar: " + e.message, "erro");
+    });
+});
+
+function removerPessoa(chave, nomeExibido) {
+    if (!empresaIdAtual) return;
+    if (!confirm("Remover '" + nomeExibido + "' desta família? O aparelho dela vai parar de compartilhar a localização na próxima vez que abrir o app.")) return;
+
+    // Marca como removido PRIMEIRO (pro app da pessoa se autorretirar sozinho,
+    // mesmo que ainda esteja aberto e tente recriar o registro), e só depois
+    // apaga o registro dela no Firebase.
+    db.ref('empresas/' + empresaIdAtual + '/removidos/' + chave).set(true)
+        .then(function() {
+            return db.ref('empresas/' + empresaIdAtual + '/veiculos/' + chave).remove();
+        })
+        .then(function() {
+            mostrarMsg("✅ '" + nomeExibido + "' removido(a) da família.", "ok");
+            document.getElementById('btnBuscar').click();
+        })
+        .catch(function(e) {
+            mostrarMsg("Erro ao remover: " + e.message, "erro");
+        });
+}
+</script>
+</body>
+</html>
