@@ -12,6 +12,9 @@
    - marcadores da família no mapa
    - botão SOS e aviso de SOS para todos que estão com o app aberto
    - tipo de conta escolhido no cadastro: Frota, Família ou Combo (frota + família)
+   - checagem de remoção remota: se um super admin remover esta pessoa da
+     família pelo painel (empresas/{id}/removidos/{chave} = true), este
+     aparelho se retira sozinho da lista, mesmo que já estivesse aberto.
 
    Modelo de conta: a família cria UMA conta (e-mail e senha) e cada celular
    entra com ela, igual ao que a empresa já faz com os motoristas. Cada pessoa
@@ -542,6 +545,39 @@
     }, function () { /* sem permissão para ler: vale o que está salvo neste aparelho */ });
   }
 
+  /* ---------- remoção remota: um super admin pode remover esta pessoa da
+     família pelo painel de gerenciamento. Quando isso acontece, o app grava
+     empresas/{id}/removidos/{chave} = true — aqui a gente checa isso pra
+     este aparelho se retirar sozinho da lista, mesmo que já estivesse aberto
+     e tentando recriar o registro. ---------- */
+  var removidosChecando = {};
+
+  function verificarRemocaoRemota() {
+    if (!auth.currentUser || !EMPRESA_ID) return;
+    proprios().forEach(function (nome) {
+      var chave = san(nome);
+      var idChecagem = EMPRESA_ID + '|' + chave;
+      if (removidosChecando[idChecagem]) return;
+      removidosChecando[idChecagem] = true;
+
+      db.ref('empresas/' + san(EMPRESA_ID) + '/removidos/' + chave).once('value').then(function (snap) {
+        delete removidosChecando[idChecagem];
+        if (!snap.exists() || EMPRESA_ID + '|' + chave !== idChecagem) return;
+
+        var idx = listaVeiculos.indexOf(nome);
+        if (idx === -1) return;
+        listaVeiculos.splice(idx, 1);
+        if (typeof salvarTudo === 'function') salvarTudo();
+        if (typeof renderizarFrotaLocal === 'function') renderizarFrotaLocal();
+        if (typeof atualizarInterfaceEstado === 'function') atualizarInterfaceEstado();
+        alert('Você foi removido(a) desta família por um administrador. Seu nome foi retirado deste aparelho.');
+      }).catch(function () {
+        delete removidosChecando[idChecagem];
+        /* sem permissão de ler 'removidos' (ex.: conta antiga nas regras) — ignora silenciosamente */
+      });
+    });
+  }
+
   /* ---------- verificação periódica: cadastro novo, tipo da conta, empresa trocada ---------- */
   function verificar() {
     if (!auth.currentUser || !EMPRESA_ID) return;
@@ -563,7 +599,11 @@
     }
 
     observarTipo();
-    if (modo === 'familia') { garantirFamilia(); atualizarSOS(); }
+    if (modo === 'familia') {
+      garantirFamilia();
+      atualizarSOS();
+      verificarRemocaoRemota();
+    }
   }
 
   /* ---------- início ---------- */
