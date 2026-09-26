@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virar Super Admin - Everton GPS</title>
+<style>
+:root {
+    --bg-main: #0a0d12;
+    --bg-card: #131820;
+    --border: rgba(255,255,255,.08);
+    --brand: #00ffa6;
+    --accent: #2dd4ff;
+    --danger: #ff5470;
+    --warn: #ffb020;
+    --text: #eef2f6;
+    --text-dim: #74808f;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 16px; font-family: system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text); max-width: 480px; margin: 0 auto;
+}
+h2 { color: var(--accent); font-size: 1.2em; margin-bottom: 4px; }
+.sub { color: var(--text-dim); font-size: 0.85em; margin-bottom: 20px; line-height: 1.5; }
+.box { background: var(--bg-card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+input { width: 100%; background: #1a212b; border: 1px solid var(--border); padding: 12px; border-radius: 6px; color: white; font-size: 1em; box-sizing: border-box; margin-bottom: 8px; }
+button { width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: bold; font-size: 0.95em; cursor: pointer; }
+.btn-entrar { background: var(--accent); color: #04141f; }
+.btn-virar { background: var(--brand); color: #04120e; }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 0.9em; }
+#msg { margin-top: 12px; font-size: 0.85em; padding: 10px; border-radius: 6px; display: none; }
+#msg.ok { background: rgba(0,255,166,.12); color: var(--brand); border: 1px solid var(--brand); display: block; }
+#msg.erro { background: rgba(255,84,112,.12); color: var(--danger); border: 1px solid var(--danger); display: block; }
+.auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+.aviso { background: rgba(255,176,32,.1); border: 1px solid var(--warn); color: var(--warn); padding: 12px; border-radius: 8px; font-size: 0.85em; margin-bottom: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h3 style="margin:0;text-align:center;">🔐 Login</h3>
+        <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+        <input type="password" id="authSenha" placeholder="senha">
+        <button class="btn-entrar" id="btnEntrar">Entrar</button>
+        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<h2>👑 Virar Super Admin</h2>
+<div class="aviso">
+    ⚠️ Só use esta página com a regra de <code>superAdmins</code> temporariamente afrouxada
+    (ver instruções). Depois de usar, <b>volte a regra pro <code>.write: false</code> original</b>
+    — deixá-la aberta é um risco de segurança.
+</div>
+
+<div class="box">
+    <div class="info-row"><span>Seu e-mail</span><b id="txtEmail">—</b></div>
+    <div class="info-row"><span>Seu UID</span><b id="txtUid" style="font-size:0.8em;word-break:break-all;">—</b></div>
+    <div class="info-row"><span>Já é super admin?</span><b id="txtJaEh">—</b></div>
+</div>
+
+<div class="box">
+    <button class="btn-virar" id="btnVirar">Virar super admin</button>
+</div>
+
+<div id="msg"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+document.getElementById('btnEntrar').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    if (!email || !senha) return alert("Preencha tudo!");
+    auth.signInWithEmailAndPassword(email, senha).catch(function(e) {
+        document.getElementById('erroLogin').textContent = "Acesso negado: " + e.message;
+        document.getElementById('erroLogin').style.display = 'block';
+    });
+});
+
+function mostrarMsg(texto, tipo) {
+    var el = document.getElementById('msg');
+    el.textContent = texto;
+    el.className = tipo;
+}
+
+auth.onAuthStateChanged(function(user) {
+    document.getElementById('authOverlay').style.display = user ? 'none' : 'flex';
+    if (!user) return;
+    document.getElementById('txtEmail').textContent = user.email;
+    document.getElementById('txtUid').textContent = user.uid;
+
+    db.ref('superAdmins/' + user.uid).once('value').then(function(snap) {
+        document.getElementById('txtJaEh').textContent = snap.exists() ? "Sim ✅" : "Não";
+    }).catch(function() {
+        document.getElementById('txtJaEh').textContent = "não consegui checar (normal se a regra ainda não foi afrouxada)";
+    });
+});
+
+document.getElementById('btnVirar').addEventListener('click', function() {
+    var user = auth.currentUser;
+    if (!user) return;
+    if (!confirm("Registrar " + user.email + " (UID " + user.uid + ") como super admin?")) return;
+
+    db.ref('superAdmins/' + user.uid).set(true).then(function() {
+        mostrarMsg("✅ Pronto! Agora volte a regra de 'superAdmins' pro .write: false original.", "ok");
+        document.getElementById('txtJaEh').textContent = "Sim ✅";
+    }).catch(function(e) {
+        mostrarMsg("Erro: " + e.message + " — confira se a regra foi afrouxada e publicada.", "erro");
+    });
+});
+</script>
+</body>
+</html>
