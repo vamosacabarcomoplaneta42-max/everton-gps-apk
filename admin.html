@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Admin - Rastreador Everton GPS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<style>
+:root {
+    --bg-main: #0a0d12;
+    --bg-card: #131820;
+    --border: rgba(255,255,255,.08);
+    --signal-on: #00ffa6;
+    --signal-off: #ffb020;
+    --danger: #ff5470;
+    --telemetry: #2dd4ff;
+    --text: #eef2f6;
+    --text-dim: #74808f;
+}
+body {
+    margin: 0; padding: 0; font-family: system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text);
+    display: flex; height: 100vh; overflow: hidden;
+}
+.sidebar {
+    width: 380px; background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; height: 100%;
+}
+#map { flex: 1; height: 100%; background: #000; }
+.header { padding: 16px; border-bottom: 1px solid var(--border); text-align: center; }
+.header h2 { margin: 0; font-size: 1.2em; color: var(--telemetry); }
+.content { padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.box { background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 12px; border-radius: 8px; }
+.box-title { font-size: 0.75em; text-transform: uppercase; color: var(--text-dim); font-weight: bold; margin-bottom: 8px; }
+select, input, button {
+    width: 100%; background: #1a212b; border: 1px solid var(--border);
+    padding: 10px; border-radius: 6px; color: white; font-size: 0.95em; box-sizing: border-box;
+}
+button { background: var(--telemetry); color: #000; font-weight: bold; cursor: pointer; margin-top: 8px; border: none;}
+button:hover { opacity: 0.9; }
+.telemetry-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.88em; }
+.telemetry-row:last-child { border-bottom: none; }
+.telemetry-row b { text-align: right; max-width: 60%; }
+.badge { font-size: 0.75em; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+.badge-movimento { background: rgba(0,255,166,0.15); color: var(--signal-on); }
+.badge-parado { background: rgba(255,176,32,0.15); color: var(--signal-off); }
+.badge-perigo { background: rgba(255, 84, 112, 0.15); color: var(--danger); }
+.live-indicator { display: inline-block; width: 8px; height: 8px; background: var(--signal-on); border-radius: 50%; margin-right: 6px; }
+.auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
+.auth-card h3 { margin: 0; color: var(--text); font-size: 1.2em; text-align: center; }
+
+/* Popup de toque na rota — mantém o visual escuro do resto do painel */
+.leaflet-popup-content-wrapper { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+.leaflet-popup-tip { background: var(--bg-card); }
+.popup-rota-rua { font-weight: bold; font-size: 0.95em; margin-bottom: 4px; }
+.popup-rota-vel { color: var(--telemetry); font-family: ui-monospace, monospace; }
+.popup-rota-linha { font-size: 0.82em; color: var(--text-dim); margin-top: 3px; }
+.popup-rota-hora { color: var(--text-dim); font-size: 0.8em; margin-top: 6px; }
+.linha-passo-rota { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.linha-passo-rota:last-child { border-bottom: none; }
+.linha-passo-rota.ativo { background: rgba(0,224,168,0.1); border-left: 3px solid var(--signal-on); }
+
+@media (max-width: 768px) {
+    body { flex-direction: column-reverse; }
+    .sidebar { width: 100%; height: 50vh; }
+    #map { height: 50vh; }
+}
+</style>
+</head>
+<body>
+
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h3>🔐 Painel Admin Protegido</h3>
+        <p style="font-size: 0.85em; color: var(--text-dim); text-align: center; margin: 0;">Insira as credenciais de administrador do sistema.</p>
+        <div>
+            <label style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">E-mail</label>
+            <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+        </div>
+        <div>
+            <label style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Senha</label>
+            <input type="password" id="authSenha" placeholder="******">
+        </div>
+        <button id="btnEntrarPainel">Entrar no Painel</button>
+        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<div id="avisoSuspensoAdmin" style="display:none; position:fixed; inset:0; z-index:10001; background:var(--bg-main); flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center;">
+    <div style="width:88px; height:88px; border-radius:22px; background:linear-gradient(145deg,var(--danger),#a91c3e); display:flex; align-items:center; justify-content:center; font-size:2.4em; box-shadow:0 10px 28px rgba(255,84,112,0.3); margin-bottom:22px;">📡</div>
+    <div style="font-weight:700; font-size:1.05em; color:var(--text); letter-spacing:0.8px; margin-bottom:26px;">EVERTON GPS — PAINEL ADMIN</div>
+    <div style="border:1px solid rgba(255,84,112,.35); background:rgba(255,84,112,0.08); border-radius:16px; padding:24px 20px; max-width:340px;">
+        <div style="font-size:1.8em; margin-bottom:10px;">🚫</div>
+        <div style="color:var(--danger); font-weight:700; font-size:1.05em; line-height:1.5;">Acesso suspenso</div>
+        <div style="color:var(--text-dim); font-size:0.88em; margin-top:8px; line-height:1.5;">Entre em contato com o suporte para regularizar o pagamento.</div>
+    </div>
+</div>
+
+<div class="sidebar">
+    <div class="header">
+
+        <h2>🛠️ Admin Everton GPS</h2>
+        <span id="userLogado" style="font-size: 0.8em; color: var(--signal-on)">Sessão Protegida</span>
+    </div>
+    <div class="content">
+        <div class="box">
+            <div class="box-title">🚗 Selecionar Veículo</div>
+            <select id="selectVeiculo">
+                <option value="">Aguardando login...</option>
+            </select>
+        </div>
+
+        <div class="box" id="boxStatusAssinatura" style="display:none; text-align:center;">
+            <span id="txtStatusAssinatura">—</span>
+        </div>
+
+        <div class="box">
+            <div class="box-title">📅 Filtrar Histórico Passado</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="date" id="filtroData">
+                <div style="display: flex; gap: 6px;">
+                    <input type="time" id="filtroHoraInicio" value="00:00">
+                    <input type="time" id="filtroHoraFim" value="23:59">
+                </div>
+                <button id="btnBuscarHistorico">🔍 Buscar Histórico</button>
+                <button id="btnVoltarTempoReal" style="background: var(--signal-on); display: none;">🟢 Voltar ao Tempo Real</button>
+            </div>
+        </div>
+
+        <div id="statusModo" class="box" style="border-color: var(--signal-off); text-align: center; font-weight: bold; font-size: 0.9em; color: var(--signal-off);">
+            Aguardando seleção...
+        </div>
+
+        <div class="box" style="text-align:center; font-size:0.78em; color: var(--text-dim);">
+            👆 Toque em qualquer trecho da rota no mapa pra abrir os dados daquele ponto aqui embaixo.
+        </div>
+
+        <div class="box" id="boxRotaPlanejada" style="display:none; border-color: var(--telemetry);">
+            <div class="box-title">🧭 Rota Planejada pelo Motorista</div>
+            <div class="telemetry-row"><span>Destino</span><b id="txtDestinoPlanejado">—</b></div>
+            <div class="telemetry-row"><span>Distância</span><b id="txtDistanciaPlanejada">—</b></div>
+            <div class="telemetry-row"><span>Tempo estimado</span><b id="txtDuracaoPlanejada">—</b></div>
+            <div class="telemetry-row"><span>Traçada em</span><b id="txtCriadaEmPlanejada">—</b></div>
+
+            <div id="boxProximaManobraAdmin" style="display:none; align-items:center; gap:10px; background:var(--bg-input); border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:10px;">
+                <span id="iconeProximaManobraAdmin" style="font-size:1.8em; line-height:1;">🚦</span>
+                <div style="flex:1; min-width:0;">
+                    <div id="textoProximaManobraAdmin" style="color:var(--text); font-weight:700; font-size:0.95em;">—</div>
+                    <div id="distanciaProximaManobraAdmin" style="color:var(--telemetry); font-family:ui-monospace,monospace; font-size:0.82em; margin-top:2px;">—</div>
+                </div>
+            </div>
+
+            <button id="btnAlternarPassoAPassoAdmin" type="button" style="display:none; background:var(--bg-input); color:var(--text); border:1px solid var(--border); font-size:0.8em; padding:10px; margin-top:8px;">Ver passo a passo completo ▾</button>
+            <div id="listaPassosRotaAdmin" style="display:none; max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:6px;"></div>
+        </div>
+
+        <div class="box">
+            <div class="box-title">📊 Dados do Ponto Selecionado</div>
+            <div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">—</span></div>
+            <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
+            <div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">00:00:00</b></div>
+            <div class="telemetry-row"><span>Rua</span><b id="txtRua">—</b></div>
+            <div class="telemetry-row"><span>Bairro</span><b id="txtBairro">—</b></div>
+            <div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
+            <div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
+            <div class="telemetry-row"><span>Coordenadas</span><b id="txtCoords">—</b></div>
+        </div>
+
+        <button id="btnSair" style="background: #1a212b; color: var(--danger); border: 1px solid var(--border);">❌ Desconectar</button>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+// ===================== MAPA =====================
+var map = L.map('map', { zoomControl: true }).setView([-29.6133, -52.1919], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+var marcadorVeiculo = L.marker([-29.6133, -52.1919]).addTo(map);
+// Linha tracejada da rota que o MOTORISTA planejou/digitou no app dele (destino), pra
+// diferenciar visualmente do trajeto real percorrido (linhas sólidas coloridas por status).
+var polilinhaRotaPlanejadaAdmin = L.polyline([], {color: '#34b3ff', weight: 5, opacity: 0.85, dashArray: '8,8'}).addTo(map);
+
+function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function formatarDistanciaCurtaAdmin(metros) {
+    if (metros == null) return "—";
+    if (metros >= 1000) return (metros / 1000).toFixed(1) + " km";
+    return Math.round(metros) + " m";
+}
+
+// Mostra a mesma rota (com destino, distância e tempo) e o mesmo passo a passo tipo Waze
+// que o app do motorista calcula — os "passos" e o "indiceProximaManobra" já vêm prontos
+// no objeto sincronizado do Firebase, então o admin só precisa exibir, sem recalcular nada.
+// A manobra "atual" e sua distância acompanham a posição mais recente do veículo no mapa.
+function atualizarRotaPlanejadaNoPainel(rota) {
+    var caixa = document.getElementById('boxRotaPlanejada');
+    var btnAlternar = document.getElementById('btnAlternarPassoAPassoAdmin');
+    var listaEl = document.getElementById('listaPassosRotaAdmin');
+    var boxManobra = document.getElementById('boxProximaManobraAdmin');
+
+    if (!rota || !rota.geometria || rota.geometria.length < 2) {
+        caixa.style.display = 'none';
+        polilinhaRotaPlanejadaAdmin.setLatLngs([]);
+        btnAlternar.style.display = 'none';
+        listaEl.style.display = 'none';
+        boxManobra.style.display = 'none';
+        rotaPlanejadaAtualAdmin = null;
+        return;
+    }
+    caixa.style.display = 'block';
+    document.getElementById('txtDestinoPlanejado').textContent = rota.destino || "—";
+    document.getElementById('txtDistanciaPlanejada').textContent = (rota.distanciaMetros / 1000).toFixed(1) + " km";
+    document.getElementById('txtDuracaoPlanejada').textContent = Math.round(rota.duracaoSegundos / 60) + " min";
+    document.getElementById('txtCriadaEmPlanejada').textContent = rota.criadoEm ? new Date(rota.criadoEm).toLocaleString('pt-BR') : "—";
+    polilinhaRotaPlanejadaAdmin.setLatLngs(rota.geometria);
+
+    rotaPlanejadaAtualAdmin = rota;
+
+    if (rota.passos && rota.passos.length) {
+        btnAlternar.style.display = 'block';
+        boxManobra.style.display = 'flex';
+        renderizarListaPassosAdmin();
+        atualizarBannerProximaManobraAdmin();
+    } else {
+        btnAlternar.style.display = 'none';
+        listaEl.style.display = 'none';
+        boxManobra.style.display = 'none';
+    }
+}
+
+var rotaPlanejadaAtualAdmin = null;
+
+function atualizarBannerProximaManobraAdmin() {
+    var elIcone = document.getElementById('iconeProximaManobraAdmin');
+    var elTexto = document.getElementById('textoProximaManobraAdmin');
+    var elDistancia = document.getElementById('distanciaProximaManobraAdmin');
+    if (!rotaPlanejadaAtualAdmin || !rotaPlanejadaAtualAdmin.passos || !rotaPlanejadaAtualAdmin.passos.length) return;
+    var passos = rotaPlanejadaAtualAdmin.passos;
+    var indice = rotaPlanejadaAtualAdmin.indiceProximaManobra != null ? rotaPlanejadaAtualAdmin.indiceProximaManobra : 1;
+
+    if (indice >= passos.length) {
+        elIcone.textContent = '🏁';
+        elTexto.textContent = 'O veículo chegou ao destino!';
+        elDistancia.textContent = '';
+        return;
+    }
+    var passo = passos[indice];
+    elIcone.textContent = passo.icone;
+    elTexto.textContent = passo.instrucao;
+    var posAtual = marcadorVeiculo.getLatLng();
+    elDistancia.textContent = posAtual
+        ? ('em ' + formatarDistanciaCurtaAdmin(calcularDistanciaMetros(posAtual.lat, posAtual.lng, passo.localizacao[0], passo.localizacao[1])))
+        : '—';
+}
+
+function renderizarListaPassosAdmin() {
+    var container = document.getElementById('listaPassosRotaAdmin');
+    if (!rotaPlanejadaAtualAdmin || !rotaPlanejadaAtualAdmin.passos) { container.innerHTML = ''; return; }
+    var indiceAtivo = rotaPlanejadaAtualAdmin.indiceProximaManobra;
+    var html = '';
+    rotaPlanejadaAtualAdmin.passos.forEach(function(passo, i) {
+        html += '<div class="linha-passo-rota' + (i === indiceAtivo ? ' ativo' : '') + '" id="passo-admin-row-' + i + '">' +
+            '<span style="font-size:1.3em;">' + passo.icone + '</span>' +
+            '<div style="flex:1; min-width:0;">' +
+            '<div style="color:var(--text); font-size:0.9em;">' + passo.instrucao + '</div>' +
+            (passo.distanciaMetros > 0 ? '<div style="color:var(--text-dim); font-size:0.76em;">' + formatarDistanciaCurtaAdmin(passo.distanciaMetros) + '</div>' : '') +
+            '</div></div>';
+    });
+    container.innerHTML = html;
+}
+
+document.getElementById('btnAlternarPassoAPassoAdmin').addEventListener('click', function() {
+    var lista = document.getElementById('listaPassosRotaAdmin');
+    var estaAberta = lista.style.display !== 'none';
+    lista.style.display = estaAberta ? 'none' : 'block';
+    this.textContent = estaAberta ? 'Ver passo a passo completo ▾' : 'Ocultar passo a passo ▴';
+    if (!estaAberta) {
+        var ativo = document.getElementById('passo-admin-row-' + (rotaPlanejadaAtualAdmin ? rotaPlanejadaAtualAdmin.indiceProximaManobra : -1));
+        if (ativo) { try { ativo.scrollIntoView({ block: 'nearest' }); } catch(e) {} }
+    }
+});
+
+// ===================== ROTA TOCÁVEL, ENCAIXADA NAS RUAS =====================
+// A rota é desenhada com os PRÓPRIOS pontos gravados (não com nenhuma bolinha/marcador
+// separado), mas o traçado entre cada par de pontos consecutivos agora é pedido pro OSRM
+// (serviço de rotas gratuito) numa ÚNICA requisição com "steps=true" — os "steps" de cada
+// trecho (leg) dão a geometria encaixada nas ruas especificamente ENTRE aqueles dois
+// pontos, então cada trecho desenhado continua correspondendo a um ponto real gravado (dá
+// pra tocar nele) só que agora a linha segue as ruas de verdade em vez de cortar reto por
+// cima dos quarteirões.
+var camadaRotaAtual = L.layerGroup().addTo(map);
+var idDesenhoRotaAtual = 0;
+var MAX_PONTOS_ROTEAMENTO = 80;
+var URL_OSRM_ROTA_ADMIN = "https://router.project-osrm.org/route/v1/driving/";
+
+function limparRotaAtual() {
+    camadaRotaAtual.clearLayers();
+}
+
+function corPorStatusPonto(ponto) {
+    if (ponto.status === "VELOCIDADE ACIMA DO LIMITE") return getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ff5470';
+    if (ponto.status === "EM MOVIMENTO" || (ponto.velocidade || 0) > 2) return getComputedStyle(document.documentElement).getPropertyValue('--signal-on').trim() || '#00ffa6';
+    return getComputedStyle(document.documentElement).getPropertyValue('--signal-off').trim() || '#ffb020';
+}
+
+// CORREÇÃO: um "trecho" desenhado no mapa segue a geometria real das ruas entre DOIS
+// pontos gravados (p1 e p2), que podem estar bem distantes um do outro — por exemplo, um
+// trecho inteiro de rodovia entre duas leituras de GPS. Antes, tocar em QUALQUER lugar
+// desse trecho (inclusive perto do início, ainda na rodovia) sempre mostrava os dados do
+// ponto p2 (o fim do trecho) — que pode já estar numa rua de bairro, bem depois de onde o
+// motorista realmente tocou no mapa. Agora, ao tocar, comparamos o ponto exato do toque
+// com p1 e p2 e mostramos o mais próximo dos dois — assim, tocar perto do início do trecho
+// mostra os dados do início (a rodovia), não do fim.
+function desenharTrechoClicavel(coordsLatLng, cor, pontoAnterior, pontoAtual) {
+    function aoTocar(e) {
+        var pontoDoTrecho = pontoAtual;
+        if (pontoAnterior && pontoAnterior.lat != null && e && e.latlng) {
+            var distAnterior = calcularDistanciaMetros(e.latlng.lat, e.latlng.lng, pontoAnterior.lat, pontoAnterior.lon);
+            var distAtual = calcularDistanciaMetros(e.latlng.lat, e.latlng.lng, pontoAtual.lat, pontoAtual.lon);
+            if (distAnterior < distAtual) pontoDoTrecho = pontoAnterior;
+        }
+        mostrarInfoDoPonto(pontoDoTrecho);
+    }
+    // Área de toque mais larga e invisível por baixo — facilita tocar numa tela pequena de
+    // celular sem precisar acertar o pixel exato da linha fina.
+    var areaDeToque = L.polyline(coordsLatLng, { color: '#000000', opacity: 0, weight: 24 }).addTo(camadaRotaAtual);
+    var linhaVisivel = L.polyline(coordsLatLng, { color: cor, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(camadaRotaAtual);
+    areaDeToque.on('click', aoTocar);
+    linhaVisivel.on('click', aoTocar);
+}
+
+// Reduz a quantidade de pontos mandados pro serviço de rotas — um histórico de um dia
+// inteiro pode ter centenas/milhares de pontos, o que não cabe (nem precisa) numa única
+// requisição. Sempre mantém o primeiro e o último ponto.
+function amostrarPontosParaRota(pontos, maxPontos) {
+    if (pontos.length <= maxPontos) return pontos;
+    var passo = pontos.length / maxPontos;
+    var resultado = [];
+    for (var i = 0; i < maxPontos; i++) resultado.push(pontos[Math.floor(i * passo)]);
+    resultado.push(pontos[pontos.length - 1]);
+    return resultado;
+}
+
+function fetchComTimeoutAdmin(url, timeoutMs) {
+    var controller = new AbortController();
+    var id = setTimeout(function() { controller.abort(); }, timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(function() { clearTimeout(id); });
+}
+
+// Desenha em linha reta entre cada par de pontos — usado como reserva se o serviço de rotas
+// falhar (sem internet, fora do ar, endereço isolado sem via mapeada etc.), pra a rota nunca
+// simplesmente sumir do mapa.
+function desenharSegmentosRetos(pontos) {
+    for (var i = 0; i < pontos.length - 1; i++) {
+        var p1 = pontos[i], p2 = pontos[i + 1];
+        desenharTrechoClicavel([[p1.lat, p1.lon], [p2.lat, p2.lon]], corPorStatusPonto(p2), p1, p2);
+    }
+}
+
+function desenharRotaEncaixadaNasRuas(pontos, meuIdDesenho) {
+    var coordsStr = pontos.map(function(p) { return p.lon + "," + p.lat; }).join(";");
+    var url = URL_OSRM_ROTA_ADMIN + coordsStr + "?geometries=geojson&overview=false&steps=true";
+
+    fetchComTimeoutAdmin(url, 12000).then(function(res) { return res.json(); }).then(function(data) {
+        if (meuIdDesenho !== idDesenhoRotaAtual) return; // já existe um desenho mais novo em andamento — descarta esta resposta atrasada
+
+        if (!data || data.code !== "Ok" || !data.routes || !data.routes[0] || !data.routes[0].legs || data.routes[0].legs.length !== pontos.length - 1) {
+            desenharSegmentosRetos(pontos);
+            return;
+        }
+
+        var legs = data.routes[0].legs;
+        for (var i = 0; i < legs.length; i++) {
+            var coordsLatLng = [];
+            (legs[i].steps || []).forEach(function(step) {
+                if (step.geometry && step.geometry.coordinates) {
+                    step.geometry.coordinates.forEach(function(c) { coordsLatLng.push([c[1], c[0]]); });
+                }
+            });
+            var p1 = pontos[i], p2 = pontos[i + 1];
+            if (coordsLatLng.length < 2) {
+                coordsLatLng = [[p1.lat, p1.lon], [p2.lat, p2.lon]];
+            }
+            desenharTrechoClicavel(coordsLatLng, corPorStatusPonto(p2), p1, p2);
+        }
+    }).catch(function(e) {
+        if (meuIdDesenho !== idDesenhoRotaAtual) return;
+        console.warn("Falha ao encaixar rota nas ruas, desenhando linha reta:", e);
+        desenharSegmentosRetos(pontos);
+    });
+}
+
+// Desenha a rota a partir dos pontos gravados. "pontos" é o array completo (com
+// lat/lon/rua/velocidade/status/hora/etc.), na ordem em que foram gravados.
+// "opcoes.manterEnquadramento": quando true, NÃO mexe no zoom/posição da câmera do mapa —
+// usado no modo tempo real pra não reenquadrar o mapa a cada atualização de posição (isso
+// era a causa do mapa "tremendo": antes, toda leitura nova recentralizava e reenquadrava o
+// mapa do zero, mesmo com o veículo parado). Na busca de histórico, sempre reenquadra
+// (comportamento antigo, sem essa opção).
+function desenharRotaClicavel(pontos, opcoes) {
+    opcoes = opcoes || {};
+    idDesenhoRotaAtual++;
+    var meuIdDesenho = idDesenhoRotaAtual;
+    limparRotaAtual();
+    if (!pontos || pontos.length === 0) return;
+
+    var pontosValidos = pontos.filter(function(p) { return p && p.lat != null && p.lon != null; });
+    if (pontosValidos.length === 0) return;
+
+    if (pontosValidos.length === 1) {
+        // Só um ponto — nada pra desenhar como linha, mas ainda dá pra centralizar o mapa nele.
+        if (!opcoes.manterEnquadramento) {
+            map.setView([pontosValidos[0].lat, pontosValidos[0].lon], Math.max(map.getZoom(), 15));
+        }
+        return;
+    }
+
+    if (!opcoes.manterEnquadramento) {
+        var todasCoords = pontosValidos.map(function(p) { return [p.lat, p.lon]; });
+        try {
+            map.fitBounds(L.polyline(todasCoords).getBounds(), { padding: [30, 30], maxZoom: 17 });
+        } catch (e) { /* se o fitBounds falhar (ex: bounds inválido), o mapa só não recentraliza */ }
+    }
+
+    var pontosParaRotear = amostrarPontosParaRota(pontosValidos, MAX_PONTOS_ROTEAMENTO);
+    desenharRotaEncaixadaNasRuas(pontosParaRotear, meuIdDesenho);
+}
+
+// Ao tocar num trecho da rota: abre um popup no próprio mapa já com TODAS as informações
+// do ponto (rua, bairro, cidade/UF, situação, velocidade, tempo parado, data/hora) — antes
+// só vinha rua + velocidade no popup, e o resto só aparecia rolando até o painel lateral,
+// o que é ruim no celular porque o popup fica em cima do mapa e o painel fica escondido.
+// Continua preenchendo o painel lateral também, junto com o popup.
+function mostrarInfoDoPonto(ponto) {
+    atualizarPainelEletrico(ponto);
+
+    var velocidadeTxt = (ponto.velocidade != null ? ponto.velocidade : 0) + " km/h";
+    var horaTxt = (ponto.data ? ponto.data + " " : "") + (ponto.hora || "");
+    var situacaoTxt = ponto.status || "—";
+    var bairroTxt = ponto.bairro || "—";
+    var cidadeEstadoTxt = (ponto.cidade || "—") + " / " + (ponto.estado || "—");
+    var tempoParadoTxt = ponto.tempoParado || null;
+
+    var conteudoPopup =
+        '<div class="popup-rota-rua">' + (ponto.rua || "Rua não localizada") + '</div>' +
+        '<div class="popup-rota-vel">' + velocidadeTxt + ' · ' + situacaoTxt + '</div>' +
+        '<div class="popup-rota-linha">🏘️ ' + bairroTxt + '</div>' +
+        '<div class="popup-rota-linha">🏙️ ' + cidadeEstadoTxt + '</div>' +
+        (tempoParadoTxt ? '<div class="popup-rota-linha">⏱️ Parado há ' + tempoParadoTxt + '</div>' : '') +
+        '<div class="popup-rota-hora">' + horaTxt + '</div>';
+
+    L.popup({ closeButton: true, maxWidth: 260 })
+        .setLatLng([ponto.lat, ponto.lon])
+        .setContent(conteudoPopup)
+        .openOn(map);
+}
+
+var veiculoSelecionado = "";
+// Controla se o mapa já centralizou de verdade no veículo desde que a tela de tempo real
+// foi aberta — ver comentários em atualizarPainelEletrico/desenharRotaClicavel.
+var primeiraCentralizacaoFeita = false;
+var listenerTempoReal = null;
+var listenerRotaPlanejada = null;
+var dadosHistoricoCarregados = [];
+var EMPRESA_ID_ADMIN = null;
+
+function sanitizarChavePath(valor) {
+    return String(valor).replace(/[.#$\[\]\/]/g, "_");
+}
+// Tudo que o app do motorista grava fica dentro de 'empresas/{empresaId}/veiculos/...' —
+// então o admin precisa saber a empresa deste usuário antes de ler qualquer coisa.
+function caminhoVeiculos() {
+    return 'empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/veiculos';
+}
+
+document.getElementById('filtroData').value = new Date().toISOString().slice(0, 10);
+
+// ===================== AUTENTICAÇÃO =====================
+document.getElementById('btnEntrarPainel').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    var erroDiv = document.getElementById('erroLogin');
+    if(!email || !senha) return alert("Preencha todos os campos!");
+    erroDiv.style.display = "none";
+    auth.signInWithEmailAndPassword(email, senha)
+        .catch(function() {
+            erroDiv.textContent = "Acesso negado: dados incorretos.";
+            erroDiv.style.display = "block";
+        });
+});
+
+auth.onAuthStateChanged(function(user) {
+    if (user) {
+        document.getElementById('authOverlay').style.display = "none";
+        document.getElementById('userLogado').textContent = "🟢 Admin: " + user.email;
+        // CORREÇÃO IMPORTANTE: este painel lia os veículos de 'veiculos/...' na raiz do
+        // banco, mas o app do motorista grava tudo dentro de 'empresas/{empresaId}/veiculos/...'
+        // — ou seja, com os dois caminhos diferentes, o admin nunca chegava a ver nenhum
+        // veículo de verdade. Ao logar, primeiro descobrimos a empresa vinculada a este
+        // usuário (o mesmo mapeamento que o cadastro no app do motorista já grava em
+        // 'mapaUsuarioEmpresa/{uid}') e só então passamos a ler de dentro dela.
+        db.ref('mapaUsuarioEmpresa/' + user.uid).once('value').then(function(snap) {
+            EMPRESA_ID_ADMIN = snap.val();
+            if (!EMPRESA_ID_ADMIN) {
+                var erroDiv = document.getElementById('erroLogin');
+                erroDiv.textContent = "Este usuário não está vinculado a nenhuma empresa.";
+                erroDiv.style.display = 'block';
+                auth.signOut();
+                return;
+            }
+            inicializarEscutaBanco();
+        }).catch(function(e) {
+            console.warn(e);
+            var erroDiv = document.getElementById('erroLogin');
+            erroDiv.textContent = "Falha ao identificar a empresa deste usuário.";
+            erroDiv.style.display = 'block';
+        });
+    } else {
+        if (refStatusEmpresaAdmin) refStatusEmpresaAdmin.off();
+        if (refTrialEmpresaAdmin) refTrialEmpresaAdmin.off();
+        if (refAssinaturaEmpresaAdmin) refAssinaturaEmpresaAdmin.off();
+        EMPRESA_ID_ADMIN = null;
+        document.getElementById('authOverlay').style.display = "flex";
+        document.getElementById('avisoSuspensoAdmin').style.display = "none";
+        document.getElementById('selectVeiculo').innerHTML = '<option value="">Aguardando login...</option>';
+        if (listenerTempoReal && veiculoSelecionado) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
+        if (listenerRotaPlanejada && veiculoSelecionado) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+    }
+});
+
+document.getElementById('btnSair').addEventListener('click', function() {
+    auth.signOut();
+});
+
+// ===================== STATUS DA ASSINATURA/TESTE (dias, horas e minutos restantes) =====================
+// Mesmo formato do app do motorista: some com as partes zeradas do início (com menos de 1
+// dia mostra só "Xh Xmin", com menos de 1 hora só "Xmin").
+function formatarContagemRegressiva(ms) {
+    ms = Math.max(0, ms);
+    var totalMinutos = Math.floor(ms / 60000);
+    var dias = Math.floor(totalMinutos / 1440);
+    var horas = Math.floor((totalMinutos % 1440) / 60);
+    var minutos = totalMinutos % 60;
+    var partes = [];
+    if (dias > 0) partes.push(dias + "d");
+    if (dias > 0 || horas > 0) partes.push(horas + "h");
+    partes.push(minutos + "min");
+    return partes.join(" ");
+}
+
+var estadoEmpresaAdmin = { status: null, trialExpiraEm: null, assinaturaExpiraEm: null };
+
+var refStatusEmpresaAdmin = null;
+var refTrialEmpresaAdmin = null;
+var refAssinaturaEmpresaAdmin = null;
+
+// CORREÇÃO: esta função lia o nó 'empresas/{id}' inteiro de uma vez só. O app do motorista
+// (index.html) sempre leu em três caminhos SEPARADOS ('.../status', '.../trialExpiraEm',
+// '.../assinaturaExpiraEm') — muito provavelmente porque as regras de segurança do Firebase
+// liberam leitura só nesses campos específicos, não no nó inteiro. Ler o nó inteiro nessas
+// condições é recusado (PERMISSION_DENIED) e, como não havia callback de erro, falhava em
+// silêncio — o painel nunca recebia o status. Agora lê nos mesmos três caminhos que já
+// funcionam no app do motorista, com callback de erro pra nunca mais falhar calado.
+function inicializarStatusAssinatura() {
+    refStatusEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/status');
+    refTrialEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/trialExpiraEm');
+    refAssinaturaEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/assinaturaExpiraEm');
+
+    refStatusEmpresaAdmin.on('value', function(snap) {
+        estadoEmpresaAdmin.status = snap.val();
+        atualizarPainelStatusAssinatura();
+    }, function(erro) { console.warn("Falha ao ler status da empresa (verifique as regras do Firebase):", erro); });
+
+    refTrialEmpresaAdmin.on('value', function(snap) {
+        estadoEmpresaAdmin.trialExpiraEm = snap.val();
+        atualizarPainelStatusAssinatura();
+    }, function(erro) { console.warn("Falha ao ler trialExpiraEm:", erro); });
+
+    refAssinaturaEmpresaAdmin.on('value', function(snap) {
+        estadoEmpresaAdmin.assinaturaExpiraEm = snap.val();
+        atualizarPainelStatusAssinatura();
+    }, function(erro) { console.warn("Falha ao ler assinaturaExpiraEm:", erro); });
+
+    setInterval(atualizarPainelStatusAssinatura, 20000);
+}
+
+function atualizarPainelStatusAssinatura() {
+    var caixa = document.getElementById('boxStatusAssinatura');
+    var texto = document.getElementById('txtStatusAssinatura');
+
+    // Bloqueio de tela cheia — mesmo critério e mesmo visual do app do motorista
+    // (status 'suspenso', teste vencido, ou assinatura vencida). Enquanto isso estiver
+    // ativo, o resto do painel (mapa, veículos, histórico) fica coberto e inacessível.
+    var testeVencido = estadoEmpresaAdmin.status === 'trial' && estadoEmpresaAdmin.trialExpiraEm && new Date(estadoEmpresaAdmin.trialExpiraEm).getTime() < Date.now();
+    var assinaturaVencida = estadoEmpresaAdmin.status === 'ativo' && estadoEmpresaAdmin.assinaturaExpiraEm && new Date(estadoEmpresaAdmin.assinaturaExpiraEm).getTime() < Date.now();
+    var suspenso = estadoEmpresaAdmin.status === 'suspenso' || testeVencido || assinaturaVencida;
+    var overlayBloqueio = document.getElementById('avisoSuspensoAdmin');
+    if (overlayBloqueio) overlayBloqueio.style.display = (EMPRESA_ID_ADMIN && suspenso) ? 'flex' : 'none';
+
+    if (!EMPRESA_ID_ADMIN) { caixa.style.display = 'none'; return; }
+
+    if (estadoEmpresaAdmin.status === 'suspenso') {
+        caixa.style.display = 'block';
+        caixa.style.borderColor = 'var(--danger)';
+        texto.style.color = 'var(--danger)';
+        texto.textContent = "🚫 Conta suspensa";
+    } else if (estadoEmpresaAdmin.status === 'trial' && estadoEmpresaAdmin.trialExpiraEm) {
+        var restanteTeste = new Date(estadoEmpresaAdmin.trialExpiraEm).getTime() - Date.now();
+        caixa.style.display = 'block';
+        caixa.style.borderColor = 'var(--telemetry)';
+        texto.style.color = restanteTeste <= 0 ? 'var(--danger)' : 'var(--telemetry)';
+        texto.textContent = restanteTeste <= 0
+            ? "🚫 Período de teste encerrado"
+            : "🎁 Teste grátis — " + formatarContagemRegressiva(restanteTeste) + " restantes";
+    } else if (estadoEmpresaAdmin.status === 'ativo' && estadoEmpresaAdmin.assinaturaExpiraEm) {
+        var restanteAssinatura = new Date(estadoEmpresaAdmin.assinaturaExpiraEm).getTime() - Date.now();
+        caixa.style.display = 'block';
+        caixa.style.borderColor = 'var(--signal-on)';
+        texto.style.color = restanteAssinatura <= 0 ? 'var(--danger)' : 'var(--signal-on)';
+        texto.textContent = restanteAssinatura <= 0
+            ? "🚫 Assinatura vencida"
+            : "✅ Faltam " + formatarContagemRegressiva(restanteAssinatura) + " de assinatura";
+    } else {
+        caixa.style.display = 'none';
+    }
+}
+
+function inicializarEscutaBanco() {
+    inicializarStatusAssinatura();
+    db.ref(caminhoVeiculos()).on('value', function(snapshot) {
+        var select = document.getElementById('selectVeiculo');
+        select.innerHTML = '<option value="">-- Escolha um Veículo --</option>';
+        if(snapshot.exists()) {
+            snapshot.forEach(function(childSnapshot) {
+                var nomeVeiculo = childSnapshot.key;
+                var option = document.createElement('option');
+                option.value = nomeVeiculo;
+                option.textContent = "🚗 " + nomeVeiculo;
+                select.appendChild(option);
+            });
+            if(veiculoSelecionado) select.value = veiculoSelecionado;
+        } else {
+            select.innerHTML = '<option value="">Nenhum veículo ativo</option>';
+        }
+    });
+}
+
+document.getElementById('selectVeiculo').addEventListener('change', function(e) {
+    veiculoSelecionado = e.target.value;
+    if(veiculoSelecionado) verificarEAtivarTempoReal();
+});
+
+function verificarEAtivarTempoReal() {
+    if (listenerTempoReal) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
+    if (listenerRotaPlanejada) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+    document.getElementById('statusModo').innerHTML = '<span class="live-indicator"></span> MONITORANDO EM TEMPO REAL';
+    document.getElementById('statusModo').style.color = "var(--signal-on)";
+    document.getElementById('statusModo').style.borderColor = "var(--signal-on)";
+    document.getElementById('btnVoltarTempoReal').style.display = "none";
+
+    // Reseta o controle de "primeira centralização"/"última rota desenhada" — assim, ao
+    // trocar de veículo (ou voltar do histórico), o mapa reenquadra uma vez pra esse
+    // veículo, e depois disso para de ficar se reenquadrando sozinho a cada atualização.
+    primeiraCentralizacaoFeita = false;
+    ultimaAssinaturaRotaTempoReal = null;
+
+    listenerTempoReal = db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').on('value', function(snapshot) {
+        if(!snapshot.exists()) return;
+        atualizarPainelEletrico(snapshot.val(), { seguindoAoVivo: true });
+        desenharLinhaDoTempoReal();
+    });
+
+    // Escuta a rota que o motorista traçou no app dele (destino digitado) e desenha a
+    // linha tracejada correspondente — atualiza sozinha se ele traçar/cancelar de novo.
+    listenerRotaPlanejada = db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').on('value', function(snapshot) {
+        atualizarRotaPlanejadaNoPainel(snapshot.val());
+    });
+}
+
+var ultimaAssinaturaRotaTempoReal = null;
+
+function desenharLinhaDoTempoReal() {
+    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').limitToLast(30).once('value', function(snapshot) {
+        var pontos = [];
+        snapshot.forEach(function(child) {
+            var p = child.val();
+            if(p && p.lat && p.lon) pontos.push(p);
+        });
+        // CORREÇÃO (mapa tremendo): o '/atual' do veículo é atualizado a cada ~3s mesmo
+        // quando nenhum ponto NOVO foi gravado no histórico (o veículo pode estar parado,
+        // ou só variando a posição por ruído de GPS). Antes, isso redesenhava a rota inteira
+        // do zero a cada vez — limpando as linhas e pedindo o traçado pro OSRM de novo,
+        // fazendo a rota "piscar" (sumir e reaparecer). Agora só redesenha quando o conjunto
+        // de pontos realmente mudou (comparando quantidade + id do último ponto).
+        var assinatura = pontos.length + (pontos.length ? ('|' + pontos[pontos.length - 1].id) : '');
+        if (assinatura === ultimaAssinaturaRotaTempoReal) return;
+        ultimaAssinaturaRotaTempoReal = assinatura;
+        desenharRotaClicavel(pontos, { manterEnquadramento: primeiraCentralizacaoFeita });
+    });
+}
+
+// ===================== BUSCA DE HISTÓRICO =====================
+document.getElementById('btnBuscarHistorico').addEventListener('click', function() {
+    if (!veiculoSelecionado) return alert("Selecione um veículo primeiro!");
+    var dataFiltro = document.getElementById('filtroData').value;
+    var horaInicio = document.getElementById('filtroHoraInicio').value;
+    var horaFim = document.getElementById('filtroHoraFim').value;
+    if(!dataFiltro) return alert("Selecione a data!");
+
+    var partesData = dataFiltro.split('-');
+    var dataFormatadaBr = partesData[2] + "/" + partesData[1] + "/" + partesData[0];
+
+    if (listenerTempoReal) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
+    document.getElementById('statusModo').innerHTML = '📅 EXIBINDO HISTÓRICO PASSADO';
+    document.getElementById('statusModo').style.color = "var(--signal-off)";
+    document.getElementById('statusModo').style.borderColor = "var(--signal-off)";
+    document.getElementById('btnVoltarTempoReal').style.display = "block";
+
+    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').once('value', function(snapshot) {
+        dadosHistoricoCarregados = [];
+        snapshot.forEach(function(child) {
+            var ponto = child.val();
+            if (ponto && ponto.data === dataFormatadaBr) {
+                if (ponto.hora >= horaInicio && ponto.hora <= horaFim) {
+                    dadosHistoricoCarregados.push(ponto);
+                }
+            }
+        });
+
+        if(dadosHistoricoCarregados.length === 0) {
+            alert("Nenhum registro encontrado para este período.");
+            verificarEAtivarTempoReal();
+            return;
+        }
+
+        atualizarPainelEletrico(dadosHistoricoCarregados[dadosHistoricoCarregados.length - 1]);
+        desenharRotaClicavel(dadosHistoricoCarregados);
+    });
+});
+
+document.getElementById('btnVoltarTempoReal').addEventListener('click', verificarEAtivarTempoReal);
+
+function atualizarPainelEletrico(dados, opcoes) {
+    if(!dados || !dados.lat || !dados.lon) return;
+    opcoes = opcoes || {};
+    var latlng = [dados.lat, dados.lon];
+    marcadorVeiculo.setLatLng(latlng);
+
+    if (opcoes.seguindoAoVivo) {
+        // CORREÇÃO (mapa tremendo): antes, toda atualização de posição em tempo real (a
+        // cada ~3s) forçava um map.setView, recentralizando o mapa do zero — mesmo com o
+        // veículo praticamente parado (ruído normal de GPS já bastava pra disparar isso a
+        // cada leitura). Agora só centraliza de verdade na primeira vez que a tela abre pra
+        // esse veículo; depois disso, só acompanha com um pan suave se o veículo realmente
+        // sair da área visível — não mexe mais na câmera por causa de deslocamentos
+        // pequenos dentro da tela.
+        if (!primeiraCentralizacaoFeita) {
+            map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
+            primeiraCentralizacaoFeita = true;
+        } else if (!map.getBounds().pad(-0.15).contains(latlng)) {
+            map.panTo(latlng, { animate: true });
+        }
+    } else {
+        // Chamado ao tocar num ponto da rota ou ao abrir um ponto do histórico — aqui sim
+        // o usuário espera que o mapa centralize de verdade no ponto escolhido.
+        map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
+    }
+
+    document.getElementById('txtVelocidade').textContent = (dados.velocidade || 0) + " km/h";
+    document.getElementById('txtTempoParado').textContent = dados.tempoParado || "00:00:00";
+    document.getElementById('txtRua').textContent = dados.rua || "Não localizada";
+    document.getElementById('txtBairro').textContent = dados.bairro || "—";
+    document.getElementById('txtCidadeEstado').textContent = (dados.cidade || "—") + " / " + (dados.estado || "—");
+    document.getElementById('txtDataHora').textContent = dados.data + " às " + dados.hora;
+    document.getElementById('txtCoords').textContent = dados.lat.toFixed(6) + ", " + dados.lon.toFixed(6);
+
+    var badge = document.getElementById('txtStatus');
+    badge.textContent = dados.status || "PARADO";
+    badge.className = dados.velocidade > 80 ? "badge badge-perigo" : (dados.velocidade > 2 ? "badge badge-movimento" : "badge badge-parado");
+
+    if (rotaPlanejadaAtualAdmin) atualizarBannerProximaManobraAdmin();
+}
+</script>
+</body>
+  </html>
