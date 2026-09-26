@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aprovar Plano - Everton GPS</title>
+<style>
+:root {
+    --bg-main: #0a0d12;
+    --bg-card: #131820;
+    --border: rgba(255,255,255,.08);
+    --brand: #00ffa6;
+    --accent: #2dd4ff;
+    --danger: #ff5470;
+    --warn: #ffb020;
+    --text: #eef2f6;
+    --text-dim: #74808f;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 16px; font-family: system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text); max-width: 480px; margin: 0 auto;
+}
+h2 { color: var(--accent); font-size: 1.2em; margin-bottom: 4px; }
+.sub { color: var(--text-dim); font-size: 0.85em; margin-bottom: 20px; }
+.box { background: var(--bg-card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+label { font-size: 0.75em; text-transform: uppercase; color: var(--text-dim); font-weight: bold; display: block; margin-bottom: 6px; }
+input, select {
+    width: 100%; background: #1a212b; border: 1px solid var(--border);
+    padding: 12px; border-radius: 6px; color: white; font-size: 1em; box-sizing: border-box;
+}
+button {
+    width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: bold;
+    font-size: 0.95em; cursor: pointer; margin-top: 8px;
+}
+.btn-buscar { background: var(--accent); color: #04141f; }
+.btn-plano { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); text-align: left; }
+.btn-plano:hover { border-color: var(--brand); }
+.btn-plano b { display: block; font-size: 1.05em; }
+.btn-plano span { font-size: 0.8em; color: var(--text-dim); }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9em; }
+.info-row:last-child { border-bottom: none; }
+.badge { font-size: 0.75em; padding: 3px 10px; border-radius: 4px; font-weight: bold; }
+.badge-ativo { background: rgba(0,255,166,.15); color: var(--brand); }
+.badge-trial { background: rgba(45,212,255,.15); color: var(--accent); }
+.badge-suspenso { background: rgba(255,84,112,.15); color: var(--danger); }
+.badge-nenhum { background: rgba(255,176,32,.15); color: var(--warn); }
+#msg { margin-top: 12px; font-size: 0.85em; padding: 10px; border-radius: 6px; display: none; }
+#msg.ok { background: rgba(0,255,166,.12); color: var(--brand); border: 1px solid var(--brand); display: block; }
+#msg.erro { background: rgba(255,84,112,.12); color: var(--danger); border: 1px solid var(--danger); display: block; }
+.auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h3 style="margin:0;text-align:center;">🔐 Aprovar Plano</h3>
+        <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+        <input type="password" id="authSenha" placeholder="senha">
+        <button class="btn-buscar" id="btnEntrar">Entrar</button>
+        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<h2>💳 Aprovar Plano</h2>
+<div class="sub">Cole o ID da empresa que o cliente mandou pelo WhatsApp e confirme o plano pago.</div>
+
+<div class="box">
+    <label>ID da empresa</label>
+    <input type="text" id="empresaIdInput" placeholder="ex: transportes_silva_ltda" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="btn-buscar" id="btnBuscar">🔍 Buscar</button>
+</div>
+
+<div class="box" id="boxInfo" style="display:none;">
+    <div class="info-row"><span>Empresa</span><b id="txtNome">—</b></div>
+    <div class="info-row"><span>Status atual</span><span id="badgeStatus" class="badge badge-nenhum">—</span></div>
+    <div class="info-row"><span>Tipo atual</span><b id="txtTipo">—</b></div>
+    <div class="info-row"><span>Teste grátis expira</span><b id="txtTrial">—</b></div>
+    <div class="info-row"><span>Assinatura expira</span><b id="txtAssinatura">—</b></div>
+</div>
+
+<div class="box" id="boxPlanos" style="display:none;">
+    <label>Confirmar plano pago (ativa por 30 dias a partir de agora)</label>
+    <button class="btn-plano" data-tipo="frota">
+        <b>🚚 Frota</b><span>Só rastreamento de frota</span>
+    </button>
+    <button class="btn-plano" data-tipo="familia">
+        <b>👨‍👩‍👧 Família</b><span>Só o modo família</span>
+    </button>
+    <button class="btn-plano" data-tipo="combo">
+        <b>🔀 Combo — Frota + Família</b><span>Os dois liberados, com chave de troca</span>
+    </button>
+</div>
+
+<div class="box" id="boxSuspender" style="display:none;">
+    <button class="btn-plano" id="btnSuspender" style="color: var(--danger); border-color: var(--danger);">
+        <b>🚫 Suspender acesso</b><span>Use se o pagamento não foi confirmado / atrasou</span>
+    </button>
+</div>
+
+<div id="msg"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+function sanitizarChavePath(valor) {
+    return String(valor).replace(/[.#$\[\]\/]/g, "_");
+}
+
+document.getElementById('btnEntrar').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    if (!email || !senha) return alert("Preencha tudo!");
+    auth.signInWithEmailAndPassword(email, senha).catch(function(e) {
+        document.getElementById('erroLogin').textContent = "Acesso negado: " + e.message;
+        document.getElementById('erroLogin').style.display = 'block';
+    });
+});
+
+auth.onAuthStateChanged(function(user) {
+    document.getElementById('authOverlay').style.display = user ? 'none' : 'flex';
+});
+
+function mostrarMsg(texto, tipo) {
+    var el = document.getElementById('msg');
+    el.textContent = texto;
+    el.className = tipo;
+    setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 6000);
+}
+
+var empresaIdAtual = null;
+
+document.getElementById('btnBuscar').addEventListener('click', function() {
+    var id = document.getElementById('empresaIdInput').value.trim().toLowerCase();
+    if (!id) return alert("Digite o ID da empresa.");
+    id = sanitizarChavePath(id);
+    empresaIdAtual = id;
+
+    db.ref('empresas/' + id).once('value').then(function(snap) {
+        if (!snap.exists()) {
+            document.getElementById('boxInfo').style.display = 'none';
+            document.getElementById('boxPlanos').style.display = 'none';
+            document.getElementById('boxSuspender').style.display = 'none';
+            mostrarMsg("Nenhuma empresa encontrada com esse ID.", "erro");
+            return;
+        }
+        var dados = snap.val();
+        document.getElementById('txtNome').textContent = dados.nome || id;
+        document.getElementById('txtTipo').textContent = dados.tipo || "— (ainda não definido)";
+        document.getElementById('txtTrial').textContent = dados.trialExpiraEm ? new Date(dados.trialExpiraEm).toLocaleString('pt-BR') : "—";
+        document.getElementById('txtAssinatura').textContent = dados.assinaturaExpiraEm ? new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR') : "—";
+
+        var badge = document.getElementById('badgeStatus');
+        var statusMap = {
+            ativo: ["ATIVO", "badge badge-ativo"],
+            trial: ["TESTE GRÁTIS", "badge badge-trial"],
+            suspenso: ["SUSPENSO", "badge badge-suspenso"]
+        };
+        var info = statusMap[dados.status] || ["—", "badge badge-nenhum"];
+        badge.textContent = info[0];
+        badge.className = info[1];
+
+        document.getElementById('boxInfo').style.display = 'block';
+        document.getElementById('boxPlanos').style.display = 'block';
+        document.getElementById('boxSuspender').style.display = 'block';
+    }).catch(function(e) {
+        mostrarMsg("Erro ao buscar: " + e.message, "erro");
+    });
+});
+
+document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        if (!empresaIdAtual) return;
+        var tipo = btn.getAttribute('data-tipo');
+        if (!confirm("Confirmar plano '" + tipo + "' pago para '" + empresaIdAtual + "', ativando por 30 dias a partir de agora?")) return;
+
+        var agora = new Date();
+        var expira = new Date(agora.getTime() + 30 * 86400000);
+        var updates = {};
+        updates['empresas/' + empresaIdAtual + '/status'] = 'ativo';
+        updates['empresas/' + empresaIdAtual + '/tipo'] = tipo;
+        updates['empresas/' + empresaIdAtual + '/assinaturaExpiraEm'] = expira.toISOString();
+
+        db.ref().update(updates).then(function() {
+            mostrarMsg("✅ Plano '" + tipo + "' ativado até " + expira.toLocaleDateString('pt-BR') + ".", "ok");
+            document.getElementById('btnBuscar').click();
+        }).catch(function(e) {
+            mostrarMsg("Erro ao salvar: " + e.message, "erro");
+        });
+    });
+});
+
+document.getElementById('btnSuspender').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    if (!confirm("Suspender o acesso de '" + empresaIdAtual + "'?")) return;
+    db.ref('empresas/' + empresaIdAtual + '/status').set('suspenso').then(function() {
+        mostrarMsg("🚫 Empresa suspensa.", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e) {
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
+    });
+});
+</script>
+</body>
+</html>
