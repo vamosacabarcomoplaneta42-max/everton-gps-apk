@@ -94,6 +94,16 @@ button {
     </button>
 </div>
 
+<div class="box" id="boxTipoSozinho" style="display:none;">
+    <label>Só definir o modo (sem mexer em status/data — útil em testes)</label>
+    <select id="selectTipoSozinho">
+        <option value="frota">🚚 Frota</option>
+        <option value="familia">👨‍👩‍👧 Família</option>
+        <option value="combo">🔀 Combo</option>
+    </select>
+    <button class="btn-buscar" id="btnDefinirTipoSozinho" style="background: var(--warn); color: #1a1200;">Definir só o tipo</button>
+</div>
+
 <div class="box" id="boxSuspender" style="display:none;">
     <button class="btn-plano" id="btnSuspender" style="color: var(--danger); border-color: var(--danger);">
         <b>🚫 Suspender acesso</b><span>Use se o pagamento não foi confirmado / atrasou</span>
@@ -193,6 +203,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
 
         document.getElementById('boxInfo').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
+        document.getElementById('boxTipoSozinho').style.display = 'block';
         document.getElementById('boxSuspender').style.display = 'block';
     });
 });
@@ -216,6 +227,18 @@ document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
         }).catch(function(e) {
             mostrarMsg("Erro ao salvar: " + e.message, "erro");
         });
+    });
+});
+
+document.getElementById('btnDefinirTipoSozinho').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    var tipo = document.getElementById('selectTipoSozinho').value;
+    if (!confirm("Definir o modo '" + tipo + "' para '" + empresaIdAtual + "', SEM mexer em status ou data de expiração?")) return;
+    db.ref('empresas/' + empresaIdAtual + '/tipo').set(tipo).then(function() {
+        mostrarMsg("✅ Tipo definido como '" + tipo + "' (status e data continuam iguais).", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e) {
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
     });
 });
 
