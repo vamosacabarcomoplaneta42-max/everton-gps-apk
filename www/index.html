@@ -254,9 +254,9 @@
     <div id="modalQuantidade" class="auth-overlay" style="display:none;">
         <div class="auth-card">
             <h3 id="qtdTituloPlano" style="margin:0;">Plano</h3>
-            <p style="font-size:0.82em; color:var(--text-dim); text-align:center; margin:0;">Quantos veículos vão ser rastreados?</p>
+            <p id="qtdPergunta" style="font-size:0.82em; color:var(--text-dim); text-align:center; margin:0;">Quantos veículos vão ser rastreados?</p>
             <div>
-                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Quantidade de veículos</label>
+                <label id="qtdLabelCampo" style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Quantidade de veículos</label>
                 <input type="number" id="qtdInput" min="1" step="1" value="1" style="width: 100%; box-sizing: border-box;">
             </div>
             <div id="qtdPreview" style="text-align:center; font-size:1em; font-weight:700; color:var(--brand);"></div>
@@ -822,13 +822,14 @@ function atualizarInfoEmpresaSalva() {
 }
 
 var WHATSAPP_SUPORTE = "5551985803243";
-// Frota e Combo cobram por veículo (pedeQuantidade: true) — o preço exato só é
-// calculado depois que o cliente informa quantos veículos tem, no modal de
-// quantidade. Família tem preço fixo (até 5 pessoas), sem depender de quantidade.
+// Frota e Combo cobram por veículo; Família agora cobra por pessoa (sem teto
+// fixo de 5) — os três pedem quantidade antes de calcular o valor exato e
+// abrir o WhatsApp. unidadeLabel/perguntaQuantidade/labelQuantidade mudam o
+// texto do modal conforme o plano (veículo x pessoa).
 var PLANOS_ASSINATURA = [
-    { id: 'frota', nome: 'Frota', descPreco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 0 },
-    { id: 'familia', nome: 'Família', descPreco: 'R$ 9,90/mês (até 5 pessoas)', desc: 'Só o modo Família.', pedeQuantidade: false, precoFixo: 9.90 },
-    { id: 'combo', nome: 'Combo — Frota + Família', descPreco: 'o preço da Frota + R$ 6,90/mês', desc: 'Os dois juntos, no mesmo app.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 6.90 }
+    { id: 'frota', nome: 'Frota', descPreco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 0, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' },
+    { id: 'familia', nome: 'Família', descPreco: 'R$ 4,90 por pessoa/mês', desc: 'Só o modo Família.', pedeQuantidade: true, precoUnitario: 4.90, precoAdicional: 0, unidadeLabel: 'pessoa', perguntaQuantidade: 'Quantas pessoas vão usar o app?', labelQuantidade: 'Quantidade de pessoas' },
+    { id: 'combo', nome: 'Combo — Frota + Família', descPreco: 'o preço da Frota + R$ 6,90/mês', desc: 'Os dois juntos, no mesmo app.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 6.90, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' }
 ];
 
 function formatarPrecoReais(v) {
@@ -854,12 +855,15 @@ function montarBoxAssinar() {
     });
 }
 
-// Mostra o modal pedindo a quantidade de veículos, com o valor total já
-// calculado em tempo real conforme o cliente digita, antes de ir pro WhatsApp.
+// Mostra o modal pedindo a quantidade (veículos ou pessoas, conforme o
+// plano), com o valor total já calculado em tempo real conforme o cliente
+// digita, antes de ir pro WhatsApp.
 var planoQuantidadeAtual = null;
 function abrirModalQuantidade(plano) {
     planoQuantidadeAtual = plano;
     document.getElementById('qtdTituloPlano').textContent = plano.nome;
+    document.getElementById('qtdPergunta').textContent = plano.perguntaQuantidade;
+    document.getElementById('qtdLabelCampo').textContent = plano.labelQuantidade;
     var input = document.getElementById('qtdInput');
     input.value = 1;
     atualizarPreviewQuantidade();
@@ -874,7 +878,7 @@ function atualizarPreviewQuantidade() {
     var qtd = parseInt(document.getElementById('qtdInput').value, 10);
     if (!qtd || qtd < 1) { preview.textContent = 'Digite uma quantidade válida.'; return; }
     var total = plano.precoUnitario * qtd + (plano.precoAdicional || 0);
-    var detalhe = qtd + ' veículo' + (qtd > 1 ? 's' : '') + ' × ' + formatarPrecoReais(plano.precoUnitario)
+    var detalhe = qtd + ' ' + plano.unidadeLabel + (qtd > 1 ? 's' : '') + ' × ' + formatarPrecoReais(plano.precoUnitario)
         + (plano.precoAdicional ? ' + ' + formatarPrecoReais(plano.precoAdicional) + ' (Família)' : '');
     preview.textContent = detalhe + ' = ' + formatarPrecoReais(total) + '/mês';
 }
@@ -884,7 +888,7 @@ document.getElementById('btnConfirmarQuantidade').addEventListener('click', func
     var plano = planoQuantidadeAtual;
     if (!plano) return;
     var qtd = parseInt(document.getElementById('qtdInput').value, 10);
-    if (!qtd || qtd < 1) { alert('Digite uma quantidade válida de veículos.'); return; }
+    if (!qtd || qtd < 1) { alert('Digite uma quantidade válida de ' + plano.unidadeLabel + 's.'); return; }
     var total = plano.precoUnitario * qtd + (plano.precoAdicional || 0);
     document.getElementById('modalQuantidade').style.display = 'none';
     pedirAssinatura(plano, qtd, total);
@@ -898,7 +902,7 @@ function pedirAssinatura(plano, quantidade, valorTotal) {
     var email = auth.currentUser ? auth.currentUser.email : '(não logado)';
     var linhaValor;
     if (quantidade != null && valorTotal != null) {
-        linhaValor = "Quantidade de veículos: " + quantidade + "\nValor mensal calculado: " + formatarPrecoReais(valorTotal);
+        linhaValor = "Quantidade de " + plano.unidadeLabel + "s: " + quantidade + "\nValor mensal calculado: " + formatarPrecoReais(valorTotal);
     } else if (plano.precoFixo != null) {
         linhaValor = "Valor: " + formatarPrecoReais(plano.precoFixo) + "/mês";
     } else {
