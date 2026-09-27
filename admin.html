@@ -16,6 +16,12 @@
     --telemetry: #2dd4ff;
     --text: #eef2f6;
     --text-dim: #74808f;
+    /* Faz o navegador desenhar os seletores nativos (date/time, e o calendário
+       que abre ao tocar neles) no tema ESCURO em vez do claro padrão. Sem
+       isso, em vários Android/Chrome o texto do seletor de data/hora fica
+       escuro sobre o nosso fundo escuro — dá a impressão de que não dá pra
+       mudar a data/hora, quando na verdade só está ilegível. */
+    color-scheme: dark;
 }
 body {
     margin: 0; padding: 0; font-family: system-ui, sans-serif;
@@ -36,9 +42,12 @@ body {
 select, input, button {
     width: 100%; background: #1a212b; border: 1px solid var(--border);
     padding: 10px; border-radius: 6px; color: white; font-size: 0.95em; box-sizing: border-box;
+    color-scheme: dark;
 }
 button { background: var(--telemetry); color: #000; font-weight: bold; cursor: pointer; margin-top: 8px; border: none;}
 button:hover { opacity: 0.9; }
+button.sec { background: #1a212b; color: var(--text); border: 1px solid var(--border); }
+button.linha { display: flex; gap: 8px; }
 .telemetry-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.88em; }
 .telemetry-row:last-child { border-bottom: none; }
 .telemetry-row b { text-align: right; max-width: 60%; }
@@ -51,6 +60,21 @@ button:hover { opacity: 0.9; }
 .auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
 .auth-card h3 { margin: 0; color: var(--text); font-size: 1.2em; text-align: center; }
 
+/* Banner de SOS — some sozinho quando não há nenhum ativo */
+.box-sos {
+    background: rgba(255,84,112,.12); border: 1px solid var(--danger); border-radius: 8px;
+    padding: 12px; display: none; flex-direction: column; gap: 6px;
+}
+.box-sos.ativo { display: flex; }
+.box-sos .titulo { color: var(--danger); font-weight: bold; font-size: 0.9em; }
+.box-sos .item {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    background: rgba(255,84,112,.1); border: 1px solid rgba(255,84,112,.3); border-radius: 6px;
+    padding: 8px 10px; cursor: pointer; font-size: 0.85em;
+}
+.box-sos .item:hover { background: rgba(255,84,112,.2); }
+.box-sos .item span.tempo { color: var(--text-dim); font-size: 0.85em; }
+
 /* Popup de toque na rota — mantém o visual escuro do resto do painel */
 .leaflet-popup-content-wrapper { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
 .leaflet-popup-tip { background: var(--bg-card); }
@@ -58,6 +82,7 @@ button:hover { opacity: 0.9; }
 .popup-rota-vel { color: var(--telemetry); font-family: ui-monospace, monospace; }
 .popup-rota-linha { font-size: 0.82em; color: var(--text-dim); margin-top: 3px; }
 .popup-rota-hora { color: var(--text-dim); font-size: 0.8em; margin-top: 6px; }
+.popup-todos-nome { font-weight: bold; font-size: 0.95em; margin-bottom: 4px; }
 .linha-passo-rota { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
 .linha-passo-rota:last-child { border-bottom: none; }
 .linha-passo-rota.ativo { background: rgba(0,224,168,0.1); border-left: 3px solid var(--signal-on); }
@@ -105,11 +130,18 @@ button:hover { opacity: 0.9; }
         <span id="userLogado" style="font-size: 0.8em; color: var(--signal-on)">Sessão Protegida</span>
     </div>
     <div class="content">
+
+        <div class="box box-sos" id="boxSos">
+            <div class="titulo">🆘 SOS ATIVO</div>
+            <div id="listaSos"></div>
+        </div>
+
         <div class="box">
-            <div class="box-title">🚗 Selecionar Veículo</div>
+            <div class="box-title" id="tituloSelecionar">🚗 Selecionar Veículo</div>
             <select id="selectVeiculo">
                 <option value="">Aguardando login...</option>
             </select>
+            <button id="btnVerTodos" class="sec" type="button">🗺️ Ver todos no mapa</button>
         </div>
 
         <div class="box" id="boxStatusAssinatura" style="display:none; text-align:center;">
@@ -125,6 +157,7 @@ button:hover { opacity: 0.9; }
                     <input type="time" id="filtroHoraFim" value="23:59">
                 </div>
                 <button id="btnBuscarHistorico">🔍 Buscar Histórico</button>
+                <button id="btnExportarCsv" class="sec" type="button">⬇️ Exportar CSV do período</button>
                 <button id="btnVoltarTempoReal" style="background: var(--signal-on); display: none;">🟢 Voltar ao Tempo Real</button>
             </div>
         </div>
@@ -138,7 +171,7 @@ button:hover { opacity: 0.9; }
         </div>
 
         <div class="box" id="boxRotaPlanejada" style="display:none; border-color: var(--telemetry);">
-            <div class="box-title">🧭 Rota Planejada pelo Motorista</div>
+            <div class="box-title">🧭 Rota Planejada</div>
             <div class="telemetry-row"><span>Destino</span><b id="txtDestinoPlanejado">—</b></div>
             <div class="telemetry-row"><span>Distância</span><b id="txtDistanciaPlanejada">—</b></div>
             <div class="telemetry-row"><span>Tempo estimado</span><b id="txtDuracaoPlanejada">—</b></div>
@@ -158,6 +191,7 @@ button:hover { opacity: 0.9; }
 
         <div class="box">
             <div class="box-title">📊 Dados do Ponto Selecionado</div>
+            <div class="telemetry-row"><span>Última posição</span><b id="txtHaQuanto" style="color:var(--signal-on);">—</b></div>
             <div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">—</span></div>
             <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
             <div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">00:00:00</b></div>
@@ -202,6 +236,9 @@ var marcadorVeiculo = L.marker([-29.6133, -52.1919]).addTo(map);
 // Linha tracejada da rota que o MOTORISTA planejou/digitou no app dele (destino), pra
 // diferenciar visualmente do trajeto real percorrido (linhas sólidas coloridas por status).
 var polilinhaRotaPlanejadaAdmin = L.polyline([], {color: '#34b3ff', weight: 5, opacity: 0.85, dashArray: '8,8'}).addTo(map);
+// Camada com um marcador por unidade (veículo/pessoa) — usada pelo botão "Ver todos no
+// mapa", independente do marcador único de cima que segue a unidade selecionada.
+var camadaTodos = L.layerGroup();
 
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     var R = 6371000;
@@ -214,6 +251,21 @@ function formatarDistanciaCurtaAdmin(metros) {
     if (metros == null) return "—";
     if (metros >= 1000) return (metros / 1000).toFixed(1) + " km";
     return Math.round(metros) + " m";
+}
+function formatarTempoDecorrido(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return s + "s atrás";
+    var m = Math.round(s / 60);
+    if (m < 60) return m + "min atrás";
+    var h = Math.floor(m / 60);
+    return h + "h " + (m % 60) + "min atrás";
+}
+/* O app grava data e hora como texto ("19/09/2026" e "14:03:22"). Converte para milissegundos. */
+function parseDataHoraAdmin(d, h) {
+    var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || '');
+    var t = /^(\d{2}):(\d{2}):(\d{2})$/.exec(h || '');
+    if (!m || !t) return null;
+    return new Date(+m[3], +m[2] - 1, +m[1], +t[1], +t[2], +t[3]).getTime();
 }
 
 // Mostra a mesma rota (com destino, distância e tempo) e o mesmo passo a passo tipo Waze
@@ -309,13 +361,6 @@ document.getElementById('btnAlternarPassoAPassoAdmin').addEventListener('click',
 });
 
 // ===================== ROTA TOCÁVEL, ENCAIXADA NAS RUAS =====================
-// A rota é desenhada com os PRÓPRIOS pontos gravados (não com nenhuma bolinha/marcador
-// separado), mas o traçado entre cada par de pontos consecutivos agora é pedido pro OSRM
-// (serviço de rotas gratuito) numa ÚNICA requisição com "steps=true" — os "steps" de cada
-// trecho (leg) dão a geometria encaixada nas ruas especificamente ENTRE aqueles dois
-// pontos, então cada trecho desenhado continua correspondendo a um ponto real gravado (dá
-// pra tocar nele) só que agora a linha segue as ruas de verdade em vez de cortar reto por
-// cima dos quarteirões.
 var camadaRotaAtual = L.layerGroup().addTo(map);
 var idDesenhoRotaAtual = 0;
 var MAX_PONTOS_ROTEAMENTO = 80;
@@ -331,14 +376,6 @@ function corPorStatusPonto(ponto) {
     return getComputedStyle(document.documentElement).getPropertyValue('--signal-off').trim() || '#ffb020';
 }
 
-// CORREÇÃO: um "trecho" desenhado no mapa segue a geometria real das ruas entre DOIS
-// pontos gravados (p1 e p2), que podem estar bem distantes um do outro — por exemplo, um
-// trecho inteiro de rodovia entre duas leituras de GPS. Antes, tocar em QUALQUER lugar
-// desse trecho (inclusive perto do início, ainda na rodovia) sempre mostrava os dados do
-// ponto p2 (o fim do trecho) — que pode já estar numa rua de bairro, bem depois de onde o
-// motorista realmente tocou no mapa. Agora, ao tocar, comparamos o ponto exato do toque
-// com p1 e p2 e mostramos o mais próximo dos dois — assim, tocar perto do início do trecho
-// mostra os dados do início (a rodovia), não do fim.
 function desenharTrechoClicavel(coordsLatLng, cor, pontoAnterior, pontoAtual) {
     function aoTocar(e) {
         var pontoDoTrecho = pontoAtual;
@@ -349,17 +386,12 @@ function desenharTrechoClicavel(coordsLatLng, cor, pontoAnterior, pontoAtual) {
         }
         mostrarInfoDoPonto(pontoDoTrecho);
     }
-    // Área de toque mais larga e invisível por baixo — facilita tocar numa tela pequena de
-    // celular sem precisar acertar o pixel exato da linha fina.
     var areaDeToque = L.polyline(coordsLatLng, { color: '#000000', opacity: 0, weight: 24 }).addTo(camadaRotaAtual);
     var linhaVisivel = L.polyline(coordsLatLng, { color: cor, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(camadaRotaAtual);
     areaDeToque.on('click', aoTocar);
     linhaVisivel.on('click', aoTocar);
 }
 
-// Reduz a quantidade de pontos mandados pro serviço de rotas — um histórico de um dia
-// inteiro pode ter centenas/milhares de pontos, o que não cabe (nem precisa) numa única
-// requisição. Sempre mantém o primeiro e o último ponto.
 function amostrarPontosParaRota(pontos, maxPontos) {
     if (pontos.length <= maxPontos) return pontos;
     var passo = pontos.length / maxPontos;
@@ -375,9 +407,6 @@ function fetchComTimeoutAdmin(url, timeoutMs) {
     return fetch(url, { signal: controller.signal }).finally(function() { clearTimeout(id); });
 }
 
-// Desenha em linha reta entre cada par de pontos — usado como reserva se o serviço de rotas
-// falhar (sem internet, fora do ar, endereço isolado sem via mapeada etc.), pra a rota nunca
-// simplesmente sumir do mapa.
 function desenharSegmentosRetos(pontos) {
     for (var i = 0; i < pontos.length - 1; i++) {
         var p1 = pontos[i], p2 = pontos[i + 1];
@@ -390,7 +419,7 @@ function desenharRotaEncaixadaNasRuas(pontos, meuIdDesenho) {
     var url = URL_OSRM_ROTA_ADMIN + coordsStr + "?geometries=geojson&overview=false&steps=true";
 
     fetchComTimeoutAdmin(url, 12000).then(function(res) { return res.json(); }).then(function(data) {
-        if (meuIdDesenho !== idDesenhoRotaAtual) return; // já existe um desenho mais novo em andamento — descarta esta resposta atrasada
+        if (meuIdDesenho !== idDesenhoRotaAtual) return;
 
         if (!data || data.code !== "Ok" || !data.routes || !data.routes[0] || !data.routes[0].legs || data.routes[0].legs.length !== pontos.length - 1) {
             desenharSegmentosRetos(pontos);
@@ -418,13 +447,6 @@ function desenharRotaEncaixadaNasRuas(pontos, meuIdDesenho) {
     });
 }
 
-// Desenha a rota a partir dos pontos gravados. "pontos" é o array completo (com
-// lat/lon/rua/velocidade/status/hora/etc.), na ordem em que foram gravados.
-// "opcoes.manterEnquadramento": quando true, NÃO mexe no zoom/posição da câmera do mapa —
-// usado no modo tempo real pra não reenquadrar o mapa a cada atualização de posição (isso
-// era a causa do mapa "tremendo": antes, toda leitura nova recentralizava e reenquadrava o
-// mapa do zero, mesmo com o veículo parado). Na busca de histórico, sempre reenquadra
-// (comportamento antigo, sem essa opção).
 function desenharRotaClicavel(pontos, opcoes) {
     opcoes = opcoes || {};
     idDesenhoRotaAtual++;
@@ -436,7 +458,6 @@ function desenharRotaClicavel(pontos, opcoes) {
     if (pontosValidos.length === 0) return;
 
     if (pontosValidos.length === 1) {
-        // Só um ponto — nada pra desenhar como linha, mas ainda dá pra centralizar o mapa nele.
         if (!opcoes.manterEnquadramento) {
             map.setView([pontosValidos[0].lat, pontosValidos[0].lon], Math.max(map.getZoom(), 15));
         }
@@ -454,11 +475,6 @@ function desenharRotaClicavel(pontos, opcoes) {
     desenharRotaEncaixadaNasRuas(pontosParaRotear, meuIdDesenho);
 }
 
-// Ao tocar num trecho da rota: abre um popup no próprio mapa já com TODAS as informações
-// do ponto (rua, bairro, cidade/UF, situação, velocidade, tempo parado, data/hora) — antes
-// só vinha rua + velocidade no popup, e o resto só aparecia rolando até o painel lateral,
-// o que é ruim no celular porque o popup fica em cima do mapa e o painel fica escondido.
-// Continua preenchendo o painel lateral também, junto com o popup.
 function mostrarInfoDoPonto(ponto) {
     atualizarPainelEletrico(ponto);
 
@@ -484,19 +500,30 @@ function mostrarInfoDoPonto(ponto) {
 }
 
 var veiculoSelecionado = "";
-// Controla se o mapa já centralizou de verdade no veículo desde que a tela de tempo real
-// foi aberta — ver comentários em atualizarPainelEletrico/desenharRotaClicavel.
+// NOVO (corrige os "soluços" ao trocar de veículo): guarda qual veículo tinha
+// mesmo o listener em tempo real ligado. Antes, ao desligar o listener
+// antigo, o código usava "veiculoSelecionado" — só que essa variável já
+// tinha sido trocada pro veículo NOVO no momento em que o desligamento
+// rodava, então o .off() tentava desligar no caminho ERRADO (o do veículo
+// novo, que nunca teve listener nenhum). Resultado: o listener do veículo
+// antigo nunca era removido de verdade, e ficava competindo com o do
+// veículo novo — daí os dois brigando pra atualizar o mesmo marcador/painel,
+// dando a sensação de "soluço"/tremida ao alternar.
+var veiculoComListenerAtivo = null;
 var primeiraCentralizacaoFeita = false;
 var listenerTempoReal = null;
 var listenerRotaPlanejada = null;
 var dadosHistoricoCarregados = [];
 var EMPRESA_ID_ADMIN = null;
+var tipoEmpresaAdmin = null;   // 'frota' | 'familia' | 'combo' | null (desconhecido/antigo)
+var dadosTodasUnidades = {};  // último snapshot de cada unidade (chave -> dados), pra "Ver todos" e SOS
 
 function sanitizarChavePath(valor) {
     return String(valor).replace(/[.#$\[\]\/]/g, "_");
 }
-// Tudo que o app do motorista grava fica dentro de 'empresas/{empresaId}/veiculos/...' —
-// então o admin precisa saber a empresa deste usuário antes de ler qualquer coisa.
+// Tudo que o app do motorista/família grava fica dentro de 'empresas/{empresaId}/veiculos/...'
+// (o modo Família reaproveita o mesmo caminho — cada pessoa é gravada como se fosse um
+// "veículo") — então o admin precisa saber a empresa deste usuário antes de ler qualquer coisa.
 function caminhoVeiculos() {
     return 'empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/veiculos';
 }
@@ -521,12 +548,6 @@ auth.onAuthStateChanged(function(user) {
     if (user) {
         document.getElementById('authOverlay').style.display = "none";
         document.getElementById('userLogado').textContent = "🟢 Admin: " + user.email;
-        // CORREÇÃO IMPORTANTE: este painel lia os veículos de 'veiculos/...' na raiz do
-        // banco, mas o app do motorista grava tudo dentro de 'empresas/{empresaId}/veiculos/...'
-        // — ou seja, com os dois caminhos diferentes, o admin nunca chegava a ver nenhum
-        // veículo de verdade. Ao logar, primeiro descobrimos a empresa vinculada a este
-        // usuário (o mesmo mapeamento que o cadastro no app do motorista já grava em
-        // 'mapaUsuarioEmpresa/{uid}') e só então passamos a ler de dentro dela.
         db.ref('mapaUsuarioEmpresa/' + user.uid).once('value').then(function(snap) {
             EMPRESA_ID_ADMIN = snap.val();
             if (!EMPRESA_ID_ADMIN) {
@@ -547,12 +568,17 @@ auth.onAuthStateChanged(function(user) {
         if (refStatusEmpresaAdmin) refStatusEmpresaAdmin.off();
         if (refTrialEmpresaAdmin) refTrialEmpresaAdmin.off();
         if (refAssinaturaEmpresaAdmin) refAssinaturaEmpresaAdmin.off();
+        if (refTipoEmpresaAdmin) refTipoEmpresaAdmin.off();
         EMPRESA_ID_ADMIN = null;
         document.getElementById('authOverlay').style.display = "flex";
         document.getElementById('avisoSuspensoAdmin').style.display = "none";
         document.getElementById('selectVeiculo').innerHTML = '<option value="">Aguardando login...</option>';
-        if (listenerTempoReal && veiculoSelecionado) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
-        if (listenerRotaPlanejada && veiculoSelecionado) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+        // Usa veiculoComListenerAtivo (não veiculoSelecionado) pelo mesmo motivo explicado
+        // acima — é o caminho que realmente tem o listener ligado.
+        if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
+        if (listenerRotaPlanejada && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+        veiculoComListenerAtivo = null;
+        veiculoSelecionado = "";
     }
 });
 
@@ -560,9 +586,7 @@ document.getElementById('btnSair').addEventListener('click', function() {
     auth.signOut();
 });
 
-// ===================== STATUS DA ASSINATURA/TESTE (dias, horas e minutos restantes) =====================
-// Mesmo formato do app do motorista: some com as partes zeradas do início (com menos de 1
-// dia mostra só "Xh Xmin", com menos de 1 hora só "Xmin").
+// ===================== STATUS DA ASSINATURA/TESTE =====================
 function formatarContagemRegressiva(ms) {
     ms = Math.max(0, ms);
     var totalMinutos = Math.floor(ms / 60000);
@@ -581,18 +605,28 @@ var estadoEmpresaAdmin = { status: null, trialExpiraEm: null, assinaturaExpiraEm
 var refStatusEmpresaAdmin = null;
 var refTrialEmpresaAdmin = null;
 var refAssinaturaEmpresaAdmin = null;
+var refTipoEmpresaAdmin = null;
 
-// CORREÇÃO: esta função lia o nó 'empresas/{id}' inteiro de uma vez só. O app do motorista
-// (index.html) sempre leu em três caminhos SEPARADOS ('.../status', '.../trialExpiraEm',
-// '.../assinaturaExpiraEm') — muito provavelmente porque as regras de segurança do Firebase
-// liberam leitura só nesses campos específicos, não no nó inteiro. Ler o nó inteiro nessas
-// condições é recusado (PERMISSION_DENIED) e, como não havia callback de erro, falhava em
-// silêncio — o painel nunca recebia o status. Agora lê nos mesmos três caminhos que já
-// funcionam no app do motorista, com callback de erro pra nunca mais falhar calado.
+// NOVO: ícones e textos do painel mudam conforme o tipo de conta (Frota, Família ou
+// Combo), pra o mesmo painel servir bem os dois casos em vez de falar "Veículo" pra quem
+// só tem gente cadastrada.
+var TEXTOS_POR_TIPO = {
+    frota:   { titulo: '🚚 Selecionar Veículo',  unidade: 'veículo', icone: '🚗', placeholderVazio: 'Nenhum veículo ativo' },
+    familia: { titulo: '👨‍👩‍👧 Selecionar Pessoa', unidade: 'pessoa',  icone: '👤', placeholderVazio: 'Nenhuma pessoa ativa' },
+    combo:   { titulo: '📍 Selecionar Veículo/Pessoa', unidade: 'unidade', icone: '📍', placeholderVazio: 'Nenhuma unidade ativa' }
+};
+function textosDoTipo() {
+    return TEXTOS_POR_TIPO[tipoEmpresaAdmin] || TEXTOS_POR_TIPO.combo;
+}
+function atualizarTextosPorTipo() {
+    document.getElementById('tituloSelecionar').textContent = textosDoTipo().titulo;
+}
+
 function inicializarStatusAssinatura() {
     refStatusEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/status');
     refTrialEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/trialExpiraEm');
     refAssinaturaEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/assinaturaExpiraEm');
+    refTipoEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/tipo');
 
     refStatusEmpresaAdmin.on('value', function(snap) {
         estadoEmpresaAdmin.status = snap.val();
@@ -609,6 +643,12 @@ function inicializarStatusAssinatura() {
         atualizarPainelStatusAssinatura();
     }, function(erro) { console.warn("Falha ao ler assinaturaExpiraEm:", erro); });
 
+    refTipoEmpresaAdmin.on('value', function(snap) {
+        var v = snap.val();
+        tipoEmpresaAdmin = (v === 'frota' || v === 'familia' || v === 'combo') ? v : null;
+        atualizarTextosPorTipo();
+    }, function(erro) { console.warn("Falha ao ler tipo da empresa:", erro); });
+
     setInterval(atualizarPainelStatusAssinatura, 20000);
 }
 
@@ -616,9 +656,6 @@ function atualizarPainelStatusAssinatura() {
     var caixa = document.getElementById('boxStatusAssinatura');
     var texto = document.getElementById('txtStatusAssinatura');
 
-    // Bloqueio de tela cheia — mesmo critério e mesmo visual do app do motorista
-    // (status 'suspenso', teste vencido, ou assinatura vencida). Enquanto isso estiver
-    // ativo, o resto do painel (mapa, veículos, histórico) fica coberto e inacessível.
     var testeVencido = estadoEmpresaAdmin.status === 'trial' && estadoEmpresaAdmin.trialExpiraEm && new Date(estadoEmpresaAdmin.trialExpiraEm).getTime() < Date.now();
     var assinaturaVencida = estadoEmpresaAdmin.status === 'ativo' && estadoEmpresaAdmin.assinaturaExpiraEm && new Date(estadoEmpresaAdmin.assinaturaExpiraEm).getTime() < Date.now();
     var suspenso = estadoEmpresaAdmin.status === 'suspenso' || testeVencido || assinaturaVencida;
@@ -653,23 +690,75 @@ function atualizarPainelStatusAssinatura() {
     }
 }
 
+// ===================== SOS (modo Família) =====================
+// O app do motorista/família grava um SOS em empresas/{id}/veiculos/{chave}/atual/sos
+// (ver modo-familia.js) mas o painel admin nunca mostrava isso — o administrador não
+// tinha como saber que alguém pediu ajuda a menos que já estivesse com aquela pessoa
+// selecionada bem na hora. Agora, o mesmo snapshot que já é lido pra montar a lista de
+// unidades também é usado pra procurar SOS ativo em QUALQUER uma delas, com um banner
+// no topo do painel — clicável, pra já abrir a pessoa em questão.
+var SOS_JANELA_MS = 30 * 60000; // mesmo critério usado no app (30 min)
+
+function atualizarBannerSos() {
+    var box = document.getElementById('boxSos');
+    var lista = document.getElementById('listaSos');
+    var ativos = [];
+
+    Object.keys(dadosTodasUnidades).forEach(function(chave) {
+        var d = dadosTodasUnidades[chave];
+        var atual = d && d.atual;
+        var sos = atual && atual.sos;
+        if (sos && sos.ts && (Date.now() - sos.ts) < SOS_JANELA_MS) {
+            ativos.push({ chave: chave, nome: chave.replace(/_/g, ' '), ts: sos.ts });
+        }
+    });
+
+    if (!ativos.length) { box.classList.remove('ativo'); lista.innerHTML = ''; return; }
+
+    ativos.sort(function(a, b) { return b.ts - a.ts; });
+    lista.innerHTML = ativos.map(function(a) {
+        return '<div class="item" data-chave="' + a.chave + '">' +
+            '<span>🆘 ' + a.nome + '</span>' +
+            '<span class="tempo">' + formatarTempoDecorrido(Date.now() - a.ts) + '</span>' +
+            '</div>';
+    }).join('');
+    lista.querySelectorAll('.item').forEach(function(el) {
+        el.addEventListener('click', function() {
+            var chave = el.getAttribute('data-chave');
+            var select = document.getElementById('selectVeiculo');
+            if ([].slice.call(select.options).some(function(o) { return o.value === chave; })) {
+                select.value = chave;
+                veiculoSelecionado = chave;
+                verificarEAtivarTempoReal();
+            }
+        });
+    });
+    box.classList.add('ativo');
+}
+setInterval(atualizarBannerSos, 15000); // atualiza o "há Xmin" mesmo sem nenhum dado novo chegar
+
 function inicializarEscutaBanco() {
     inicializarStatusAssinatura();
     db.ref(caminhoVeiculos()).on('value', function(snapshot) {
         var select = document.getElementById('selectVeiculo');
-        select.innerHTML = '<option value="">-- Escolha um Veículo --</option>';
+        var valorAnterior = select.value;
+        select.innerHTML = '<option value="">-- Escolha ' + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + ' --</option>';
+        dadosTodasUnidades = {};
+
         if(snapshot.exists()) {
             snapshot.forEach(function(childSnapshot) {
-                var nomeVeiculo = childSnapshot.key;
+                var nomeChave = childSnapshot.key;
+                dadosTodasUnidades[nomeChave] = childSnapshot.val();
                 var option = document.createElement('option');
-                option.value = nomeVeiculo;
-                option.textContent = "🚗 " + nomeVeiculo;
+                option.value = nomeChave;
+                option.textContent = textosDoTipo().icone + " " + nomeChave.replace(/_/g, ' ');
                 select.appendChild(option);
             });
-            if(veiculoSelecionado) select.value = veiculoSelecionado;
+            if (valorAnterior) select.value = valorAnterior;
         } else {
-            select.innerHTML = '<option value="">Nenhum veículo ativo</option>';
+            select.innerHTML = '<option value="">' + textosDoTipo().placeholderVazio + '</option>';
         }
+        atualizarBannerSos();
     });
 }
 
@@ -679,16 +768,17 @@ document.getElementById('selectVeiculo').addEventListener('change', function(e) 
 });
 
 function verificarEAtivarTempoReal() {
-    if (listenerTempoReal) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
-    if (listenerRotaPlanejada) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+    // Desliga o listener antigo no caminho onde ele REALMENTE estava ligado
+    // (veiculoComListenerAtivo), não no veículo recém-selecionado.
+    if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
+    if (listenerRotaPlanejada && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/rotaPlanejada').off('value', listenerRotaPlanejada);
+    veiculoComListenerAtivo = veiculoSelecionado;
+
     document.getElementById('statusModo').innerHTML = '<span class="live-indicator"></span> MONITORANDO EM TEMPO REAL';
     document.getElementById('statusModo').style.color = "var(--signal-on)";
     document.getElementById('statusModo').style.borderColor = "var(--signal-on)";
     document.getElementById('btnVoltarTempoReal').style.display = "none";
 
-    // Reseta o controle de "primeira centralização"/"última rota desenhada" — assim, ao
-    // trocar de veículo (ou voltar do histórico), o mapa reenquadra uma vez pra esse
-    // veículo, e depois disso para de ficar se reenquadrando sozinho a cada atualização.
     primeiraCentralizacaoFeita = false;
     ultimaAssinaturaRotaTempoReal = null;
 
@@ -698,8 +788,6 @@ function verificarEAtivarTempoReal() {
         desenharLinhaDoTempoReal();
     });
 
-    // Escuta a rota que o motorista traçou no app dele (destino digitado) e desenha a
-    // linha tracejada correspondente — atualiza sozinha se ele traçar/cancelar de novo.
     listenerRotaPlanejada = db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').on('value', function(snapshot) {
         atualizarRotaPlanejadaNoPainel(snapshot.val());
     });
@@ -714,12 +802,6 @@ function desenharLinhaDoTempoReal() {
             var p = child.val();
             if(p && p.lat && p.lon) pontos.push(p);
         });
-        // CORREÇÃO (mapa tremendo): o '/atual' do veículo é atualizado a cada ~3s mesmo
-        // quando nenhum ponto NOVO foi gravado no histórico (o veículo pode estar parado,
-        // ou só variando a posição por ruído de GPS). Antes, isso redesenhava a rota inteira
-        // do zero a cada vez — limpando as linhas e pedindo o traçado pro OSRM de novo,
-        // fazendo a rota "piscar" (sumir e reaparecer). Agora só redesenha quando o conjunto
-        // de pontos realmente mudou (comparando quantidade + id do último ponto).
         var assinatura = pontos.length + (pontos.length ? ('|' + pontos[pontos.length - 1].id) : '');
         if (assinatura === ultimaAssinaturaRotaTempoReal) return;
         ultimaAssinaturaRotaTempoReal = assinatura;
@@ -727,46 +809,140 @@ function desenharLinhaDoTempoReal() {
     });
 }
 
+// ===================== VER TODOS NO MAPA =====================
+// Mostra um marcador simples pra cada unidade (veículo/pessoa) com posição conhecida, tudo
+// de uma vez — dá uma visão geral de onde está toda a frota/família sem precisar
+// selecionar unidade por unidade. Não interfere no monitoramento em tempo real da unidade
+// selecionada, que continua rodando por baixo.
+var mostrandoTodos = false;
+document.getElementById('btnVerTodos').addEventListener('click', function() {
+    mostrandoTodos = !mostrandoTodos;
+    if (!mostrandoTodos) {
+        camadaTodos.remove();
+        this.textContent = '🗺️ Ver todos no mapa';
+        return;
+    }
+    this.textContent = '🗺️ Ocultar todos';
+    redesenharTodos();
+});
+
+function redesenharTodos() {
+    camadaTodos.clearLayers();
+    var pontos = [];
+    Object.keys(dadosTodasUnidades).forEach(function(chave) {
+        var atual = dadosTodasUnidades[chave] && dadosTodasUnidades[chave].atual;
+        if (!atual || atual.lat == null || atual.lon == null) return;
+        var nome = chave.replace(/_/g, ' ');
+        var cor = corPorStatusPonto(atual);
+        var marcador = L.circleMarker([atual.lat, atual.lon], {
+            radius: 9, weight: 2, color: '#fff', fillColor: cor, fillOpacity: 0.95
+        });
+        marcador.bindPopup(
+            '<div class="popup-todos-nome">' + textosDoTipo().icone + ' ' + nome + '</div>' +
+            '<div class="popup-rota-vel">' + (atual.velocidade || 0) + ' km/h · ' + (atual.status || '—') + '</div>' +
+            '<div class="popup-rota-linha">' + (atual.rua || 'Rua não localizada') + '</div>' +
+            '<div class="popup-rota-hora">' + (atual.data || '') + ' ' + (atual.hora || '') + '</div>'
+        );
+        marcador.on('click', function() {
+            var select = document.getElementById('selectVeiculo');
+            if ([].slice.call(select.options).some(function(o) { return o.value === chave; })) {
+                select.value = chave;
+                veiculoSelecionado = chave;
+                verificarEAtivarTempoReal();
+            }
+        });
+        marcador.addTo(camadaTodos);
+        pontos.push([atual.lat, atual.lon]);
+    });
+    camadaTodos.addTo(map);
+    if (pontos.length > 1) {
+        try { map.fitBounds(L.latLngBounds(pontos), { padding: [40, 40], maxZoom: 15 }); } catch (e) {}
+    } else if (pontos.length === 1) {
+        map.setView(pontos[0], Math.max(map.getZoom(), 14));
+    }
+}
+
 // ===================== BUSCA DE HISTÓRICO =====================
-document.getElementById('btnBuscarHistorico').addEventListener('click', function() {
-    if (!veiculoSelecionado) return alert("Selecione um veículo primeiro!");
+// CORREÇÃO: o horário gravado em cada ponto tem segundos ("14:03:22"), mas os campos de
+// filtro (<input type="time">) só dão "HH:MM", sem segundos. Comparar "14:03:59" <= "14:03"
+// direto como texto dava FALSO (porque como string, "14:03:59" é "maior" que "14:03") —
+// ou seja, o ÚLTIMO minuto do intervalo escolhido ficava de fora silenciosamente, dando a
+// impressão de que mudar o horário "não funcionava" direito. Agora compara só os 5
+// primeiros caracteres (HH:MM) dos dois lados, sem os segundos.
+function buscarHistoricoComFiltro(callback) {
     var dataFiltro = document.getElementById('filtroData').value;
     var horaInicio = document.getElementById('filtroHoraInicio').value;
     var horaFim = document.getElementById('filtroHoraFim').value;
-    if(!dataFiltro) return alert("Selecione a data!");
+    if (!dataFiltro) { alert("Selecione a data!"); return; }
 
     var partesData = dataFiltro.split('-');
     var dataFormatadaBr = partesData[2] + "/" + partesData[1] + "/" + partesData[0];
 
-    if (listenerTempoReal) db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').off('value', listenerTempoReal);
+    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').once('value', function(snapshot) {
+        var resultado = [];
+        snapshot.forEach(function(child) {
+            var ponto = child.val();
+            if (ponto && ponto.data === dataFormatadaBr) {
+                var horaCurta = (ponto.hora || '').slice(0, 5);
+                if (horaCurta >= horaInicio && horaCurta <= horaFim) {
+                    resultado.push(ponto);
+                }
+            }
+        });
+        callback(resultado, dataFormatadaBr, horaInicio, horaFim);
+    });
+}
+
+document.getElementById('btnBuscarHistorico').addEventListener('click', function() {
+    if (!veiculoSelecionado) return alert("Selecione " + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + " primeiro!");
+
+    if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
+    listenerTempoReal = null;
     document.getElementById('statusModo').innerHTML = '📅 EXIBINDO HISTÓRICO PASSADO';
     document.getElementById('statusModo').style.color = "var(--signal-off)";
     document.getElementById('statusModo').style.borderColor = "var(--signal-off)";
     document.getElementById('btnVoltarTempoReal').style.display = "block";
 
-    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').once('value', function(snapshot) {
-        dadosHistoricoCarregados = [];
-        snapshot.forEach(function(child) {
-            var ponto = child.val();
-            if (ponto && ponto.data === dataFormatadaBr) {
-                if (ponto.hora >= horaInicio && ponto.hora <= horaFim) {
-                    dadosHistoricoCarregados.push(ponto);
-                }
-            }
-        });
-
-        if(dadosHistoricoCarregados.length === 0) {
+    buscarHistoricoComFiltro(function(resultado) {
+        dadosHistoricoCarregados = resultado;
+        if (resultado.length === 0) {
             alert("Nenhum registro encontrado para este período.");
             verificarEAtivarTempoReal();
             return;
         }
-
-        atualizarPainelEletrico(dadosHistoricoCarregados[dadosHistoricoCarregados.length - 1]);
-        desenharRotaClicavel(dadosHistoricoCarregados);
+        atualizarPainelEletrico(resultado[resultado.length - 1]);
+        desenharRotaClicavel(resultado);
     });
 });
 
 document.getElementById('btnVoltarTempoReal').addEventListener('click', verificarEAtivarTempoReal);
+
+// ===================== EXPORTAR CSV (do painel admin) =====================
+// Mesmo formato de colunas que o app do motorista já exporta, só que aqui puxando
+// direto do Firebase pro período escolhido nos filtros — não depende de estar no modo
+// histórico: busca fresco a cada clique.
+document.getElementById('btnExportarCsv').addEventListener('click', function() {
+    if (!veiculoSelecionado) return alert("Selecione " + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + " primeiro!");
+    var btn = this;
+    btn.disabled = true; btn.textContent = "Gerando CSV...";
+
+    buscarHistoricoComFiltro(function(resultado, dataFormatadaBr) {
+        btn.disabled = false; btn.textContent = "⬇️ Exportar CSV do período";
+        if (!resultado.length) { alert("Nenhum registro encontrado para exportar nesse período."); return; }
+
+        var linhas = ["Data;Hora;Latitude;Longitude;Velocidade(km/h);Situacao;Rua;Bairro;Cidade;Estado"];
+        resultado.forEach(function(p) {
+            linhas.push([p.data, p.hora, p.lat, p.lon, p.velocidade, p.status, p.rua, p.bairro, p.cidade, p.estado].join(";"));
+        });
+        var conteudoCsv = linhas.join("\n");
+        var nomeArquivo = "historico_" + veiculoSelecionado + "_" + dataFormatadaBr.split('/').reverse().join('-') + ".csv";
+        var blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = nomeArquivo; a.click();
+        URL.revokeObjectURL(url);
+    });
+});
 
 function atualizarPainelEletrico(dados, opcoes) {
     if(!dados || !dados.lat || !dados.lon) return;
@@ -775,13 +951,6 @@ function atualizarPainelEletrico(dados, opcoes) {
     marcadorVeiculo.setLatLng(latlng);
 
     if (opcoes.seguindoAoVivo) {
-        // CORREÇÃO (mapa tremendo): antes, toda atualização de posição em tempo real (a
-        // cada ~3s) forçava um map.setView, recentralizando o mapa do zero — mesmo com o
-        // veículo praticamente parado (ruído normal de GPS já bastava pra disparar isso a
-        // cada leitura). Agora só centraliza de verdade na primeira vez que a tela abre pra
-        // esse veículo; depois disso, só acompanha com um pan suave se o veículo realmente
-        // sair da área visível — não mexe mais na câmera por causa de deslocamentos
-        // pequenos dentro da tela.
         if (!primeiraCentralizacaoFeita) {
             map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
             primeiraCentralizacaoFeita = true;
@@ -789,10 +958,14 @@ function atualizarPainelEletrico(dados, opcoes) {
             map.panTo(latlng, { animate: true });
         }
     } else {
-        // Chamado ao tocar num ponto da rota ou ao abrir um ponto do histórico — aqui sim
-        // o usuário espera que o mapa centralize de verdade no ponto escolhido.
         map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
     }
+
+    // NOVO: há quanto tempo essa posição foi gravada — ajuda o admin a perceber uma
+    // unidade que parou de mandar dados (app fechado, sem sinal, celular desligado) em
+    // vez de achar que ela está mesmo parada naquele lugar pra sempre.
+    var tsPosicao = parseDataHoraAdmin(dados.data, dados.hora);
+    document.getElementById('txtHaQuanto').textContent = tsPosicao ? formatarTempoDecorrido(Date.now() - tsPosicao) : "—";
 
     document.getElementById('txtVelocidade').textContent = (dados.velocidade || 0) + " km/h";
     document.getElementById('txtTempoParado').textContent = dados.tempoParado || "00:00:00";
@@ -810,4 +983,4 @@ function atualizarPainelEletrico(dados, opcoes) {
 }
 </script>
 </body>
-  </html>
+</html>
