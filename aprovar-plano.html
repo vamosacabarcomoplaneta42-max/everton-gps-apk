@@ -69,7 +69,7 @@ button {
 
 <div class="box">
     <label>ID da empresa</label>
-    <input type="text" id="empresaIdInput" placeholder="ex: transportes_silva_ltda" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input type="text" id="empresaIdInput" placeholder="ex: transportadora_silva_ltda" autocapitalize="off" autocorrect="off" spellcheck="false">
     <button class="btn-buscar" id="btnBuscar">🔍 Buscar</button>
 </div>
 
@@ -92,6 +92,26 @@ button {
     <button class="btn-plano" data-tipo="combo">
         <b>🔀 Combo — Frota + Família</b><span>Os dois liberados, com chave de troca</span>
     </button>
+</div>
+
+<div class="box" id="boxReativar" style="display:none;">
+    <label>🔄 Reativar assinatura (dias e tipo à sua escolha)</label>
+    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Útil pra renovar com um prazo diferente de 30 dias, ou pra tirar do "suspenso" mantendo (ou trocando) o tipo.</p>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <div style="flex:1;">
+            <label>Dias de assinatura</label>
+            <input type="number" id="reativarDias" min="1" step="1" value="30">
+        </div>
+        <div style="flex:1;">
+            <label>Tipo</label>
+            <select id="reativarTipo">
+                <option value="frota">🚚 Frota</option>
+                <option value="familia">👨‍👩‍👧 Família</option>
+                <option value="combo">🔀 Combo</option>
+            </select>
+        </div>
+    </div>
+    <button class="btn-buscar" id="btnReativar" style="background: var(--brand); color:#04120e;">Reativar assinatura</button>
 </div>
 
 <div class="box" id="boxTipoSozinho" style="display:none;">
@@ -181,6 +201,8 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         if (dados.nome === undefined && dados.status === undefined && dados.tipo === undefined) {
             document.getElementById('boxInfo').style.display = 'none';
             document.getElementById('boxPlanos').style.display = 'none';
+            document.getElementById('boxReativar').style.display = 'none';
+            document.getElementById('boxTipoSozinho').style.display = 'none';
             document.getElementById('boxSuspender').style.display = 'none';
             mostrarMsg("Nenhuma empresa encontrada com esse ID (ou sem permissão pra ler nenhum campo dela — confira se está logado com o e-mail de admin certo).", "erro");
             return;
@@ -201,8 +223,17 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         badge.textContent = info[0];
         badge.className = info[1];
 
+        // Pré-seleciona no combo de reativação o tipo que já estava
+        // configurado (se houver), pra não precisar escolher de novo à toa —
+        // mas continua totalmente editável, caso o cliente tenha trocado de plano.
+        var selectReativar = document.getElementById('reativarTipo');
+        if (dados.tipo && ['frota', 'familia', 'combo'].indexOf(dados.tipo) !== -1) {
+            selectReativar.value = dados.tipo;
+        }
+
         document.getElementById('boxInfo').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
+        document.getElementById('boxReativar').style.display = 'block';
         document.getElementById('boxTipoSozinho').style.display = 'block';
         document.getElementById('boxSuspender').style.display = 'block';
     });
@@ -227,6 +258,35 @@ document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
         }).catch(function(e) {
             mostrarMsg("Erro ao salvar: " + e.message, "erro");
         });
+    });
+});
+
+// Reativar assinatura com quantidade de dias e tipo escolhidos na hora —
+// útil pra: (1) sair de "suspenso" sem precisar reconfirmar um dos 3 planos
+// fixos de 30 dias, e (2) renovar com um prazo diferente (15, 60 dias etc.).
+// A contagem sempre parte de AGORA, não da data antiga de expiração — se a
+// assinatura ainda não tinha vencido, os dias que sobravam são substituídos
+// pelo novo prazo, não somados a ele.
+document.getElementById('btnReativar').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    var dias = parseInt(document.getElementById('reativarDias').value, 10);
+    var tipo = document.getElementById('reativarTipo').value;
+    if (!dias || dias < 1) { alert('Digite uma quantidade de dias válida.'); return; }
+
+    if (!confirm("Reativar '" + empresaIdAtual + "' com o tipo '" + tipo + "' por " + dias + " dia(s) a partir de agora?")) return;
+
+    var agora = new Date();
+    var expira = new Date(agora.getTime() + dias * 86400000);
+    var updates = {};
+    updates['empresas/' + empresaIdAtual + '/status'] = 'ativo';
+    updates['empresas/' + empresaIdAtual + '/tipo'] = tipo;
+    updates['empresas/' + empresaIdAtual + '/assinaturaExpiraEm'] = expira.toISOString();
+
+    db.ref().update(updates).then(function() {
+        mostrarMsg("✅ Reativado com '" + tipo + "' até " + expira.toLocaleDateString('pt-BR') + " (" + dias + " dia(s)).", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e) {
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
     });
 });
 
