@@ -178,7 +178,8 @@
     card.innerHTML =
       '<div class="ev-head"><span>👨‍👩‍👧 Família agora</span></div>' +
       '<div id="evAviso" class="ev-aviso"></div><div id="evAlertas"></div><div id="evLista"></div>' +
-      '<button id="evVerTodos" class="ev-btn ev-sec ev-full" type="button">Ver todos no mapa</button>';
+      '<button id="evVerTodos" class="ev-btn ev-sec ev-full" type="button">Ver todos no mapa</button>' +
+      '<button id="evReduzir" class="ev-btn ev-sec ev-full" type="button">💳 Ajustar quantidade de pessoas</button>';
     container.insertBefore(card, container.firstChild);
 
     var sos = document.createElement('button');
@@ -233,6 +234,7 @@
     }
 
     $('evVerTodos').addEventListener('click', verTodos);
+    $('evReduzir').addEventListener('click', abrirModalAjuste);
     sos.addEventListener('click', enviarSOS);
     cfg.querySelectorAll('button[data-modo]').forEach(function (b) {
       b.addEventListener('click', function () { definirModo(b.getAttribute('data-modo')); });
@@ -488,6 +490,110 @@
     moverMapa(function () {
       if (pts.length === 1) map.flyTo(pts[0], 16);
       else map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+    });
+  }
+
+  /* ---------- solicitar redução de pessoas (autoatendimento) ----------
+     O cliente marca quem quer remover, vê o novo valor calculado na hora e
+     manda o pedido pelo WhatsApp. A remoção de verdade NÃO acontece aqui —
+     só depois que o suporte confirmar e remover pelo painel de gerenciamento
+     (mesmo padrão de "pedir plano" que o resto do app já usa: nada muda
+     sozinho no banco sem confirmação manual). */
+  var PRECO_POR_PESSOA_FAMILIA = 4.90;  // manter igual ao valor em index.html (PLANOS_ASSINATURA)
+
+  function formatarPrecoReaisFam(v) {
+    return "R$ " + v.toFixed(2).replace('.', ',');
+  }
+
+  /* ---------- ajustar quantidade de pessoas (autoatendimento) ----------
+     O cliente pode marcar quem sai E/OU dizer quantas pessoas novas vão
+     entrar, tudo no mesmo modal, com o valor final recalculado na hora. O
+     pedido vai pro WhatsApp — nada muda de verdade no banco sozinho: quem
+     sai só é removido depois que o suporte confirmar (pelo painel de
+     gerenciamento), e quem entra é adicionada normalmente pelo próprio
+     aparelho dela (em "Pessoas neste aparelho"), depois de o pagamento
+     ser confirmado. */
+  var PRECO_POR_PESSOA_FAMILIA = 4.90;  // manter igual ao valor em index.html (PLANOS_ASSINATURA)
+
+  function formatarPrecoReaisFam(v) {
+    return "R$ " + v.toFixed(2).replace('.', ',');
+  }
+
+  function abrirModalAjuste() {
+    var nomesPorChave = {};
+    proprios().forEach(function (n) { nomesPorChave[san(n)] = n.replace(/_/g, ' '); });
+    Object.keys(fam.dados).forEach(function (k) {
+      if (fam.dados[k] && !nomesPorChave[k]) nomesPorChave[k] = k.replace(/_/g, ' ');
+    });
+    var chaves = Object.keys(nomesPorChave).sort();
+    var total = chaves.length;
+
+    var itens = chaves.length
+      ? chaves.map(function (k) {
+          return '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border);">' +
+            '<input type="checkbox" class="ev-chk-remover" value="' + esc(k) + '" style="width:20px;height:20px;flex:none;">' +
+            '<span>' + esc(nomesPorChave[k]) + '</span></label>';
+        }).join('')
+      : '<div style="color:var(--text-dim);font-size:.85em;padding:8px 0;">Nenhuma pessoa cadastrada ainda.</div>';
+
+    var m = $('evModal');
+    m.innerHTML =
+      '<div class="ev-modal-card">' +
+      '<h3>Ajustar plano Família</h3>' +
+      '<p>Marque quem você quer remover e/ou diga quantas pessoas novas vão entrar. O valor final é calculado na hora, e o pedido vai pro WhatsApp — nada muda sozinho, é sempre confirmado com o suporte antes.</p>' +
+      (chaves.length ? '<div style="font-size:.72em;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-weight:600;margin-top:6px;">Remover alguém?</div>' : '') +
+      '<div id="evListaReducao">' + itens + '</div>' +
+      '<div style="margin-top:14px;">' +
+      '<label style="font-size:.72em;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-weight:600;display:block;margin-bottom:6px;">Quantas pessoas novas vão entrar? (opcional)</label>' +
+      '<input type="number" id="evQtdAdicionar" min="0" step="1" value="0" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);">' +
+      '</div>' +
+      '<div id="evPreviewReducao" style="text-align:center;font-weight:700;color:var(--brand);margin-top:12px;"></div>' +
+      '<button id="evPedirReducao" class="ev-btn" type="button">Pedir ajuste pelo WhatsApp</button>' +
+      '<button id="evCancelarReducao" class="ev-btn ev-sec" type="button">Cancelar</button>' +
+      '</div>';
+    m.hidden = false;
+
+    function calcularRestantes() {
+      var marcados = m.querySelectorAll('.ev-chk-remover:checked').length;
+      var adicionar = parseInt($('evQtdAdicionar').value, 10);
+      if (isNaN(adicionar) || adicionar < 0) adicionar = 0;
+      return { restantes: total - marcados + adicionar, marcados: marcados, adicionar: adicionar };
+    }
+
+    function atualizarPreviewAjuste() {
+      var c = calcularRestantes();
+      var preview = $('evPreviewReducao');
+      if (!c.marcados && !c.adicionar) { preview.textContent = 'Marque quem sai ou informe quantas pessoas novas vão entrar.'; return; }
+      if (c.restantes <= 0) { preview.textContent = 'Precisa sobrar ao menos 1 pessoa na família.'; return; }
+      preview.textContent = c.restantes + ' pessoa' + (c.restantes === 1 ? '' : 's') + ' no total' +
+        ' = ' + formatarPrecoReaisFam(c.restantes * PRECO_POR_PESSOA_FAMILIA) + '/mês';
+    }
+    m.querySelectorAll('.ev-chk-remover').forEach(function (chk) { chk.addEventListener('change', atualizarPreviewAjuste); });
+    $('evQtdAdicionar').addEventListener('input', atualizarPreviewAjuste);
+    atualizarPreviewAjuste();
+
+    $('evCancelarReducao').addEventListener('click', function () { m.hidden = true; });
+    $('evPedirReducao').addEventListener('click', function () {
+      var c = calcularRestantes();
+      if (!c.marcados && !c.adicionar) { alert('Marque quem sai ou informe quantas pessoas novas vão entrar.'); return; }
+      if (c.restantes <= 0) { alert('Precisa sobrar ao menos 1 pessoa na família.'); return; }
+
+      var marcadosEl = m.querySelectorAll('.ev-chk-remover:checked');
+      var nomesRemover = Array.prototype.slice.call(marcadosEl).map(function (chk) { return nomesPorChave[chk.value]; }).join(', ');
+      var novoValor = c.restantes * PRECO_POR_PESSOA_FAMILIA;
+
+      var linhas = ["Quero ajustar meu plano Família", "", "ID da família: " + EMPRESA_ID];
+      if (c.marcados) linhas.push("Pessoas a remover: " + nomesRemover);
+      if (c.adicionar) linhas.push("Pessoas novas a adicionar: " + c.adicionar);
+      linhas.push("Total final: " + c.restantes + " pessoa(s)");
+      linhas.push("Novo valor mensal: " + formatarPrecoReaisFam(novoValor));
+      linhas.push("");
+      linhas.push("Por favor, só confirme a mudança depois de combinarmos.");
+      var texto = linhas.join("\n");
+
+      var url = "https://wa.me/" + WHATSAPP_SUPORTE + "?text=" + encodeURIComponent(texto);
+      window.open(url, '_blank');
+      m.hidden = true;
     });
   }
 
