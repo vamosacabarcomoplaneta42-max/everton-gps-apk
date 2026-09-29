@@ -45,6 +45,11 @@ button {
 .badge-trial { background: rgba(45,212,255,.15); color: var(--accent); }
 .badge-suspenso { background: rgba(255,84,112,.15); color: var(--danger); }
 .badge-nenhum { background: rgba(255,176,32,.15); color: var(--warn); }
+.aviso-vencido {
+    font-size: 0.78em; color: var(--danger); background: rgba(255,84,112,.1);
+    border: 1px solid rgba(255,84,112,.3); border-radius: 6px; padding: 8px 10px;
+    margin-top: 8px; display: none; line-height: 1.4;
+}
 #msg { margin-top: 12px; font-size: 0.85em; padding: 10px; border-radius: 6px; display: none; }
 #msg.ok { background: rgba(0,255,166,.12); color: var(--brand); border: 1px solid var(--brand); display: block; }
 #msg.erro { background: rgba(255,84,112,.12); color: var(--danger); border: 1px solid var(--danger); display: block; }
@@ -79,6 +84,7 @@ button {
     <div class="info-row"><span>Tipo atual</span><b id="txtTipo">—</b></div>
     <div class="info-row"><span>Teste grátis expira</span><b id="txtTrial">—</b></div>
     <div class="info-row"><span>Assinatura expira</span><b id="txtAssinatura">—</b></div>
+    <div id="avisoVencido" class="aviso-vencido"></div>
 </div>
 
 <div class="box" id="boxPlanos" style="display:none;">
@@ -96,7 +102,7 @@ button {
 
 <div class="box" id="boxReativar" style="display:none;">
     <label>🔄 Reativar assinatura (dias e tipo à sua escolha)</label>
-    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Útil pra renovar com um prazo diferente de 30 dias, ou pra tirar do "suspenso" mantendo (ou trocando) o tipo.</p>
+    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Útil pra renovar com um prazo diferente de 30 dias, ou pra tirar do "suspenso" (manual ou por vencimento) mantendo/trocando o tipo.</p>
     <div style="display:flex; gap:8px; margin-bottom:8px;">
         <div style="flex:1;">
             <label>Dias de assinatura</label>
@@ -176,6 +182,30 @@ function mostrarMsg(texto, tipo) {
 
 var empresaIdAtual = null;
 
+// NOVO: calcula o status EFETIVO da mesma forma que o app do motorista e o painel admin
+// já calculam (avaliarEstadoEmpresa / atualizarPainelStatusAssinatura) — comparando a
+// data de vencimento com o momento atual — em vez de só mostrar o campo "status" cru do
+// banco. Antes, quando o teste grátis ou a assinatura venciam pela DATA, o campo "status"
+// continuava "trial"/"ativo" no banco (nada muda ele sozinho), então esta tela mostrava
+// "ATIVO" mesmo com o cliente já bloqueado de verdade no app. Agora mostra exatamente o
+// que está acontecendo NAQUELE momento, igual o app vê.
+function calcularStatusEfetivo(dados) {
+    var agora = Date.now();
+    var trialVencido = dados.status === 'trial' && dados.trialExpiraEm && new Date(dados.trialExpiraEm).getTime() < agora;
+    var assinaturaVencida = dados.status === 'ativo' && dados.assinaturaExpiraEm && new Date(dados.assinaturaExpiraEm).getTime() < agora;
+
+    if (dados.status === 'suspenso') {
+        return { statusEfetivo: 'suspenso', motivo: null };
+    }
+    if (trialVencido) {
+        return { statusEfetivo: 'suspenso', motivo: 'O campo no banco ainda diz "trial", mas o teste grátis já venceu em ' + new Date(dados.trialExpiraEm).toLocaleString('pt-BR') + ' — o app já está bloqueando o acesso.' };
+    }
+    if (assinaturaVencida) {
+        return { statusEfetivo: 'suspenso', motivo: 'O campo no banco ainda diz "ativo", mas a assinatura já venceu em ' + new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR') + ' — o app já está bloqueando o acesso.' };
+    }
+    return { statusEfetivo: dados.status, motivo: null };
+}
+
 // CORREÇÃO: as regras de segurança do Firebase recusam ler o nó
 // 'empresas/{id}' inteiro de uma vez (mesmo problema já corrigido no painel
 // admin) — só liberam ler campos específicos, um por um. Por isso agora lê
@@ -213,15 +243,24 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         document.getElementById('txtTrial').textContent = dados.trialExpiraEm ? new Date(dados.trialExpiraEm).toLocaleString('pt-BR') : "—";
         document.getElementById('txtAssinatura').textContent = dados.assinaturaExpiraEm ? new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR') : "—";
 
+        var resultado = calcularStatusEfetivo(dados);
         var badge = document.getElementById('badgeStatus');
         var statusMap = {
             ativo: ["ATIVO", "badge badge-ativo"],
             trial: ["TESTE GRÁTIS", "badge badge-trial"],
             suspenso: ["SUSPENSO", "badge badge-suspenso"]
         };
-        var info = statusMap[dados.status] || ["—", "badge badge-nenhum"];
+        var info = statusMap[resultado.statusEfetivo] || ["—", "badge badge-nenhum"];
         badge.textContent = info[0];
         badge.className = info[1];
+
+        var avisoEl = document.getElementById('avisoVencido');
+        if (resultado.motivo) {
+            avisoEl.textContent = '⚠️ ' + resultado.motivo;
+            avisoEl.style.display = 'block';
+        } else {
+            avisoEl.style.display = 'none';
+        }
 
         // Pré-seleciona no combo de reativação o tipo que já estava
         // configurado (se houver), pra não precisar escolher de novo à toa —
@@ -262,11 +301,11 @@ document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
 });
 
 // Reativar assinatura com quantidade de dias e tipo escolhidos na hora —
-// útil pra: (1) sair de "suspenso" sem precisar reconfirmar um dos 3 planos
-// fixos de 30 dias, e (2) renovar com um prazo diferente (15, 60 dias etc.).
-// A contagem sempre parte de AGORA, não da data antiga de expiração — se a
-// assinatura ainda não tinha vencido, os dias que sobravam são substituídos
-// pelo novo prazo, não somados a ele.
+// útil pra: (1) sair de "suspenso" (manual ou por vencimento) sem precisar
+// reconfirmar um dos 3 planos fixos de 30 dias, e (2) renovar com um prazo
+// diferente (15, 60 dias etc.). A contagem sempre parte de AGORA, não da
+// data antiga de expiração — se a assinatura ainda não tinha vencido, os
+// dias que sobravam são substituídos pelo novo prazo, não somados a ele.
 document.getElementById('btnReativar').addEventListener('click', function() {
     if (!empresaIdAtual) return;
     var dias = parseInt(document.getElementById('reativarDias').value, 10);
