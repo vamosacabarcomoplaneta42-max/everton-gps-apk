@@ -101,22 +101,27 @@ button {
 </div>
 
 <div class="box" id="boxReativar" style="display:none;">
-    <label>🔄 Reativar assinatura (dias e tipo à sua escolha)</label>
-    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Útil pra renovar com um prazo diferente de 30 dias, ou pra tirar do "suspenso" (manual ou por vencimento) mantendo/trocando o tipo.</p>
+    <label>🔄 Reativar assinatura (prazo e tipo à sua escolha)</label>
+    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Útil pra renovar com um prazo diferente de 30 dias, dar um teste rápido de algumas horas, ou pra tirar do "suspenso" (manual ou por vencimento) mantendo/trocando o tipo.</p>
     <div style="display:flex; gap:8px; margin-bottom:8px;">
         <div style="flex:1;">
-            <label>Dias de assinatura</label>
-            <input type="number" id="reativarDias" min="1" step="1" value="30">
+            <label>Quantidade</label>
+            <input type="number" id="reativarQuantidade" min="1" step="1" value="30">
         </div>
         <div style="flex:1;">
-            <label>Tipo</label>
-            <select id="reativarTipo">
-                <option value="frota">🚚 Frota</option>
-                <option value="familia">👨‍👩‍👧 Família</option>
-                <option value="combo">🔀 Combo</option>
+            <label>Unidade</label>
+            <select id="reativarUnidade">
+                <option value="dias">Dias</option>
+                <option value="horas">Horas</option>
             </select>
         </div>
     </div>
+    <label>Tipo</label>
+    <select id="reativarTipo" style="margin-bottom:8px;">
+        <option value="frota">🚚 Frota</option>
+        <option value="familia">👨‍👩‍👧 Família</option>
+        <option value="combo">🔀 Combo</option>
+    </select>
     <button class="btn-buscar" id="btnReativar" style="background: var(--brand); color:#04120e;">Reativar assinatura</button>
 </div>
 
@@ -300,29 +305,44 @@ document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
     });
 });
 
-// Reativar assinatura com quantidade de dias e tipo escolhidos na hora —
-// útil pra: (1) sair de "suspenso" (manual ou por vencimento) sem precisar
-// reconfirmar um dos 3 planos fixos de 30 dias, e (2) renovar com um prazo
-// diferente (15, 60 dias etc.). A contagem sempre parte de AGORA, não da
-// data antiga de expiração — se a assinatura ainda não tinha vencido, os
-// dias que sobravam são substituídos pelo novo prazo, não somados a ele.
+// Reativar assinatura com quantidade + unidade (dias ou horas) e tipo
+// escolhidos na hora — útil pra: (1) sair de "suspenso" (manual ou por
+// vencimento) sem precisar reconfirmar um dos 3 planos fixos de 30 dias,
+// (2) renovar com um prazo diferente (15, 60 dias etc.), e (3) dar um
+// teste rápido em HORAS (ex: 2h), sem precisar converter nada na mão. A
+// contagem sempre parte de AGORA, não da data antiga de expiração — se a
+// assinatura ainda não tinha vencido, o tempo que sobrava é substituído
+// pelo novo prazo, não somado a ele.
+document.getElementById('reativarUnidade').addEventListener('change', function() {
+    var campoQtd = document.getElementById('reativarQuantidade');
+    // Só troca o valor sugerido se o campo ainda estiver num dos "padrões"
+    // (30 dias / 2 horas) — se o usuário já digitou outra coisa, respeita.
+    if (this.value === 'horas' && campoQtd.value === '30') campoQtd.value = '2';
+    else if (this.value === 'dias' && campoQtd.value === '2') campoQtd.value = '30';
+});
+
 document.getElementById('btnReativar').addEventListener('click', function() {
     if (!empresaIdAtual) return;
-    var dias = parseInt(document.getElementById('reativarDias').value, 10);
+    var quantidade = parseInt(document.getElementById('reativarQuantidade').value, 10);
+    var unidade = document.getElementById('reativarUnidade').value;
     var tipo = document.getElementById('reativarTipo').value;
-    if (!dias || dias < 1) { alert('Digite uma quantidade de dias válida.'); return; }
+    if (!quantidade || quantidade < 1) { alert('Digite uma quantidade válida.'); return; }
 
-    if (!confirm("Reativar '" + empresaIdAtual + "' com o tipo '" + tipo + "' por " + dias + " dia(s) a partir de agora?")) return;
+    var msPorUnidade = unidade === 'horas' ? 3600000 : 86400000;
+    var rotuloUnidade = unidade === 'horas' ? 'hora(s)' : 'dia(s)';
+
+    if (!confirm("Reativar '" + empresaIdAtual + "' com o tipo '" + tipo + "' por " + quantidade + " " + rotuloUnidade + " a partir de agora?")) return;
 
     var agora = new Date();
-    var expira = new Date(agora.getTime() + dias * 86400000);
+    var expira = new Date(agora.getTime() + quantidade * msPorUnidade);
     var updates = {};
     updates['empresas/' + empresaIdAtual + '/status'] = 'ativo';
     updates['empresas/' + empresaIdAtual + '/tipo'] = tipo;
     updates['empresas/' + empresaIdAtual + '/assinaturaExpiraEm'] = expira.toISOString();
 
     db.ref().update(updates).then(function() {
-        mostrarMsg("✅ Reativado com '" + tipo + "' até " + expira.toLocaleDateString('pt-BR') + " (" + dias + " dia(s)).", "ok");
+        mostrarMsg("✅ Reativado com '" + tipo + "' até " + expira.toLocaleString('pt-BR') + " (" + quantidade + " " + rotuloUnidade + ").", "ok");
+
         document.getElementById('btnBuscar').click();
     }).catch(function(e) {
         mostrarMsg("Erro ao salvar: " + e.message, "erro");
