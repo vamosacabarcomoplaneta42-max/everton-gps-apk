@@ -15,6 +15,11 @@
    - checagem de remoção remota: se um super admin remover esta pessoa da
      família pelo painel (empresas/{id}/removidos/{chave} = true), este
      aparelho se retira sozinho da lista, mesmo que já estivesse aberto.
+   - botão de solicitar ajuste (redução/aumento) de pessoas no plano Família
+   - troca de modo (Frota ⇄ Família, só disponível em contas Combo) protegida
+     por senha: como o aparelho normalmente já fica logado o tempo todo, sem
+     essa trava qualquer pessoa segurando o celular poderia trocar de modo
+     livremente. Agora é preciso reautenticar com a senha da conta.
 
    Modelo de conta: a família cria UMA conta (e-mail e senha) e cada celular
    entra com ela, igual ao que a empresa já faz com os motoristas. Cada pessoa
@@ -136,6 +141,7 @@
     '.ev-modal-card label{display:flex;gap:10px;align-items:flex-start;margin:14px 0}' +
     '.ev-modal-card label input{width:22px;height:22px;flex:none;margin-top:2px}' +
     '.ev-modal-card .ev-btn{width:100%;margin-top:8px;padding:14px}' +
+    '.ev-modal-card input[type=password]{width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:1em;margin-top:6px}' +
     '.ev-tipo{margin:4px 0 14px;font-size:.85em}' +
     '.ev-tipo .ev-lbl{font-size:.72em;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-weight:600;font-family:var(--font-display);margin-bottom:6px}' +
     '.ev-tipo label{display:flex;align-items:center;gap:8px;padding:8px 0}' +
@@ -193,7 +199,7 @@
     cfg.innerHTML =
       '<summary>⚙️ Tipo de uso deste aparelho</summary>' +
       '<div class="ev-seg"><button type="button" data-modo="frota">Frota</button><button type="button" data-modo="familia">Família</button></div>' +
-      '<small>Frota: motoristas de uma empresa. Família: pessoas que compartilham a localização entre si, com autorização.</small>';
+      '<small>Frota: motoristas de uma empresa. Família: pessoas que compartilham a localização entre si, com autorização. Trocar exige a senha da conta.</small>';
     container.appendChild(cfg);
 
     var modal = document.createElement('div');
@@ -237,8 +243,68 @@
     $('evReduzir').addEventListener('click', abrirModalAjuste);
     sos.addEventListener('click', enviarSOS);
     cfg.querySelectorAll('button[data-modo]').forEach(function (b) {
-      b.addEventListener('click', function () { definirModo(b.getAttribute('data-modo')); });
+      b.addEventListener('click', function () { pedirSenhaEDefinirModo(b.getAttribute('data-modo')); });
     });
+  }
+
+  /* ---------- troca de modo protegida por senha ----------
+     O aparelho normalmente fica logado o tempo todo (login é feito uma vez
+     só), então sem esta trava qualquer pessoa com o celular na mão poderia
+     trocar entre Frota e Família livremente, mesmo sem saber a senha da
+     conta. Antes de aplicar a troca, pede a senha e reautentica com o
+     Firebase (confirma de verdade, não é só uma checagem visual). Uma vez
+     digitada certo, fica destravado até o app ser fechado/recarregado —
+     não precisa redigitar a cada troca dentro da mesma sessão. */
+  var modoDesbloqueadoNestaSessao = false;
+
+  function pedirSenhaEDefinirModo(alvo) {
+    if (modoDesbloqueadoNestaSessao) { definirModo(alvo); return; }
+    if (!auth.currentUser || !auth.currentUser.email) {
+      alert('É preciso estar logado para trocar o modo.');
+      return;
+    }
+    mostrarModalSenha(alvo);
+  }
+
+  function mostrarModalSenha(alvo) {
+    var m = $('evModal');
+    m.innerHTML =
+      '<div class="ev-modal-card">' +
+      '<h3>🔒 Confirmar senha</h3>' +
+      '<p>Trocar entre Frota e Família exige a senha da conta (' + esc(auth.currentUser.email) + '), pra evitar que qualquer pessoa com o celular na mão mude o modo sem querer.</p>' +
+      '<input type="password" id="evSenhaModo" placeholder="Senha da conta" autocomplete="current-password">' +
+      '<div id="evErroSenha" style="color:var(--danger);font-size:.82em;margin-top:8px;display:none;"></div>' +
+      '<button id="evConfirmarSenha" class="ev-btn" type="button">Confirmar e trocar</button>' +
+      '<button id="evCancelarSenha" class="ev-btn ev-sec" type="button">Cancelar</button>' +
+      '</div>';
+    m.hidden = false;
+    var campoSenha = $('evSenhaModo');
+    campoSenha.focus();
+
+    function tentar() {
+      var senha = campoSenha.value;
+      var erroEl = $('evErroSenha');
+      erroEl.style.display = 'none';
+      if (!senha) { erroEl.textContent = 'Digite a senha.'; erroEl.style.display = 'block'; return; }
+
+      var botao = $('evConfirmarSenha');
+      botao.disabled = true; botao.textContent = 'Verificando...';
+
+      var credencial = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, senha);
+      auth.currentUser.reauthenticateWithCredential(credencial).then(function () {
+        modoDesbloqueadoNestaSessao = true;
+        m.hidden = true;
+        definirModo(alvo);
+      }).catch(function (e) {
+        erroEl.textContent = '⚠️ Senha incorreta ou falha ao confirmar (' + (e && e.message ? e.message : e) + ').';
+        erroEl.style.display = 'block';
+      }).finally(function () {
+        botao.disabled = false; botao.textContent = 'Confirmar e trocar';
+      });
+    }
+    $('evConfirmarSenha').addEventListener('click', tentar);
+    campoSenha.addEventListener('keydown', function (e) { if (e.key === 'Enter') tentar(); });
+    $('evCancelarSenha').addEventListener('click', function () { m.hidden = true; });
   }
 
   function aplicarModo() {
@@ -493,18 +559,6 @@
     });
   }
 
-  /* ---------- solicitar redução de pessoas (autoatendimento) ----------
-     O cliente marca quem quer remover, vê o novo valor calculado na hora e
-     manda o pedido pelo WhatsApp. A remoção de verdade NÃO acontece aqui —
-     só depois que o suporte confirmar e remover pelo painel de gerenciamento
-     (mesmo padrão de "pedir plano" que o resto do app já usa: nada muda
-     sozinho no banco sem confirmação manual). */
-  var PRECO_POR_PESSOA_FAMILIA = 4.90;  // manter igual ao valor em index.html (PLANOS_ASSINATURA)
-
-  function formatarPrecoReaisFam(v) {
-    return "R$ " + v.toFixed(2).replace('.', ',');
-  }
-
   /* ---------- ajustar quantidade de pessoas (autoatendimento) ----------
      O cliente pode marcar quem sai E/OU dizer quantas pessoas novas vão
      entrar, tudo no mesmo modal, com o valor final recalculado na hora. O
@@ -721,7 +775,7 @@
   setInterval(verificar, 3000);
   setInterval(renderFamilia, 10000);
   auth.onAuthStateChanged(function (u) {
-    if (!u) { empresaTipo = null; tipoRemoto = null; }
+    if (!u) { empresaTipo = null; tipoRemoto = null; modoDesbloqueadoNestaSessao = false; }
     verificar();
   });
 })();
