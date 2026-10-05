@@ -69,16 +69,11 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <div class="auth-card"><h3>🔐 Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:var(--danger);font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
 <div class="sidebar">
-<div class="header"><h2>🛠️ Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:var(--signal-on)">Merge • Original + Relatório Paradas</span></div>
+<div class="header"><h2>🛠️ Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:var(--signal-on)">Merge • Ver Todos OK</span></div>
 <div class="content">
-
 <div class="box"><div class="box-title" id="tituloSelecionar">🚗 Veículo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">🗺️ Ver todos</button></div>
-
 <div class="box"><div class="box-title">📅 Histórico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">🔍 Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:var(--signal-on);display:none;">🟢 Tempo Real</button></div>
-
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;">Aguardando...</div>
-
-<!-- RELATÓRIO DO CÓDIGO QUE VOCÊ COLOU -->
 <div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);">
 <div class="box-title">⏱️ Relatório de Tempo Parado <span id="badgeTotalParadas" style="background:var(--signal-off);color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div>
 <div class="kpi-grid">
@@ -90,8 +85,6 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div>
 <div id="msgSemParadas" style="text-align:center;color:var(--text-dim);font-size:0.8em;padding:12px;display:none;">Nenhuma parada detectada no período</div>
 </div>
-
-<!-- INFORMAÇÕES ORIGINAIS QUE VOCÊ QUERIA MANTER -->
 <div class="box"><div class="box-title">📊 Ponto Selecionado - COM LIMITE DA VIA</div>
 <div class="telemetry-row"><span>Situação REAL</span><span id="txtStatus" class="badge badge-parado">—</span></div>
 <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
@@ -101,41 +94,30 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
 <div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
 </div>
-
 <button id="btnSair" style="background:#1a212b;color:var(--danger);border:1px solid var(--border);">❌ Sair</button>
 </div>
 </div>
 <div id="map"></div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
 var MAPTILER_KEY = "Lf1G9agog5yDhlo9haAO";
-var firebaseConfig = {
-    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
-    authDomain: "everton-gps.firebaseapp.com",
-    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
-    projectId: "everton-gps",
-    storageBucket: "everton-gps.firebasestorage.app",
-    messagingSenderId: "688936933095",
-    appId: "1:688936933095:web:790b2407334e8b148e3442"
-};
+var firebaseConfig = { apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY", authDomain:"everton-gps.firebaseapp.com", databaseURL:"https://everton-gps-default-rtdb.firebaseio.com", projectId:"everton-gps", storageBucket:"everton-gps.firebasestorage.app", messagingSenderId:"688936933095", appId:"1:688936933095:web:790b2407334e8b148e3442" };
 firebase.initializeApp(firebaseConfig);
 var db=firebase.database(), auth=firebase.auth();
 var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],16);
 L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY,{tileSize:512,zoomOffset:-1,maxZoom:20,attribution:'© MapTiler © OSM'}).addTo(map);
 var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
 var camadaRotaAtual=L.layerGroup().addTo(map);
-var camadaTodos=L.layerGroup();
+var camadaTodos=L.layerGroup().addTo(map);
 var cacheLimite={};
 
 function calcularDistanciaMetros(lat1,lon1,lat2,lon2){ var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180; var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
 function parseDataHora(d,h){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''), t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||''); if(!m||!t) return null; return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime(); }
 function formatarDuracao(ms){ if(!ms||ms<0) ms=0; var s=Math.floor(ms/1000); var h=Math.floor(s/3600); var m=Math.floor((s%3600)/60); if(h>0) return `${h}h ${String(m).padStart(2,'0')}m`; return `${m}min ${String(s%60).padStart(2,'0')}s`; }
 function formatarDuracaoCurta(ms){ if(!ms||ms<1000) return "0s"; var s=Math.floor(ms/1000); if(s<60) return s+"s"; var m=Math.floor(s/60); if(m<60) return m+"min"; var h=Math.floor(m/60); return `${h}h ${m%60}min`; }
-
 async function buscarLimiteVia(lat,lon){
     var chave=lat.toFixed(4)+","+lon.toFixed(4);
     if(cacheLimite[chave]!==undefined) return cacheLimite[chave];
@@ -164,7 +146,6 @@ async function buscarLimiteVia(lat,lon){
     }catch(e){}
     cacheLimite[chave]=null; return null;
 }
-
 function isParado(ponto, anterior){
     if(!ponto) return false;
     if((ponto.velocidade||0) > 4) return false;
@@ -192,8 +173,6 @@ function corPorStatusPonto(ponto,pontoAnterior){
     if(ponto.status==="VELOCIDADE ACIMA DO LIMITE") return '#ff5470';
     return statusRealDoPonto(ponto,pontoAnterior)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
 }
-
-// SEPARA VIAGENS PARA NÃO CRUZAR QUARTEIRÃO (CORREÇÃO DO SEU PRINT)
 function separarViagens(pontos){
     if(pontos.length<2) return [pontos];
     var viagens=[]; var atual=[pontos[0]];
@@ -210,7 +189,6 @@ function separarViagens(pontos){
     if(atual.length>0) viagens.push(atual);
     return viagens;
 }
-
 function calcularRelatorioParadas(pontos){
     if(!pontos || pontos.length<2) return {total:0, paradas:[], tempoTotal:0, tempoParado:0, tempoMov:0};
     var ordenados = pontos.slice().sort((a,b)=> (parseDataHora(a.data,a.hora)||0) - (parseDataHora(b.data,b.hora)||0));
@@ -274,7 +252,6 @@ function renderizarRelatorioParadas(pontos){
         lista.appendChild(div);
     });
 }
-
 function limparRotaAtual(){ camadaRotaAtual.clearLayers(); }
 function desenharTrechoClicavel(p1,p2,cor){
     var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
@@ -312,7 +289,6 @@ function desenharRotaClicavel(pontos,opcoes){
     document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • Sem cruzar quarteirão";
     renderizarRelatorioParadas(pontos);
 }
-
 function mostrarInfoDoPontoRapido(ponto, anterior){
     if(!ponto) return;
     atualizarPainelEletrico(ponto, anterior);
@@ -386,6 +362,30 @@ function verificarEAtivarTempoReal(){
     primeiraCentralizacaoFeita=false;
     listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){ if(!snap.exists()) return; var p=snap.val(); atualizarPainelEletrico(p,null,{seguindoAoVivo:true}); desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita}); db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(40).once('value',function(s){ var pts=[]; s.forEach(function(c){ var pp=c.val(); if(pp&&pp.lat&&pp.lon) pts.push(pp); }); dadosHistoricoCarregados=pts; desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita}); renderizarRelatorioParadas(pts); }); });
 }
+
+// *** BOTÃO VER TODOS CORRIGIDO AQUI ***
+document.getElementById('btnVerTodos').addEventListener('click',function(){
+    limparRotaAtual();
+    camadaTodos.clearLayers();
+    var pontos=[];
+    var totalVeiculos=0;
+    Object.keys(dadosTodasUnidades).forEach(function(ch){
+        var atual=dadosTodasUnidades[ch]&&dadosTodasUnidades[ch].atual;
+        if(!atual||atual.lat==null||atual.lon==null) return;
+        totalVeiculos++;
+        var cor = (atual.velocidade||0)>3 ? '#00ffa6' : '#ffb020';
+        var marker = L.circleMarker([atual.lat,atual.lon],{radius:10,weight:2,color:'#fff',fillColor:cor,fillOpacity:0.95}).addTo(camadaTodos);
+        var label = ch.replace(/_/g,' ');
+        marker.bindPopup(`<div style="font-weight:bold;">${label}</div><div>${atual.rua||"—"}</div><div>${(atual.velocidade||0)} km/h</div><div style="font-size:0.8em;color:#74808f;">${atual.data||""} ${atual.hora||""}</div>`);
+        pontos.push([atual.lat,atual.lon]);
+    });
+    camadaTodos.addTo(map);
+    if(pontos.length===0){ alert("Nenhum veículo com posição"); return; }
+    if(pontos.length===1){ map.setView(pontos[0],16); }
+    else{ try{ map.fitBounds(L.latLngBounds(pontos),{padding:[50,50],maxZoom:16}); }catch(e){} }
+    document.getElementById('statusModo').textContent = `🗺️ ${totalVeiculos} veículo(s) no mapa`;
+});
+
 function buscarHistoricoComFiltro(cb){
     var dataF=document.getElementById('filtroData').value, hI=document.getElementById('filtroHoraInicio').value, hF=document.getElementById('filtroHoraFim').value;
     if(!dataF){ alert("Selecione data"); return; }
@@ -399,6 +399,7 @@ document.getElementById('btnBuscarHistorico').addEventListener('click',function(
     if(!veiculoSelecionado) return alert("Selecione veículo");
     if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
     listenerTempoReal=null;
+    camadaTodos.clearLayers();
     document.getElementById('statusModo').innerHTML='📅 HISTÓRICO';
     document.getElementById('btnVoltarTempoReal').style.display="block";
     buscarHistoricoComFiltro(function(res){
@@ -422,8 +423,6 @@ function atualizarPainelEletrico(dados,pontoAnterior,opcoes){
     document.getElementById('txtRua').textContent=dados.rua||"—";
     document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"—")+" / "+(dados.estado||"—");
     document.getElementById('txtDataHora').textContent=dados.data+" às "+dados.hora;
-
-    // Tempo parado agora - lógica do relatório
     if(dadosHistoricoCarregados.length>0){
         var rel = calcularRelatorioParadas(dadosHistoricoCarregados);
         var ultimaParada = rel.paradas.length>0 ? rel.paradas[rel.paradas.length-1] : null;
