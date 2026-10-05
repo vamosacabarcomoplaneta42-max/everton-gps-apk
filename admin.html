@@ -32,30 +32,32 @@ body{margin:0;padding:0;font-family:system-ui,sans-serif;background:var(--bg-mai
 .sidebar{width:380px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
 #map{flex:1;height:100%;background:#e8e6e0}
 .header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
-.header h2{margin:0;font-size:1.1em;color:var(--telemetry)}
-.content{padding:16px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
-.box{background:rgba(255,255,255,0.02);border:1px solid var(--border);padding:12px;border-radius:8px}
-.box-title{font-size:0.72em;text-transform:uppercase;color:var(--text-dim);font-weight:bold;margin-bottom:8px}
-select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:6px;color:white;font-size:0.95em;box-sizing:border-box;color-scheme:dark}
-button{background:var(--telemetry);color:#000;font-weight:bold;cursor:pointer;margin-top:8px;border:none}
+.header h2{margin:0;font-size:1.05em;color:var(--telemetry)}
+.content{padding:14px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:12px;border-radius:10px}
+.box-title{font-size:0.7em;text-transform:uppercase;color:var(--text-dim);font-weight:800;letter-spacing:.5px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:8px;color:white;font-size:0.92em;box-sizing:border-box;color-scheme:dark}
+button{background:var(--telemetry);color:#000;font-weight:800;cursor:pointer;margin-top:8px;border:none}
 button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
-.toggle-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--signal-on)}
-.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88em}
-.badge{font-size:0.75em;padding:3px 8px;border-radius:4px;font-weight:bold}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+.toggle-row input{width:20px;height:20px;accent-color:var(--signal-on)}
+.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.86em}
+.badge{font-size:0.72em;padding:3px 8px;border-radius:6px;font-weight:800}
 .badge-movimento{background:rgba(0,255,166,0.15);color:var(--signal-on)}
-.badge-parado{background:rgba(255,176,32,0.15);color:var(--signal-off)}
-.live-indicator{display:inline-block;width:8px;height:8px;background:var(--signal-on);border-radius:50%;margin-right:6px}
+.badge-parado{background:rgba(255,176,32,0.18);color:var(--signal-off)}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:#0f141c;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.kpi b{display:block;font-size:1.15em;margin-top:2px}
+.kpi small{color:var(--text-dim);font-size:0.68em;text-transform:uppercase;font-weight:700}
+.parada-item{background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.18);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:0.82em}
+.parada-item b{color:var(--signal-off)}
+.live-indicator{display:inline-block;width:8px;height:8px;background:var(--signal-on);border-radius:50%;margin-right:6px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
 .auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
 .auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:16px}
 .leaflet-popup-content-wrapper{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:12px}
 .leaflet-popup-tip{background:var(--bg-card)}
-.popup-rua{font-weight:bold;font-size:1em;margin-bottom:4px}
-.popup-vel{color:var(--telemetry);font-family:ui-monospace,monospace;font-size:1.1em;font-weight:bold}
-.popup-linha{font-size:0.85em;color:var(--text-dim);margin-top:3px}
-.popup-limite{font-size:0.9em;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(45,212,255,0.12);border:1px solid rgba(45,212,255,0.25);font-weight:bold}
-.popup-limite.acima{background:rgba(255,84,112,0.18);border-color:rgba(255,84,112,0.4);color:var(--danger)}
-@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:55vh}#map{height:45vh}}
+@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:58vh}#map{height:42vh}}
 </style>
 </head>
 <body>
@@ -63,80 +65,172 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <div class="auth-card"><h3>🔐 Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:var(--danger);font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
 <div class="sidebar">
-<div class="header"><h2>🛠️ Admin Everton GPS</h2><span id="userLogado" style="font-size:0.8em;color:var(--signal-on)">MapTiler OK</span></div>
+<div class="header"><h2>🛠️ Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:var(--signal-on)">MapTiler OK • Relatório Paradas</span></div>
 <div class="content">
-<div class="box"><div class="box-title">⚙️ Modo de Desenho</div>
-<div class="toggle-row"><span>📍 Colar linha na via</span><input type="checkbox" id="chkSnap" checked></div>
-<div style="font-size:0.75em;color:var(--text-dim);">Quando ligado, a linha cola no centro da rua. Quando desligado, mostra o rastro cru do GPS.</div>
+
+<div class="box"><div class="box-title"><span>⚙️ Desenho</span></div>
+<div class="toggle-row"><span>📍 Colar na via</span><input type="checkbox" id="chkSnap" checked></div>
 </div>
+
 <div class="box"><div class="box-title" id="tituloSelecionar">🚗 Veículo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">🗺️ Ver todos</button></div>
+
 <div class="box"><div class="box-title">📅 Histórico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">🔍 Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:var(--signal-on);display:none;">🟢 Tempo Real</button></div>
-<div id="statusModo" class="box" style="text-align:center;font-weight:bold;">Aguardando...</div>
+
+<div id="statusModo" class="box" style="text-align:center;font-weight:800;">Aguardando...</div>
+
+<!-- NOVO: RELATÓRIO DE PARADAS PARA VENDA/ALUGUEL -->
+<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);">
+<div class="box-title">⏱️ Relatório de Tempo Parado <span id="badgeTotalParadas" style="background:var(--signal-off);color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div>
+<div class="kpi-grid">
+<div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:var(--signal-off)">00h 00m</b></div>
+<div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:var(--signal-on)">00h 00m</b></div>
+<div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div>
+<div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">—</b></div>
+</div>
+<div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div>
+<div id="msgSemParadas" style="text-align:center;color:var(--text-dim);font-size:0.8em;padding:12px;display:none;">Nenhuma parada detectada no período</div>
+</div>
+
 <div class="box"><div class="box-title">📊 Ponto Selecionado</div>
 <div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">—</span></div>
 <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
 <div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">—</b></div>
+<div class="telemetry-row"><span>Tempo Parado Agora</span><b id="txtTempoParado" style="color:var(--signal-off);">—</b></div>
 <div class="telemetry-row"><span>Rua</span><b id="txtRua">—</b></div>
 <div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
 <div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
 </div>
+
 <button id="btnSair" style="background:#1a212b;color:var(--danger);border:1px solid var(--border);">❌ Sair</button>
 </div>
 </div>
 <div id="map"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
 var MAPTILER_KEY = "Lf1G9agog5yDhlo9haAO";
-var firebaseConfig = {
-    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
-    authDomain: "everton-gps.firebaseapp.com",
-    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
-    projectId: "everton-gps",
-    storageBucket: "everton-gps.firebasestorage.app",
-    messagingSenderId: "688936933095",
-    appId: "1:688936933095:web:790b2407334e8b148e3442"
-};
+var firebaseConfig = { apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY", authDomain:"everton-gps.firebaseapp.com", databaseURL:"https://everton-gps-default-rtdb.firebaseio.com", projectId:"everton-gps", storageBucket:"everton-gps.firebasestorage.app", messagingSenderId:"688936933095", appId:"1:688936933095:web:790b2407334e8b148e3442" };
 firebase.initializeApp(firebaseConfig);
 var db=firebase.database(), auth=firebase.auth();
 var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],16);
-var camadaBase=L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY,{
-    tileSize:512, zoomOffset:-1, maxZoom:20, attribution:'© MapTiler © OpenStreetMap'
-}).addTo(map);
+L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY,{tileSize:512, zoomOffset:-1, maxZoom:20, attribution:'© MapTiler © OSM'}).addTo(map);
 var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
 var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup();
 var cacheLimite={};
 
-function calcularDistanciaMetros(lat1,lon1,lat2,lon2){
-    var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-    var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+function calcularDistanciaMetros(lat1,lon1,lat2,lon2){ var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180; var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+function parseDataHora(d,h){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''), t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||''); if(!m||!t) return null; return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime(); }
+function formatarDuracao(ms){ if(!ms||ms<0) ms=0; var s=Math.floor(ms/1000); var h=Math.floor(s/3600); var m=Math.floor((s%3600)/60); if(h>0) return `${h}h ${String(m).padStart(2,'0')}m`; return `${m}min ${String(s%60).padStart(2,'0')}s`; }
+function formatarDuracaoCurta(ms){ if(!ms||ms<1000) return "0s"; var s=Math.floor(ms/1000); if(s<60) return s+"s"; var m=Math.floor(s/60); if(m<60) return m+"min"; var h=Math.floor(m/60); return `${h}h ${m%60}min`; }
+
+async function buscarLimiteVia(lat,lon){ var k=lat.toFixed(4)+","+lon.toFixed(4); if(cacheLimite[k]!==undefined) return cacheLimite[k]; try{ var q=`[out:json][timeout:4];way(around:25,${lat},${lon})[highway][maxspeed];out tags 1;`; var r=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q)); var d=await r.json(); if(d.elements&&d.elements[0]&&d.elements[0].tags&&d.elements[0].tags.maxspeed){ var max=d.elements[0].tags.maxspeed; if(max.includes("BR:urban")) max="60"; if(max.includes("BR:rural")) max="80"; var num=parseInt(max); if(!isNaN(num)){ cacheLimite[k]=num; return num; } } }catch(e){} cacheLimite[k]=null; return null; }
+
+function isParado(ponto, anterior){
+    if(!ponto) return false;
+    if((ponto.velocidade||0) > 4) return false;
+    if(!anterior) return (ponto.velocidade||0) <= 2;
+    var dist = calcularDistanciaMetros(anterior.lat, anterior.lon, ponto.lat, ponto.lon);
+    var dt = parseDataHora(ponto.data,ponto.hora) - parseDataHora(anterior.data,anterior.hora);
+    if(dt<0) dt=0;
+    // se moveu menos de 20m em até 3 minutos, é parado
+    if(dist < 20 && dt <= 180000) return true;
+    if(dist < 30 && (ponto.velocidade||0) <= 3) return true;
+    return false;
 }
-function parseDataHoraAdmin(d,h){
-    var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''), t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||'');
-    if(!m||!t) return null;
-    return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime();
-}
-async function buscarLimiteVia(lat,lon){
-    var chave = lat.toFixed(4)+","+lon.toFixed(4);
-    if(cacheLimite[chave]!==undefined) return cacheLimite[chave];
-    try{
-        var q=`[out:json][timeout:4];way(around:25,${lat},${lon})[highway][maxspeed];out tags 1;`;
-        var r=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q));
-        var d=await r.json();
-        if(d.elements && d.elements[0] && d.elements[0].tags && d.elements[0].tags.maxspeed){
-            var max=d.elements[0].tags.maxspeed;
-            if(max.includes("BR:urban")) max="60"; if(max.includes("BR:rural")) max="80";
-            var num=parseInt(max); if(!isNaN(num)){ cacheLimite[chave]=num; return num; }
+
+// CALCULA RELATÓRIO COMPLETO DE PARADAS
+function calcularRelatorioParadas(pontos){
+    if(!pontos || pontos.length<2) return {total:0, paradas:[], tempoTotal:0, tempoParado:0, tempoMov:0};
+    // Ordena por data/hora
+    var ordenados = pontos.slice().sort((a,b)=> (parseDataHora(a.data,a.hora)||0) - (parseDataHora(b.data,b.hora)||0));
+    var paradas = [];
+    var tempoParadoTotal = 0;
+    var tempoTotal = (parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora) - parseDataHora(ordenados[0].data,ordenados[0].hora))||0;
+    var emParada = false;
+    var inicioParada = null;
+    var pontoInicioParada = null;
+
+    for(var i=1;i<ordenados.length;i++){
+        var ant = ordenados[i-1];
+        var cur = ordenados[i];
+        var tAnt = parseDataHora(ant.data,ant.hora);
+        var tCur = parseDataHora(cur.data,cur.hora);
+        if(!tAnt||!tCur) continue;
+        var dt = tCur - tAnt;
+        if(dt<0||dt>30*60*1000) continue; // ignora gaps >30min (desligado)
+
+        var parado = isParado(cur, ant);
+
+        if(parado && !emParada){
+            // começou a parar
+            emParada = true;
+            inicioParada = tAnt;
+            pontoInicioParada = ant;
+        }else if(!parado && emParada){
+            // terminou a parada
+            emParada = false;
+            var duracao = tAnt - inicioParada;
+            if(duracao >= 60*1000){ // só conta parada >=1 minuto
+                tempoParadoTotal += duracao;
+                paradas.push({
+                    inicio: inicioParada,
+                    fim: tAnt,
+                    duracao: duracao,
+                    ponto: pontoInicioParada,
+                    rua: pontoInicioParada.rua||ant.rua||"—",
+                    dataIni: pontoInicioParada.data,
+                    horaIni: pontoInicioParada.hora,
+                    dataFim: ant.data,
+                    horaFim: ant.hora
+                });
+            }
         }
-    }catch(e){}
-    cacheLimite[chave]=null; return null;
+    }
+    // se terminou ainda parado
+    if(emParada && inicioParada){
+        var ultimoT = parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);
+        var dur = ultimoT - inicioParada;
+        if(dur>=60000){
+            tempoParadoTotal+=dur;
+            paradas.push({ inicio:inicioParada, fim:ultimoT, duracao:dur, ponto:pontoInicioParada, rua:pontoInicioParada.rua||"—", dataIni:pontoInicioParada.data, horaIni:pontoInicioParada.hora, dataFim:ordenados[ordenados.length-1].data, horaFim:ordenados[ordenados.length-1].hora, atual:true });
+        }
+    }
+
+    return { paradas, tempoParado: tempoParadoTotal, tempoTotal, tempoMov: Math.max(0, tempoTotal - tempoParadoTotal) };
 }
-function statusRealDoPonto(p,v){ if(!v) return (p.velocidade||0)>3?"EM MOVIMENTO":"PARADO"; var dist=calcularDistanciaMetros(v.lat,v.lon,p.lat,p.lon); var t1=parseDataHoraAdmin(v.data,v.hora), t2=parseDataHoraAdmin(p.data,p.hora); var dt=(t1&&t2)?(t2-t1)/1000:0; if(dt>0&&dt<180){ if(dist>15) return "EM MOVIMENTO"; if(dist/dt*3.6>4) return "EM MOVIMENTO"; } if((p.velocidade||0)>4) return "EM MOVIMENTO"; return "PARADO"; }
-function corPorStatus(p,a){ return statusRealDoPonto(p,a)==="EM MOVIMENTO"?'#00ffa6':'#ffb020'; }
+
+function renderizarRelatorioParadas(pontos){
+    var rel = calcularRelatorioParadas(pontos);
+    document.getElementById('kpiTotalParado').textContent = formatarDuracao(rel.tempoParado);
+    document.getElementById('kpiTotalMovimento').textContent = formatarDuracao(rel.tempoMov);
+    document.getElementById('kpiTempoTotal').textContent = formatarDuracao(rel.tempoTotal);
+    var eficiencia = rel.tempoTotal>0 ? Math.round((rel.tempoMov/rel.tempoTotal)*100) : 0;
+    document.getElementById('kpiEficiencia').textContent = eficiencia+"% em uso";
+    document.getElementById('badgeTotalParadas').textContent = rel.paradas.length+" paradas";
+
+    var lista = document.getElementById('listaParadas');
+    var msg = document.getElementById('msgSemParadas');
+    lista.innerHTML="";
+    if(rel.paradas.length===0){ msg.style.display="block"; return; } else msg.style.display="none";
+
+    rel.paradas.slice().reverse().forEach((par, idx)=>{
+        var div=document.createElement('div');
+        div.className='parada-item';
+        var dtIni = new Date(par.inicio);
+        var dtFim = new Date(par.fim);
+        div.innerHTML = `<div style="display:flex;justify-content:space-between;"><b>🅿️ Parada ${rel.paradas.length-idx}</b><span style="font-weight:800;color:#ffb020;">${formatarDuracaoCurta(par.duracao)}</span></div>
+        <div>📍 ${par.rua}</div>
+        <div style="color:var(--text-dim);font-size:0.9em;">🕐 ${par.horaIni} → ${par.horaFim} ${par.atual?' (agora)':''}</div>`;
+        div.style.cursor='pointer';
+        div.addEventListener('click',()=>{ if(par.ponto&&par.ponto.lat) { map.setView([par.ponto.lat,par.ponto.lon],18); L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent(`<b>Parada ${formatarDuracaoCurta(par.duracao)}</b><br>${par.rua}<br>${par.horaIni} até ${par.horaFim}`).openOn(map); } });
+        lista.appendChild(div);
+    });
+}
+
 function limparRota(){ camadaRotaAtual.clearLayers(); }
 function desenharTrecho(p1,p2,cor){
     var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
@@ -152,12 +246,13 @@ function desenharRotaSimples(pontos, manter){
     for(var i=0;i<validos.length-1;i++){
         var p1=validos[i],p2=validos[i+1];
         if(calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon)>300) continue;
-        desenharTrecho(p1,p2,corPorStatus(p2,p1));
+        var cor = isParado(p2,p1) ? '#ffb020' : '#00ffa6';
+        desenharTrecho(p1,p2,cor);
     }
 }
 async function desenharRotaColadaNaVia(pontos, manter){
-    if(!document.getElementById('chkSnap').checked){ desenharRotaSimples(pontos, manter); return; }
-    if(pontos.length<2){ desenharRotaSimples(pontos, manter); return; }
+    if(!document.getElementById('chkSnap').checked){ desenharRotaSimples(pontos, manter); renderizarRelatorioParadas(pontos); return; }
+    if(pontos.length<2){ desenharRotaSimples(pontos, manter); renderizarRelatorioParadas(pontos); return; }
     document.getElementById('statusModo').textContent='🧲 Colando na via...';
     try{
         var batch = pontos.slice(-100);
@@ -170,29 +265,35 @@ async function desenharRotaColadaNaVia(pontos, manter){
             limparRota();
             var geo = data.matchings[0].geometry.coordinates.map(c=>[c[1],c[0]]);
             var linhaColada = L.polyline(geo,{color:'#00ffa6',weight:7,opacity:0.95,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+            // marca paradas em laranja por cima
             for(var i=0;i<batch.length-1;i++){
                 var p1=batch[i],p2=batch[i+1];
-                if(calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon)>300) continue;
+                if(isParado(p2,p1)){
+                    L.circleMarker([p2.lat,p2.lon],{radius:6,color:'#ffb020',fillColor:'#ffb020',fillOpacity:0.9}).addTo(camadaRotaAtual);
+                }
                 var coords2=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
                 var toque=L.polyline(coords2,{color:'#000',opacity:0,weight:35}).addTo(camadaRotaAtual);
                 (function(p){ toque.on('click',function(){ mostrarInfoRapido(p); }); })(p2);
             }
             if(!manter){ try{ map.fitBounds(linhaColada.getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }
-            document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> Tempo Real';
+            document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> Tempo Real • Paradas calculadas';
+            renderizarRelatorioParadas(pontos);
             return;
         }
     }catch(e){}
     desenharRotaSimples(pontos, manter);
-    document.getElementById('statusModo').textContent='Modo cru';
+    renderizarRelatorioParadas(pontos);
+    document.getElementById('statusModo').textContent='Modo cru • Paradas OK';
 }
+
 function mostrarInfoRapido(ponto){
     if(!ponto) return;
     atualizarPainel(ponto);
     var vel=ponto.velocidade||0;
     var html='<div class="popup-rua">'+(ponto.rua||"Rua não localizada")+'</div>'+
-             '<div class="popup-vel">'+vel+' km/h · '+statusRealDoPonto(ponto,null)+'</div>'+
+             '<div class="popup-vel">'+vel+' km/h</div>'+
              '<div class="popup-limite" id="popup-limite-temp">🚦 Buscando limite...</div>'+
-             '<div class="popup-linha">🏘️ '+(ponto.bairro||"—")+'</div>'+
+             '<div class="popup-linha">📍 '+ (ponto.bairro||"—")+'</div>'+
              '<div class="popup-linha">🏙️ '+(ponto.cidade||"—")+' / '+(ponto.estado||"—")+'</div>'+
              '<div class="popup-linha" style="margin-top:6px;color:#74808f;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';
     L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(html).openOn(map);
@@ -203,6 +304,7 @@ function mostrarInfoRapido(ponto){
         document.getElementById('txtLimiteVia').textContent=txt;
     });
 }
+
 var veiculoSelecionado="", veiculoComListenerAtivo=null, primeiraCentralizacaoFeita=false, listenerTempoReal=null, dadosHistoricoCarregados=[], EMPRESA_ID_ADMIN=null, dadosTodasUnidades={};
 function sanitizar(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
 function caminhoVeiculos(){return 'empresas/'+sanitizar(EMPRESA_ID_ADMIN)+'/veiculos';}
@@ -228,6 +330,7 @@ auth.onAuthStateChanged(function(user){
 });
 document.getElementById('btnSair').addEventListener('click',()=>auth.signOut());
 document.getElementById('selectVeiculo').addEventListener('change',e=>{ veiculoSelecionado=e.target.value; if(veiculoSelecionado) ativarTempoReal(); });
+
 function ativarTempoReal(){
     if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
     veiculoComListenerAtivo=veiculoSelecionado;
@@ -237,22 +340,25 @@ function ativarTempoReal(){
     listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',snap=>{
         if(!snap.exists()) return;
         var d=snap.val(); atualizarPainel(d,{aoVivo:true});
-        db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(50).once('value',s=>{
+        db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(80).once('value',s=>{
             var pts=[]; s.forEach(c=>{ var p=c.val(); if(p&&p.lat&&p.lon) pts.push(p); });
+            dadosHistoricoCarregados=pts;
             desenharRotaColadaNaVia(pts, primeiraCentralizacaoFeita);
         });
     });
 }
+
 document.getElementById('btnVerTodos').addEventListener('click',()=>{
     camadaTodos.clearLayers(); var pontos=[];
     Object.keys(dadosTodasUnidades).forEach(ch=>{ var a=dadosTodasUnidades[ch]&&dadosTodasUnidades[ch].atual; if(!a||a.lat==null) return; L.circleMarker([a.lat,a.lon],{radius:9,weight:2,color:'#fff',fillColor:'#00ffa6',fillOpacity:0.95}).addTo(camadaTodos); pontos.push([a.lat,a.lon]); });
     camadaTodos.addTo(map); if(pontos.length>1){ try{ map.fitBounds(L.latLngBounds(pontos),{padding:[40,40]}); }catch(e){} }
 });
+
 document.getElementById('btnBuscarHistorico').addEventListener('click',()=>{
     if(!veiculoSelecionado) return alert("Selecione veículo");
     if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
     listenerTempoReal=null;
-    document.getElementById('statusModo').innerHTML='📅 HISTÓRICO';
+    document.getElementById('statusModo').innerHTML='📅 HISTÓRICO • Calculando paradas...';
     document.getElementById('btnVoltarTempoReal').style.display="block";
     var dataF=document.getElementById('filtroData').value; var hI=document.getElementById('filtroHoraInicio').value; var hF=document.getElementById('filtroHoraFim').value;
     var partes=dataF.split('-'), br=partes[2]+"/"+partes[1]+"/"+partes[0];
@@ -263,7 +369,10 @@ document.getElementById('btnBuscarHistorico').addEventListener('click',()=>{
         atualizarPainel(res[res.length-1]); desenharRotaColadaNaVia(res,false);
     });
 });
+
 document.getElementById('btnVoltarTempoReal').addEventListener('click',ativarTempoReal);
+
+// Atualiza painel com tempo parado atual
 function atualizarPainel(dados,op){
     if(!dados||!dados.lat) return; op=op||{};
     var latlng=[dados.lat,dados.lon]; marcadorVeiculo.setLatLng(latlng);
@@ -272,7 +381,38 @@ function atualizarPainel(dados,op){
     document.getElementById('txtRua').textContent=dados.rua||"—";
     document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"—")+" / "+(dados.estado||"—");
     document.getElementById('txtDataHora').textContent=dados.data+" às "+dados.hora;
-    var badge=document.getElementById('txtStatus'); badge.textContent=statusRealDoPonto(dados,null); badge.className = badge.textContent==="EM MOVIMENTO"?"badge badge-movimento":"badge badge-parado";
+
+    // CALCULA TEMPO PARADO AGORA
+    if(dadosHistoricoCarregados.length>0){
+        var rel = calcularRelatorioParadas(dadosHistoricoCarregados);
+        // encontra se está em parada atual
+        var ultimaParada = rel.paradas.length>0 ? rel.paradas[rel.paradas.length-1] : null;
+        if(ultimaParada && ultimaParada.atual){
+            document.getElementById('txtTempoParado').textContent = formatarDuracaoCurta(Date.now() - ultimaParada.inicio) + " (agora)";
+            document.getElementById('txtTempoParado').style.color = "var(--signal-off)";
+        }else{
+            // calcula tempo desde última parada
+            var tAtual = parseDataHora(dados.data,dados.hora);
+            var tUltimoParado = null;
+            for(var i=dadosHistoricoCarregados.length-1;i>=0;i--){
+                if(isParado(dadosHistoricoCarregados[i], dadosHistoricoCarregados[i-1])){ tUltimoParado = parseDataHora(dadosHistoricoCarregados[i].data,dadosHistoricoCarregados[i].hora); break; }
+            }
+            if(tUltimoParado){
+                var emMov = Date.now() - tUltimoParado;
+                document.getElementById('txtTempoParado').textContent = "Em movimento há "+formatarDuracaoCurta(emMov);
+                document.getElementById('txtTempoParado').style.color = "var(--signal-on)";
+            }else{
+                document.getElementById('txtTempoParado').textContent = "—";
+            }
+        }
+    }else{
+        document.getElementById('txtTempoParado').textContent = (dados.velocidade||0)<=2 ? "Parado" : "Em movimento";
+    }
+
+    var badge=document.getElementById('txtStatus'); 
+    var parado = (dados.velocidade||0)<=3;
+    badge.textContent = parado ? "PARADO" : "EM MOVIMENTO";
+    badge.className = parado ? "badge badge-parado" : "badge badge-movimento";
 }
 document.getElementById('chkSnap').addEventListener('change',()=>{
     if(dadosHistoricoCarregados.length>0) desenharRotaColadaNaVia(dadosHistoricoCarregados,false);
