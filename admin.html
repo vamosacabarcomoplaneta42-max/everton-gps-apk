@@ -25,76 +25,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Everton GPS</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <style>
 :root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
-body{margin:0;padding:0;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);display:flex;height:100vh;overflow:hidden}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);display:flex;height:100vh;overflow:hidden}
 .sidebar{width:380px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
 #map{flex:1;height:100%;background:#e8e6e0}
 .header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
 .header h2{margin:0;font-size:1.1em;color:var(--telemetry)}
 .content{padding:14px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
 .box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:12px;border-radius:10px}
-.box-title{font-size:0.7em;text-transform:uppercase;color:var(--text-dim);font-weight:800;letter-spacing:.5px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:8px;color:white;font-size:0.92em;box-sizing:border-box;color-scheme:dark}
+.box-title{font-size:0.7em;text-transform:uppercase;color:var(--text-dim);font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:8px;color:#fff;font-size:0.92em;box-sizing:border-box}
 button{background:var(--telemetry);color:#000;font-weight:800;cursor:pointer;margin-top:8px;border:none}
 button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 .telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.88em}
 .badge{font-size:0.72em;padding:3px 8px;border-radius:6px;font-weight:800}
 .badge-movimento{background:rgba(0,255,166,0.15);color:var(--signal-on)}
 .badge-parado{background:rgba(255,176,32,0.18);color:var(--signal-off)}
-.badge-perigo{background:rgba(255,84,112,0.15);color:var(--danger)}
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .kpi{background:#0f141c;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
 .kpi b{display:block;font-size:1.12em;margin-top:2px}
 .kpi small{color:var(--text-dim);font-size:0.66em;text-transform:uppercase;font-weight:700}
 .parada-item{background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.18);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:0.82em;cursor:pointer}
-.parada-item b{color:var(--signal-off)}
 .live-indicator{display:inline-block;width:8px;height:8px;background:var(--signal-on);border-radius:50%;margin-right:6px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
 .auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
 .auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:16px}
 .leaflet-popup-content-wrapper{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:10px}
 .leaflet-popup-tip{background:var(--bg-card)}
-.popup-rua{font-weight:bold;font-size:0.95em;margin-bottom:4px}
-.popup-vel{color:var(--telemetry);font-family:ui-monospace,monospace;font-weight:bold}
-.popup-linha{font-size:0.82em;color:var(--text-dim);margin-top:3px}
-.popup-limite{font-size:0.85em;margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(45,212,255,0.1);border:1px solid rgba(45,212,255,0.2)}
-.popup-limite.acima{background:rgba(255,84,112,0.15);border-color:rgba(255,84,112,0.3);color:var(--danger)}
 @media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:58vh}#map{height:42vh}}
 </style>
 </head>
 <body>
 <div id="authOverlay" class="auth-overlay">
-<div class="auth-card"><h3>🔐 Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:var(--danger);font-size:0.85em;text-align:center;display:none;"></div></div>
+<div class="auth-card"><h3>Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:#ff5470;font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
 <div class="sidebar">
-<div class="header"><h2>🛠️ Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:var(--signal-on)">Merge • Ver Todos OK</span></div>
+<div class="header"><h2>Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:#00ffa6">Original + Relatorio</span></div>
 <div class="content">
-<div class="box"><div class="box-title" id="tituloSelecionar">🚗 Veículo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">🗺️ Ver todos</button></div>
-<div class="box"><div class="box-title">📅 Histórico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">🔍 Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:var(--signal-on);display:none;">🟢 Tempo Real</button></div>
+<div class="box"><div class="box-title" id="tituloSelecionar">Veiculo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
+<div class="box"><div class="box-title">Historico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Historico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;">Aguardando...</div>
-<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);">
-<div class="box-title">⏱️ Relatório de Tempo Parado <span id="badgeTotalParadas" style="background:var(--signal-off);color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div>
-<div class="kpi-grid">
-<div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:var(--signal-off)">00h 00m</b></div>
-<div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:var(--signal-on)">00h 00m</b></div>
-<div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div>
-<div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">—</b></div>
-</div>
-<div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div>
-<div id="msgSemParadas" style="text-align:center;color:var(--text-dim);font-size:0.8em;padding:12px;display:none;">Nenhuma parada detectada no período</div>
-</div>
-<div class="box"><div class="box-title">📊 Ponto Selecionado - COM LIMITE DA VIA</div>
-<div class="telemetry-row"><span>Situação REAL</span><span id="txtStatus" class="badge badge-parado">—</span></div>
-<div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
-<div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia" style="color:var(--telemetry);">—</b></div>
-<div class="telemetry-row"><span>Tempo Parado Agora</span><b id="txtTempoParado" style="color:var(--signal-off);">—</b></div>
-<div class="telemetry-row"><span>Rua</span><b id="txtRua">—</b></div>
-<div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
-<div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
-</div>
-<button id="btnSair" style="background:#1a212b;color:var(--danger);border:1px solid var(--border);">❌ Sair</button>
+<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);"><div class="box-title">Relatorio de Tempo Parado <span id="badgeTotalParadas" style="background:#ffb020;color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div><div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiencia</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div><div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:12px;display:none;">Nenhuma parada detectada</div></div>
+<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situacao REAL</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Tempo Parado Agora</span><b id="txtTempoParado">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
+<button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div>
 </div>
 <div id="map"></div>
@@ -104,7 +79,7 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
 var MAPTILER_KEY = "Lf1G9agog5yDhlo9haAO";
-var firebaseConfig = { apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY", authDomain:"everton-gps.firebaseapp.com", databaseURL:"https://everton-gps-default-rtdb.firebaseio.com", projectId:"everton-gps", storageBucket:"everton-gps.firebasestorage.app", messagingSenderId:"688936933095", appId:"1:688936933095:web:790b2407334e8b148e3442" };
+var firebaseConfig = {apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:"everton-gps.firebaseapp.com",databaseURL:"https://everton-gps-default-rtdb.firebaseio.com",projectId:"everton-gps",storageBucket:"everton-gps.firebasestorage.app",messagingSenderId:"688936933095",appId:"1:688936933095:web:790b2407334e8b148e3442"};
 firebase.initializeApp(firebaseConfig);
 var db=firebase.database(), auth=firebase.auth();
 var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],16);
@@ -113,342 +88,36 @@ var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
 var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup().addTo(map);
 var cacheLimite={};
-
-function calcularDistanciaMetros(lat1,lon1,lat2,lon2){ var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180; var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
-function parseDataHora(d,h){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''), t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||''); if(!m||!t) return null; return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime(); }
-function formatarDuracao(ms){ if(!ms||ms<0) ms=0; var s=Math.floor(ms/1000); var h=Math.floor(s/3600); var m=Math.floor((s%3600)/60); if(h>0) return `${h}h ${String(m).padStart(2,'0')}m`; return `${m}min ${String(s%60).padStart(2,'0')}s`; }
-function formatarDuracaoCurta(ms){ if(!ms||ms<1000) return "0s"; var s=Math.floor(ms/1000); if(s<60) return s+"s"; var m=Math.floor(s/60); if(m<60) return m+"min"; var h=Math.floor(m/60); return `${h}h ${m%60}min`; }
-async function buscarLimiteVia(lat,lon){
-    var chave=lat.toFixed(4)+","+lon.toFixed(4);
-    if(cacheLimite[chave]!==undefined) return cacheLimite[chave];
-    try{
-        var query=`[out:json][timeout:5];way(around:30,${lat},${lon})[highway][maxspeed];out tags 1;`;
-        var res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));
-        var data=await res.json();
-        if(data.elements && data.elements.length>0 && data.elements[0].tags && data.elements[0].tags.maxspeed){
-            var max=data.elements[0].tags.maxspeed;
-            if(max.includes("BR:urban")) max="60";
-            if(max.includes("BR:rural")) max="80";
-            if(max.includes("BR:motorway")) max="110";
-            var num=parseInt(max);
-            if(!isNaN(num)){ cacheLimite[chave]=num; return num; }
-        }
-        var query2=`[out:json][timeout:5];way(around:20,${lat},${lon})[highway];out tags 1;`;
-        var res2=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query2));
-        var data2=await res2.json();
-        if(data2.elements && data2.elements[0] && data2.elements[0].tags){
-            var hw=data2.elements[0].tags.highway;
-            if(hw==='motorway'||hw==='trunk'){ cacheLimite[chave]=110; return 110; }
-            if(hw==='primary'){ cacheLimite[chave]=80; return 80; }
-            if(hw==='secondary'){ cacheLimite[chave]=60; return 60; }
-            if(hw==='residential'){ cacheLimite[chave]=40; return 40; }
-        }
-    }catch(e){}
-    cacheLimite[chave]=null; return null;
-}
-function isParado(ponto, anterior){
-    if(!ponto) return false;
-    if((ponto.velocidade||0) > 4) return false;
-    if(!anterior) return (ponto.velocidade||0) <= 2;
-    var dist = calcularDistanciaMetros(anterior.lat, anterior.lon, ponto.lat, ponto.lon);
-    var dt = parseDataHora(ponto.data,ponto.hora) - parseDataHora(anterior.data,anterior.hora);
-    if(dt<0) dt=0;
-    if(dist < 20 && dt <= 180000) return true;
-    if(dist < 30 && (ponto.velocidade||0) <= 3) return true;
-    return false;
-}
-function statusRealDoPonto(ponto,pontoAnterior){
-    if(!pontoAnterior) return (ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";
-    var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);
-    var t1=parseDataHora(pontoAnterior.data,pontoAnterior.hora), t2=parseDataHora(ponto.data,ponto.hora);
-    var dt=(t1&&t2)?(t2-t1)/1000:0;
-    if(dt>0 && dt<180){
-        if(dist>15) return "EM MOVIMENTO";
-        if(dist/dt*3.6>4) return "EM MOVIMENTO";
-    }
-    if((ponto.velocidade||0)>4) return "EM MOVIMENTO";
-    return "PARADO";
-}
-function corPorStatusPonto(ponto,pontoAnterior){
-    if(ponto.status==="VELOCIDADE ACIMA DO LIMITE") return '#ff5470';
-    return statusRealDoPonto(ponto,pontoAnterior)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
-}
-function separarViagens(pontos){
-    if(pontos.length<2) return [pontos];
-    var viagens=[]; var atual=[pontos[0]];
-    for(var i=1;i<pontos.length;i++){
-        var ant=pontos[i-1], cur=pontos[i];
-        var tAnt=parseDataHora(ant.data,ant.hora), tCur=parseDataHora(cur.data,cur.hora);
-        var dt=(tAnt&&tCur)?tCur-tAnt:0;
-        var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);
-        if(dt>3*60*1000 || d>350){
-            if(atual.length>0) viagens.push(atual);
-            atual=[cur];
-        }else atual.push(cur);
-    }
-    if(atual.length>0) viagens.push(atual);
-    return viagens;
-}
-function calcularRelatorioParadas(pontos){
-    if(!pontos || pontos.length<2) return {total:0, paradas:[], tempoTotal:0, tempoParado:0, tempoMov:0};
-    var ordenados = pontos.slice().sort((a,b)=> (parseDataHora(a.data,a.hora)||0) - (parseDataHora(b.data,b.hora)||0));
-    var paradas = [];
-    var tempoParadoTotal = 0;
-    var tempoTotal = (parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora) - parseDataHora(ordenados[0].data,ordenados[0].hora))||0;
-    var emParada = false;
-    var inicioParada = null;
-    var pontoInicioParada = null;
-    for(var i=1;i<ordenados.length;i++){
-        var ant = ordenados[i-1];
-        var cur = ordenados[i];
-        var tAnt = parseDataHora(ant.data,ant.hora);
-        var tCur = parseDataHora(cur.data,cur.hora);
-        if(!tAnt||!tCur) continue;
-        var dt = tCur - tAnt;
-        if(dt<0||dt>30*60*1000) continue;
-        var parado = isParado(cur, ant);
-        if(parado && !emParada){
-            emParada = true;
-            inicioParada = tAnt;
-            pontoInicioParada = ant;
-        }else if(!parado && emParada){
-            emParada = false;
-            var duracao = tAnt - inicioParada;
-            if(duracao >= 60*1000){
-                tempoParadoTotal += duracao;
-                paradas.push({ inicio: inicioParada, fim: tAnt, duracao: duracao, ponto: pontoInicioParada, rua: pontoInicioParada.rua||ant.rua||"—", dataIni: pontoInicioParada.data, horaIni: pontoInicioParada.hora, dataFim: ant.data, horaFim: ant.hora });
-            }
-        }
-    }
-    if(emParada && inicioParada){
-        var ultimoT = parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);
-        var dur = ultimoT - inicioParada;
-        if(dur>=60000){
-            tempoParadoTotal+=dur;
-            paradas.push({ inicio:inicioParada, fim:ultimoT, duracao:dur, ponto:pontoInicioParada, rua:pontoInicioParada.rua||"—", dataIni:pontoInicioParada.data, horaIni:pontoInicioParada.hora, dataFim:ordenados[ordenados.length-1].data, horaFim:ordenados[ordenados.length-1].hora, atual:true });
-        }
-    }
-    return { paradas, tempoParado: tempoParadoTotal, tempoTotal, tempoMov: Math.max(0, tempoTotal - tempoParadoTotal) };
-}
-function renderizarRelatorioParadas(pontos){
-    var rel = calcularRelatorioParadas(pontos);
-    document.getElementById('kpiTotalParado').textContent = formatarDuracao(rel.tempoParado);
-    document.getElementById('kpiTotalMovimento').textContent = formatarDuracao(rel.tempoMov);
-    document.getElementById('kpiTempoTotal').textContent = formatarDuracao(rel.tempoTotal);
-    var eficiencia = rel.tempoTotal>0 ? Math.round((rel.tempoMov/rel.tempoTotal)*100) : 0;
-    document.getElementById('kpiEficiencia').textContent = eficiencia+"% em uso";
-    document.getElementById('badgeTotalParadas').textContent = rel.paradas.length+" paradas";
-    var lista = document.getElementById('listaParadas');
-    var msg = document.getElementById('msgSemParadas');
-    lista.innerHTML="";
-    if(rel.paradas.length===0){ msg.style.display="block"; return; } else msg.style.display="none";
-    rel.paradas.slice().reverse().forEach((par, idx)=>{
-        var div=document.createElement('div');
-        div.className='parada-item';
-        div.innerHTML = `<div style="display:flex;justify-content:space-between;"><b>🅿️ Parada ${rel.paradas.length-idx}</b><span style="font-weight:800;color:#ffb020;">${formatarDuracaoCurta(par.duracao)}</span></div>
-        <div>📍 ${par.rua}</div>
-        <div style="color:var(--text-dim);font-size:0.9em;">🕐 ${par.horaIni} → ${par.horaFim} ${par.atual?' (agora)':''}</div>`;
-        div.addEventListener('click',()=>{ if(par.ponto&&par.ponto.lat) { map.setView([par.ponto.lat,par.ponto.lon],18); L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent(`<b>Parada ${formatarDuracaoCurta(par.duracao)}</b><br>${par.rua}<br>${par.horaIni} até ${par.horaFim}`).openOn(map); } });
-        lista.appendChild(div);
-    });
-}
-function limparRotaAtual(){ camadaRotaAtual.clearLayers(); }
-function desenharTrechoClicavel(p1,p2,cor){
-    var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
-    var toque=L.polyline(coords,{color:'#000',opacity:0,weight:35}).addTo(camadaRotaAtual);
-    var vis=L.polyline(coords,{color:cor,weight:7,opacity:0.95,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
-    var fn=function(){ mostrarInfoDoPontoRapido(p2,p1); };
-    toque.on('click',fn); vis.on('click',fn);
-}
-function desenharRotaClicavel(pontos,opcoes){
-    opcoes=opcoes||{}; limparRotaAtual();
-    var validos=pontos.filter(function(p){return p&&p.lat!=null;});
-    if(validos.length===0) return;
-    if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
-    validos.sort(function(a,b){ return (parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0); });
-    var viagens=separarViagens(validos);
-    if(!opcoes.manterEnquadramento){ try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }
-    for(var v=0; v<viagens.length; v++){
-        var viagem=viagens[v];
-        var filtrada=[]; var ultimo=null;
-        for(var i=0;i<viagem.length;i++){
-            var p=viagem[i]; var ant=i>0?viagem[i-1]:null;
-            var parado = statusRealDoPonto(p,ant)==="PARADO";
-            if(parado && ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<25) continue;
-            if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<8) continue;
-            filtrada.push(p); ultimo=p;
-        }
-        for(var i=0;i<filtrada.length-1;i++){
-            var p1=filtrada[i],p2=filtrada[i+1];
-            var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
-            if(d>300) continue;
-            if(statusRealDoPonto(p1,i>0?filtrada[i-1]:null)==="PARADO" && statusRealDoPonto(p2,p1)==="PARADO") continue;
-            desenharTrechoClicavel(p1,p2,corPorStatusPonto(p2,p1));
-        }
-    }
-    document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • Sem cruzar quarteirão";
-    renderizarRelatorioParadas(pontos);
-}
-function mostrarInfoDoPontoRapido(ponto, anterior){
-    if(!ponto) return;
-    atualizarPainelEletrico(ponto, anterior);
-    var vel=ponto.velocidade||0;
-    var sitReal=statusRealDoPonto(ponto, anterior);
-    var htmlInicial='<div class="popup-rua">'+(ponto.rua||"Rua não localizada")+'</div>'+
-               '<div class="popup-vel">'+vel+' km/h · '+sitReal+'</div>'+
-               '<div class="popup-limite" id="popup-limite-temp">🚦 Buscando limite...</div>'+
-               '<div class="popup-linha">🏘️ '+(ponto.bairro||"—")+'</div>'+
-               '<div class="popup-linha">🏙️ '+(ponto.cidade||"—")+' / '+(ponto.estado||"—")+'</div>'+
-               '<div class="popup-linha" style="margin-top:6px;color:#74808f;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';
-    L.popup({closeButton:true,maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(htmlInicial).openOn(map);
-    buscarLimiteVia(ponto.lat,ponto.lon).then(function(limite){
-        var limiteTxt=limite?limite+" km/h":"Não cadastrado";
-        var el=document.getElementById('popup-limite-temp');
-        if(el){
-            var classe = (limite && vel>limite) ? "popup-limite acima" : "popup-limite";
-            var aviso = (limite && vel>limite) ? "⚠️ ACIMA" : (limite?"✅ Dentro":"");
-            el.className=classe;
-            el.innerHTML='🚦 Limite: <b>'+limiteTxt+'</b> '+aviso;
-        }
-        document.getElementById('txtLimiteVia').textContent=limiteTxt;
-        document.getElementById('txtLimiteVia').style.color = (limite && vel>limite) ? 'var(--danger)' : 'var(--telemetry)';
-    });
-}
-
-var veiculoSelecionado="", veiculoComListenerAtivo=null, primeiraCentralizacaoFeita=false, listenerTempoReal=null, dadosHistoricoCarregados=[], EMPRESA_ID_ADMIN=null, tipoEmpresaAdmin=null, dadosTodasUnidades={};
+function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function parseDataHora(d,h){var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''),t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||'');if(!m||!t)return null;return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime();}
+function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
+function formatarDuracaoCurta(ms){if(!ms||ms<1000)return"0s";var s=Math.floor(ms/1000);if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"min";var h=Math.floor(m/60);return h+"h "+m%60+"min";}
+async function buscarLimiteVia(lat,lon){var chave=lat.toFixed(4)+","+lon.toFixed(4);if(cacheLimite[chave]!==undefined)return cacheLimite[chave];try{var query="[out:json][timeout:5];way(around:30,"+lat+","+lon+")[highway][maxspeed];out tags 1;";var res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));var data=await res.json();if(data.elements&&data.elements.length>0&&data.elements[0].tags&&data.elements[0].tags.maxspeed){var max=data.elements[0].tags.maxspeed;if(max.includes("BR:urban"))max="60";if(max.includes("BR:rural"))max="80";if(max.includes("BR:motorway"))max="110";var num=parseInt(max);if(!isNaN(num)){cacheLimite[chave]=num;return num;}}var query2="[out:json][timeout:5];way(around:20,"+lat+","+lon+")[highway];out tags 1;";var res2=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query2));var data2=await res2.json();if(data2.elements&&data2.elements[0]&&data2.elements[0].tags){var hw=data2.elements[0].tags.highway;if(hw==='motorway'||hw==='trunk'){cacheLimite[chave]=110;return 110;}if(hw==='primary'){cacheLimite[chave]=80;return 80;}if(hw==='secondary'){cacheLimite[chave]=60;return 60;}if(hw==='residential'){cacheLimite[chave]=40;return 40;}}}catch(e){}cacheLimite[chave]=null;return null;}
+function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=parseDataHora(ponto.data,ponto.hora)-parseDataHora(anterior.data,anterior.hora);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
+function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=parseDataHora(pontoAnterior.data,pontoAnterior.hora),t2=parseDataHora(ponto.data,ponto.hora);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
+function corPorStatusPonto(ponto,pontoAnterior){if(ponto.status==="VELOCIDADE ACIMA DO LIMITE")return'#ff5470';return statusRealDoPonto(ponto,pontoAnterior)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';}
+function separarViagens(pontos){if(pontos.length<2)return[pontos];var viagens=[];var atual=[pontos[0]];for(var i=1;i<pontos.length;i++){var ant=pontos[i-1],cur=pontos[i];var tAnt=parseDataHora(ant.data,ant.hora),tCur=parseDataHora(cur.data,cur.hora);var dt=(tAnt&&tCur)?tCur-tAnt:0;var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);if(dt>3*60*1000||d>350){if(atual.length>0)viagens.push(atual);atual=[cur];}else atual.push(cur);}if(atual.length>0)viagens.push(atual);return viagens;}
+function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{total:0,paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0)});var paradas=[];var tempoParadoTotal=0;var tempoTotal=(parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora)-parseDataHora(ordenados[0].data,ordenados[0].hora))||0;var emParada=false;var inicioParada=null;var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1];var cur=ordenados[i];var tAnt=parseDataHora(ant.data,ant.hora);var tCur=parseDataHora(cur.data,cur.hora);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}}}if(emParada&&inicioParada){var ultimoT=parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
+function renderizarRelatorioParadas(pontos){var rel=calcularRelatorioParadas(pontos);document.getElementById('kpiTotalParado').textContent=formatarDuracao(rel.tempoParado);document.getElementById('kpiTotalMovimento').textContent=formatarDuracao(rel.tempoMov);document.getElementById('kpiTempoTotal').textContent=formatarDuracao(rel.tempoTotal);var eficiencia=rel.tempoTotal>0?Math.round((rel.tempoMov/rel.tempoTotal)*100):0;document.getElementById('kpiEficiencia').textContent=eficiencia+"% em uso";document.getElementById('badgeTotalParadas').textContent=rel.paradas.length+" paradas";var lista=document.getElementById('listaParadas');var msg=document.getElementById('msgSemParadas');lista.innerHTML="";if(rel.paradas.length===0){msg.style.display="block";return;}else msg.style.display="none";rel.paradas.slice().reverse().forEach(function(par,idx){var div=document.createElement('div');div.className='parada-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>Parada '+(rel.paradas.length-idx)+'</b><span style="font-weight:800;color:#ffb020;">'+formatarDuracaoCurta(par.duracao)+'</span></div><div>'+par.rua+'</div><div style="color:#74808f;font-size:0.9em;">'+par.horaIni+' -> '+par.horaFim+(par.atual?' (agora)':'')+'</div>';div.addEventListener('click',function(){if(par.ponto&&par.ponto.lat){map.setView([par.ponto.lat,par.ponto.lon],18);L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent('<b>Parada '+formatarDuracaoCurta(par.duracao)+'</b><br>'+par.rua+'<br>'+par.horaIni+' ate '+par.horaFim).openOn(map);}});lista.appendChild(div);});}
+function limparRotaAtual(){camadaRotaAtual.clearLayers();}
+function desenharTrechoClicavel(p1,p2,cor){var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];var toque=L.polyline(coords,{color:'#000',opacity:0,weight:35}).addTo(camadaRotaAtual);var vis=L.polyline(coords,{color:cor,weight:7,opacity:0.95,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);var fn=function(){mostrarInfoDoPontoRapido(p2,p1);};toque.on('click',fn);vis.on('click',fn);}
+function desenharRotaClicavel(pontos,opcoes){opcoes=opcoes||{};limparRotaAtual();var validos=pontos.filter(function(p){return p&&p.lat!=null;});if(validos.length===0)return;if(validos.length===1){if(!opcoes.manterEnquadramento)map.setView([validos[0].lat,validos[0].lon],17);return;}validos.sort(function(a,b){return(parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0);});var viagens=separarViagens(validos);if(!opcoes.manterEnquadramento){try{map.fitBounds(L.polyline(validos.map(function(p){return[p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18});}catch(e){}}for(var v=0;v<viagens.length;v++){var viagem=viagens[v];var filtrada=[];var ultimo=null;for(var i=0;i<viagem.length;i++){var p=viagem[i];var ant=i>0?viagem[i-1]:null;var parado=statusRealDoPonto(p,ant)==="PARADO";if(parado&&ultimo&&calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<25)continue;if(ultimo&&calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<8)continue;filtrada.push(p);ultimo=p;}for(var i2=0;i2<filtrada.length-1;i2++){var p1=filtrada[i2],p2=filtrada[i2+1];var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);if(d>300)continue;if(statusRealDoPonto(p1,i2>0?filtrada[i2-1]:null)==="PARADO"&&statusRealDoPonto(p2,p1)==="PARADO")continue;desenharTrechoClicavel(p1,p2,corPorStatusPonto(p2,p1));}}document.getElementById('statusModo').textContent=viagens.length+" viagem(ns) • "+validos.length+" pontos • Sem cruzar quarteirao";renderizarRelatorioParadas(pontos);}
+function mostrarInfoDoPontoRapido(ponto,anterior){if(!ponto)return;atualizarPainelEletrico(ponto,anterior);var vel=ponto.velocidade||0;var sitReal=statusRealDoPonto(ponto,anterior);var htmlInicial='<div style="font-weight:bold;">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;">'+vel+' km/h - '+sitReal+'</div><div id="popup-limite-temp" style="margin-top:6px;font-size:0.85em;">Buscando limite...</div><div style="font-size:0.82em;color:#74808f;margin-top:3px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(htmlInicial).openOn(map);buscarLimiteVia(ponto.lat,ponto.lon).then(function(limite){var limiteTxt=limite?limite+" km/h":"Nao cadastrado";var el=document.getElementById('popup-limite-temp');if(el){var aviso=(limite&&vel>limite)?"ACIMA":"";el.innerHTML='Limite: <b>'+limiteTxt+'</b> '+aviso;}document.getElementById('txtLimiteVia').textContent=limiteTxt;document.getElementById('txtLimiteVia').style.color=(limite&&vel>limite)?'#ff5470':'#2dd4ff';});}
+var veiculoSelecionado="",veiculoComListenerAtivo=null,primeiraCentralizacaoFeita=false,listenerTempoReal=null,dadosHistoricoCarregados=[],EMPRESA_ID_ADMIN=null,tipoEmpresaAdmin=null,dadosTodasUnidades={};
 function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
-function caminhoVeiculos(){return 'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
+function caminhoVeiculos(){return'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
 document.getElementById('filtroData').value=new Date().toISOString().slice(0,10);
-document.getElementById('btnEntrarPainel').addEventListener('click',function(){
-    var e=document.getElementById('authEmail').value.trim(), s=document.getElementById('authSenha').value;
-    var erro=document.getElementById('erroLogin');
-    if(!e||!s) return alert("Preencha");
-    erro.style.display="none";
-    auth.signInWithEmailAndPassword(e,s).catch(function(){ erro.textContent="Acesso negado"; erro.style.display="block"; });
-});
-auth.onAuthStateChanged(function(user){
-    if(user){
-        document.getElementById('authOverlay').style.display="none";
-        document.getElementById('userLogado').textContent="🟢 "+user.email;
-        db.ref('mapaUsuarioEmpresa/'+user.uid).once('value').then(function(snap){
-            EMPRESA_ID_ADMIN=snap.val(); if(!EMPRESA_ID_ADMIN){ auth.signOut(); return; } inicializarEscutaBanco();
-        });
-    }else{
-        EMPRESA_ID_ADMIN=null;
-        document.getElementById('authOverlay').style.display="flex";
-        document.getElementById('selectVeiculo').innerHTML='<option value="">Aguardando login...</option>';
-    }
-});
+document.getElementById('btnEntrarPainel').addEventListener('click',function(){var e=document.getElementById('authEmail').value.trim(),s=document.getElementById('authSenha').value;var erro=document.getElementById('erroLogin');if(!e||!s)return alert("Preencha");erro.style.display="none";auth.signInWithEmailAndPassword(e,s).catch(function(){erro.textContent="Acesso negado";erro.style.display="block";});});
+auth.onAuthStateChanged(function(user){if(user){document.getElementById('authOverlay').style.display="none";document.getElementById('userLogado').textContent=user.email;db.ref('mapaUsuarioEmpresa/'+user.uid).once('value').then(function(snap){EMPRESA_ID_ADMIN=snap.val();if(!EMPRESA_ID_ADMIN){auth.signOut();return;}inicializarEscutaBanco();});}else{EMPRESA_ID_ADMIN=null;document.getElementById('authOverlay').style.display="flex";document.getElementById('selectVeiculo').innerHTML='<option value="">Aguardando login...</option>';}});
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
-var TEXTOS_POR_TIPO={ frota:{titulo:'🚚 Veículo',unidade:'veículo',icone:'🚗'}, familia:{titulo:'👨‍👩‍👧 Pessoa',unidade:'pessoa',icone:'👤'}, combo:{titulo:'📍 Unidade',unidade:'unidade',icone:'📍'} };
-function textosDoTipo(){return TEXTOS_POR_TIPO[tipoEmpresaAdmin]||TEXTOS_POR_TIPO.combo;}
-function inicializarEscutaBanco(){
-    db.ref(caminhoVeiculos()).on('value',function(snap){
-        var sel=document.getElementById('selectVeiculo'), ant=sel.value;
-        sel.innerHTML='<option value="">-- Escolha --</option>'; dadosTodasUnidades={};
-        if(snap.exists()){
-            snap.forEach(function(ch){ var k=ch.key; dadosTodasUnidades[k]=ch.val(); var o=document.createElement('option'); o.value=k; o.textContent=textosDoTipo().icone+" "+k.replace(/_/g,' '); sel.appendChild(o); });
-            if(ant) sel.value=ant;
-        }
-    });
-    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/tipo').on('value',function(s){ var v=s.val(); tipoEmpresaAdmin=(v==='frota'||v==='familia'||v==='combo')?v:null; document.getElementById('tituloSelecionar').textContent=textosDoTipo().titulo; });
-}
-document.getElementById('selectVeiculo').addEventListener('change',function(e){ veiculoSelecionado=e.target.value; if(veiculoSelecionado) verificarEAtivarTempoReal(); });
-function verificarEAtivarTempoReal(){
-    if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
-    veiculoComListenerAtivo=veiculoSelecionado;
-    document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> TEMPO REAL';
-    document.getElementById('btnVoltarTempoReal').style.display="none";
-    primeiraCentralizacaoFeita=false;
-    listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){ if(!snap.exists()) return; var p=snap.val(); atualizarPainelEletrico(p,null,{seguindoAoVivo:true}); desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita}); db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(40).once('value',function(s){ var pts=[]; s.forEach(function(c){ var pp=c.val(); if(pp&&pp.lat&&pp.lon) pts.push(pp); }); dadosHistoricoCarregados=pts; desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita}); renderizarRelatorioParadas(pts); }); });
-}
-
-// *** BOTÃO VER TODOS CORRIGIDO AQUI ***
-document.getElementById('btnVerTodos').addEventListener('click',function(){
-    limparRotaAtual();
-    camadaTodos.clearLayers();
-    var pontos=[];
-    var totalVeiculos=0;
-    Object.keys(dadosTodasUnidades).forEach(function(ch){
-        var atual=dadosTodasUnidades[ch]&&dadosTodasUnidades[ch].atual;
-        if(!atual||atual.lat==null||atual.lon==null) return;
-        totalVeiculos++;
-        var cor = (atual.velocidade||0)>3 ? '#00ffa6' : '#ffb020';
-        var marker = L.circleMarker([atual.lat,atual.lon],{radius:10,weight:2,color:'#fff',fillColor:cor,fillOpacity:0.95}).addTo(camadaTodos);
-        var label = ch.replace(/_/g,' ');
-        marker.bindPopup(`<div style="font-weight:bold;">${label}</div><div>${atual.rua||"—"}</div><div>${(atual.velocidade||0)} km/h</div><div style="font-size:0.8em;color:#74808f;">${atual.data||""} ${atual.hora||""}</div>`);
-        pontos.push([atual.lat,atual.lon]);
-    });
-    camadaTodos.addTo(map);
-    if(pontos.length===0){ alert("Nenhum veículo com posição"); return; }
-    if(pontos.length===1){ map.setView(pontos[0],16); }
-    else{ try{ map.fitBounds(L.latLngBounds(pontos),{padding:[50,50],maxZoom:16}); }catch(e){} }
-    document.getElementById('statusModo').textContent = `🗺️ ${totalVeiculos} veículo(s) no mapa`;
-});
-
-function buscarHistoricoComFiltro(cb){
-    var dataF=document.getElementById('filtroData').value, hI=document.getElementById('filtroHoraInicio').value, hF=document.getElementById('filtroHoraFim').value;
-    if(!dataF){ alert("Selecione data"); return; }
-    var partes=dataF.split('-'), br=partes[2]+"/"+partes[1]+"/"+partes[0];
-    db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){
-        var res=[]; snap.forEach(function(ch){ var p=ch.val(); if(p&&p.data===br){ var hc=(p.hora||'').slice(0,5); if(hc>=hI&&hc<=hF) res.push(p); } });
-        cb(res);
-    });
-}
-document.getElementById('btnBuscarHistorico').addEventListener('click',function(){
-    if(!veiculoSelecionado) return alert("Selecione veículo");
-    if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
-    listenerTempoReal=null;
-    camadaTodos.clearLayers();
-    document.getElementById('statusModo').innerHTML='📅 HISTÓRICO';
-    document.getElementById('btnVoltarTempoReal').style.display="block";
-    buscarHistoricoComFiltro(function(res){
-        dadosHistoricoCarregados=res;
-        if(res.length===0){ alert("Nenhum registro"); verificarEAtivarTempoReal(); return; }
-        atualizarPainelEletrico(res[res.length-1], res.length>1?res[res.length-2]:null);
-        desenharRotaClicavel(res);
-    });
-});
+function inicializarEscutaBanco(){db.ref(caminhoVeiculos()).on('value',function(snap){var sel=document.getElementById('selectVeiculo'),ant=sel.value;sel.innerHTML='<option value="">-- Escolha --</option>';dadosTodasUnidades={};if(snap.exists()){snap.forEach(function(ch){var k=ch.key;dadosTodasUnidades[k]=ch.val();var o=document.createElement('option');o.value=k;o.textContent=k.replace(/_/g,' ');sel.appendChild(o);});if(ant)sel.value=ant;}});}
+document.getElementById('selectVeiculo').addEventListener('change',function(e){veiculoSelecionado=e.target.value;if(veiculoSelecionado)verificarEAtivarTempoReal();});
+function verificarEAtivarTempoReal(){if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);veiculoComListenerAtivo=veiculoSelecionado;document.getElementById('statusModo').innerHTML='TEMPO REAL';document.getElementById('btnVoltarTempoReal').style.display="none";primeiraCentralizacaoFeita=false;listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){if(!snap.exists())return;var p=snap.val();atualizarPainelEletrico(p,null,{seguindoAoVivo:true});desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita});db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(40).once('value',function(s){var pts=[];s.forEach(function(c){var pp=c.val();if(pp&&pp.lat&&pp.lon)pts.push(pp);});dadosHistoricoCarregados=pts;desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita});renderizarRelatorioParadas(pts);});});}
+document.getElementById('btnVerTodos').addEventListener('click',function(){limparRotaAtual();camadaTodos.clearLayers();var pontos=[];var totalVeiculos=0;Object.keys(dadosTodasUnidades).forEach(function(ch){var atual=dadosTodasUnidades[ch]&&dadosTodasUnidades[ch].atual;if(!atual||atual.lat==null||atual.lon==null)return;totalVeiculos++;var cor=(atual.velocidade||0)>3?'#00ffa6':'#ffb020';var marker=L.circleMarker([atual.lat,atual.lon],{radius:10,weight:2,color:'#fff',fillColor:cor,fillOpacity:0.95}).addTo(camadaTodos);var label=ch.replace(/_/g,' ');marker.bindPopup('<div style="font-weight:bold;">'+label+'</div><div>'+(atual.rua||"")+'</div><div>'+(atual.velocidade||0)+' km/h</div>');pontos.push([atual.lat,atual.lon]);});camadaTodos.addTo(map);if(pontos.length===0){alert("Nenhum veiculo com posicao");return;}if(pontos.length===1){map.setView(pontos[0],16);}else{try{map.fitBounds(L.latLngBounds(pontos),{padding:[50,50],maxZoom:16});}catch(e){}}document.getElementById('statusModo').textContent=totalVeiculos+" veiculo(s) no mapa";});
+function buscarHistoricoComFiltro(cb){var dataF=document.getElementById('filtroData').value,hI=document.getElementById('filtroHoraInicio').value,hF=document.getElementById('filtroHoraFim').value;if(!dataF){alert("Selecione data");return;}var partes=dataF.split('-'),br=partes[2]+"/"+partes[1]+"/"+partes[0];db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){var res=[];snap.forEach(function(ch){var p=ch.val();if(p&&p.data===br){var hc=(p.hora||'').slice(0,5);if(hc>=hI&&hc<=hF)res.push(p);}});cb(res);});}
+document.getElementById('btnBuscarHistorico').addEventListener('click',function(){if(!veiculoSelecionado)return alert("Selecione veiculo");if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);listenerTempoReal=null;camadaTodos.clearLayers();document.getElementById('statusModo').innerHTML='HISTORICO';document.getElementById('btnVoltarTempoReal').style.display="block";buscarHistoricoComFiltro(function(res){dadosHistoricoCarregados=res;if(res.length===0){alert("Nenhum registro");verificarEAtivarTempoReal();return;}atualizarPainelEletrico(res[res.length-1],res.length>1?res[res.length-2]:null);desenharRotaClicavel(res);});});
 document.getElementById('btnVoltarTempoReal').addEventListener('click',verificarEAtivarTempoReal);
-function atualizarPainelEletrico(dados,pontoAnterior,opcoes){
-    if(!dados||!dados.lat||!dados.lon) return;
-    opcoes=opcoes||{};
-    var latlng=[dados.lat,dados.lon]; marcadorVeiculo.setLatLng(latlng);
-    if(opcoes.seguindoAoVivo){
-        if(!primeiraCentralizacaoFeita){ map.setView(latlng,17); primeiraCentralizacaoFeita=true; }
-        else if(!map.getBounds().pad(-0.15).contains(latlng)) map.panTo(latlng,{animate:true});
-    }else map.setView(latlng,17);
-    var real=statusRealDoPonto(dados,pontoAnterior);
-    document.getElementById('txtVelocidade').textContent=(dados.velocidade||0)+" km/h";
-    document.getElementById('txtRua').textContent=dados.rua||"—";
-    document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"—")+" / "+(dados.estado||"—");
-    document.getElementById('txtDataHora').textContent=dados.data+" às "+dados.hora;
-    if(dadosHistoricoCarregados.length>0){
-        var rel = calcularRelatorioParadas(dadosHistoricoCarregados);
-        var ultimaParada = rel.paradas.length>0 ? rel.paradas[rel.paradas.length-1] : null;
-        if(ultimaParada && ultimaParada.atual){
-            document.getElementById('txtTempoParado').textContent = formatarDuracaoCurta(Date.now() - ultimaParada.inicio) + " (agora)";
-            document.getElementById('txtTempoParado').style.color = "var(--signal-off)";
-        }else{
-            var tUltimoParado = null;
-            for(var i=dadosHistoricoCarregados.length-1;i>=0;i--){
-                if(isParado(dadosHistoricoCarregados[i], dadosHistoricoCarregados[i-1])){ tUltimoParado = parseDataHora(dadosHistoricoCarregados[i].data,dadosHistoricoCarregados[i].hora); break; }
-            }
-            if(tUltimoParado){
-                var emMov = Date.now() - tUltimoParado;
-                document.getElementById('txtTempoParado').textContent = "Em movimento há "+formatarDuracaoCurta(emMov);
-                document.getElementById('txtTempoParado').style.color = "var(--signal-on)";
-            }else{
-                document.getElementById('txtTempoParado').textContent = real==="EM MOVIMENTO"?"Em movimento":"Parado";
-            }
-        }
-    }else{
-        document.getElementById('txtTempoParado').textContent = real==="EM MOVIMENTO"?"Em movimento":(dados.tempoParado||"Parado");
-    }
-    var badge=document.getElementById('txtStatus');
-    badge.textContent=real;
-    badge.className = real==="EM MOVIMENTO" ? "badge badge-movimento" : "badge badge-parado";
-}
+function atualizarPainelEletrico(dados,pontoAnterior,opcoes){if(!dados||!dados.lat||!dados.lon)return;opcoes=opcoes||{};var latlng=[dados.lat,dados.lon];marcadorVeiculo.setLatLng(latlng);if(opcoes.seguindoAoVivo){if(!primeiraCentralizacaoFeita){map.setView(latlng,17);primeiraCentralizacaoFeita=true;}else if(!map.getBounds().pad(-0.15).contains(latlng))map.panTo(latlng,{animate:true});}else map.setView(latlng,17);var real=statusRealDoPonto(dados,pontoAnterior);document.getElementById('txtVelocidade').textContent=(dados.velocidade||0)+" km/h";document.getElementById('txtRua').textContent=dados.rua||"-";document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"-")+" / "+(dados.estado||"-");document.getElementById('txtDataHora').textContent=dados.data+" as "+dados.hora;if(dadosHistoricoCarregados.length>0){var rel=calcularRelatorioParadas(dadosHistoricoCarregados);var ultimaParada=rel.paradas.length>0?rel.paradas[rel.paradas.length-1]:null;if(ultimaParada&&ultimaParada.atual){document.getElementById('txtTempoParado').textContent=formatarDuracaoCurta(Date.now()-ultimaParada.inicio)+" (agora)";}else{var tUltimoParado=null;for(var i=dadosHistoricoCarregados.length-1;i>=0;i--){if(isParado(dadosHistoricoCarregados[i],dadosHistoricoCarregados[i-1])){tUltimoParado=parseDataHora(dadosHistoricoCarregados[i].data,dadosHistoricoCarregados[i].hora);break;}}if(tUltimoParado){var emMov=Date.now()-tUltimoParado;document.getElementById('txtTempoParado').textContent="Em movimento ha "+formatarDuracaoCurta(emMov);}else{document.getElementById('txtTempoParado').textContent=real==="EM MOVIMENTO"?"Em movimento":"Parado";}}}else{document.getElementById('txtTempoParado').textContent=real==="EM MOVIMENTO"?"Em movimento":(dados.tempoParado||"Parado");}var badge=document.getElementById('txtStatus');badge.textContent=real;badge.className=real==="EM MOVIMENTO"?"badge badge-movimento":"badge badge-parado";}
 </script>
 <script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
