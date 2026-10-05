@@ -1,218 +1,91 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
+<head><style>
+@font-face {
+  font-family: "Optimistic";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/OptimisticAI_VF_Optimized.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Optimistic Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/OptimisticMono_W_TextRegular.woff2") format("woff2");
+}
+:where(html) {
+  font-family: "Optimistic", system-ui, sans-serif;
+}
+:where(code, pre, kbd, samp) {
+  font-family: "Optimistic Mono", ui-monospace, monospace;
+}
+</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Admin - Rastreador Everton GPS</title>
+<title>Admin Everton GPS - V3 Letra Grande</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <style>
-:root {
-    --bg-main: #0a0d12;
-    --bg-card: #131820;
-    --border: rgba(255,255,255,.08);
-    --signal-on: #00ffa6;
-    --signal-off: #ffb020;
-    --danger: #ff5470;
-    --telemetry: #2dd4ff;
-    --text: #eef2f6;
-    --text-dim: #74808f;
-    /* Faz o navegador desenhar os seletores nativos (date/time, e o calendário
-       que abre ao tocar neles) no tema ESCURO em vez do claro padrão. Sem
-       isso, em vários Android/Chrome o texto do seletor de data/hora fica
-       escuro sobre o nosso fundo escuro — dá a impressão de que não dá pra
-       mudar a data/hora, quando na verdade só está ilegível. */
-    color-scheme: dark;
-}
-body {
-    margin: 0; padding: 0; font-family: system-ui, sans-serif;
-    background: var(--bg-main); color: var(--text);
-    display: flex; height: 100vh; overflow: hidden;
-}
-.sidebar {
-    width: 380px; background: var(--bg-card);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; height: 100%;
-}
-#map { flex: 1; height: 100%; background: #000; }
-.header { padding: 16px; border-bottom: 1px solid var(--border); text-align: center; }
-.header h2 { margin: 0; font-size: 1.2em; color: var(--telemetry); }
-.content { padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-.box { background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 12px; border-radius: 8px; }
-.box-title { font-size: 0.75em; text-transform: uppercase; color: var(--text-dim); font-weight: bold; margin-bottom: 8px; }
-select, input, button {
-    width: 100%; background: #1a212b; border: 1px solid var(--border);
-    padding: 10px; border-radius: 6px; color: white; font-size: 0.95em; box-sizing: border-box;
-    color-scheme: dark;
-}
-button { background: var(--telemetry); color: #000; font-weight: bold; cursor: pointer; margin-top: 8px; border: none;}
-button:hover { opacity: 0.9; }
-button.sec { background: #1a212b; color: var(--text); border: 1px solid var(--border); }
-button.linha { display: flex; gap: 8px; }
-.telemetry-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.88em; }
-.telemetry-row:last-child { border-bottom: none; }
-.telemetry-row b { text-align: right; max-width: 60%; }
-.badge { font-size: 0.75em; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-.badge-movimento { background: rgba(0,255,166,0.15); color: var(--signal-on); }
-.badge-parado { background: rgba(255,176,32,0.15); color: var(--signal-off); }
-.badge-perigo { background: rgba(255, 84, 112, 0.15); color: var(--danger); }
-.live-indicator { display: inline-block; width: 8px; height: 8px; background: var(--signal-on); border-radius: 50%; margin-right: 6px; }
-.auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; }
-.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
-.auth-card h3 { margin: 0; color: var(--text); font-size: 1.2em; text-align: center; }
-
-/* Banner de SOS — some sozinho quando não há nenhum ativo */
-.box-sos {
-    background: rgba(255,84,112,.12); border: 1px solid var(--danger); border-radius: 8px;
-    padding: 12px; display: none; flex-direction: column; gap: 6px;
-}
-.box-sos.ativo { display: flex; }
-.box-sos .titulo { color: var(--danger); font-weight: bold; font-size: 0.9em; }
-.box-sos .item {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    background: rgba(255,84,112,.1); border: 1px solid rgba(255,84,112,.3); border-radius: 6px;
-    padding: 8px 10px; cursor: pointer; font-size: 0.85em;
-}
-.box-sos .item:hover { background: rgba(255,84,112,.2); }
-.box-sos .item span.tempo { color: var(--text-dim); font-size: 0.85em; }
-
-/* Popup de toque na rota — mantém o visual escuro do resto do painel */
-.leaflet-popup-content-wrapper { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
-.leaflet-popup-tip { background: var(--bg-card); }
-.popup-rota-rua { font-weight: bold; font-size: 0.95em; margin-bottom: 4px; }
-.popup-rota-vel { color: var(--telemetry); font-family: ui-monospace, monospace; }
-.popup-rota-linha { font-size: 0.82em; color: var(--text-dim); margin-top: 3px; }
-.popup-rota-hora { color: var(--text-dim); font-size: 0.8em; margin-top: 6px; }
-.popup-todos-nome { font-weight: bold; font-size: 0.95em; margin-bottom: 4px; }
-.linha-passo-rota { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
-.linha-passo-rota:last-child { border-bottom: none; }
-.linha-passo-rota.ativo { background: rgba(0,224,168,0.1); border-left: 3px solid var(--signal-on); }
-
-@media (max-width: 768px) {
-    body { flex-direction: column-reverse; }
-    .sidebar { width: 100%; height: 50vh; }
-    #map { height: 50vh; }
-}
+:root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
+body{margin:0;padding:0;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);display:flex;height:100vh;overflow:hidden}
+.sidebar{width:380px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
+#map{flex:1;height:100%;background:#e8e6e0}
+.header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
+.header h2{margin:0;font-size:1.1em;color:var(--telemetry)}
+.content{padding:16px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.box{background:rgba(255,255,255,0.02);border:1px solid var(--border);padding:12px;border-radius:8px}
+.box-title{font-size:0.72em;text-transform:uppercase;color:var(--text-dim);font-weight:bold;margin-bottom:8px}
+select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:6px;color:white;font-size:0.95em;box-sizing:border-box;color-scheme:dark}
+button{background:var(--telemetry);color:#000;font-weight:bold;cursor:pointer;margin-top:8px;border:none}
+button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
+.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88em}
+.badge{font-size:0.75em;padding:3px 8px;border-radius:4px;font-weight:bold}
+.badge-movimento{background:rgba(0,255,166,0.15);color:var(--signal-on)}
+.badge-parado{background:rgba(255,176,32,0.15);color:var(--signal-off)}
+.badge-perigo{background:rgba(255,84,112,0.15);color:var(--danger)}
+.live-indicator{display:inline-block;width:8px;height:8px;background:var(--signal-on);border-radius:50%;margin-right:6px}
+.auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
+.auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:16px}
+.leaflet-popup-content-wrapper{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:12px}
+.leaflet-popup-tip{background:var(--bg-card)}
+.popup-rua{font-weight:bold;font-size:1em;margin-bottom:4px}
+.popup-vel{color:var(--telemetry);font-family:ui-monospace,monospace;font-size:1.1em;font-weight:bold}
+.popup-linha{font-size:0.85em;color:var(--text-dim);margin-top:3px}
+.popup-limite{font-size:0.9em;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(45,212,255,0.12);border:1px solid rgba(45,212,255,0.25);font-weight:bold}
+.popup-limite.acima{background:rgba(255,84,112,0.18);border-color:rgba(255,84,112,0.4);color:var(--danger)}
+@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:50vh}#map{height:50vh}}
 </style>
 </head>
 <body>
-
 <div id="authOverlay" class="auth-overlay">
-    <div class="auth-card">
-        <h3>🔐 Painel Admin Protegido</h3>
-        <p style="font-size: 0.85em; color: var(--text-dim); text-align: center; margin: 0;">Insira as credenciais de administrador do sistema.</p>
-        <div>
-            <label style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">E-mail</label>
-            <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
-        </div>
-        <div>
-            <label style="font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Senha</label>
-            <input type="password" id="authSenha" placeholder="******">
-        </div>
-        <button id="btnEntrarPainel">Entrar no Painel</button>
-        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
-    </div>
+<div class="auth-card"><h3>🔐 Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:var(--danger);font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
-
-<div id="avisoSuspensoAdmin" style="display:none; position:fixed; inset:0; z-index:10001; background:var(--bg-main); flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center;">
-    <div style="width:88px; height:88px; border-radius:22px; background:linear-gradient(145deg,var(--danger),#a91c3e); display:flex; align-items:center; justify-content:center; font-size:2.4em; box-shadow:0 10px 28px rgba(255,84,112,0.3); margin-bottom:22px;">📡</div>
-    <div style="font-weight:700; font-size:1.05em; color:var(--text); letter-spacing:0.8px; margin-bottom:26px;">EVERTON GPS — PAINEL ADMIN</div>
-    <div style="border:1px solid rgba(255,84,112,.35); background:rgba(255,84,112,0.08); border-radius:16px; padding:24px 20px; max-width:340px;">
-        <div style="font-size:1.8em; margin-bottom:10px;">🚫</div>
-        <div style="color:var(--danger); font-weight:700; font-size:1.05em; line-height:1.5;">Acesso suspenso</div>
-        <div style="color:var(--text-dim); font-size:0.88em; margin-top:8px; line-height:1.5;">Entre em contato com o suporte para regularizar o pagamento.</div>
-    </div>
-</div>
-
 <div class="sidebar">
-    <div class="header">
-
-        <h2>🛠️ Admin Everton GPS</h2>
-        <span id="userLogado" style="font-size: 0.8em; color: var(--signal-on)">Sessão Protegida</span>
-    </div>
-    <div class="content">
-
-        <div class="box box-sos" id="boxSos">
-            <div class="titulo">🆘 SOS ATIVO</div>
-            <div id="listaSos"></div>
-        </div>
-
-        <div class="box">
-            <div class="box-title" id="tituloSelecionar">🚗 Selecionar Veículo</div>
-            <select id="selectVeiculo">
-                <option value="">Aguardando login...</option>
-            </select>
-            <button id="btnVerTodos" class="sec" type="button">🗺️ Ver todos no mapa</button>
-        </div>
-
-        <div class="box" id="boxStatusAssinatura" style="display:none; text-align:center;">
-            <span id="txtStatusAssinatura">—</span>
-        </div>
-
-        <div class="box">
-            <div class="box-title">📅 Filtrar Histórico Passado</div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <input type="date" id="filtroData">
-                <div style="display: flex; gap: 6px;">
-                    <input type="time" id="filtroHoraInicio" value="00:00">
-                    <input type="time" id="filtroHoraFim" value="23:59">
-                </div>
-                <button id="btnBuscarHistorico">🔍 Buscar Histórico</button>
-                <button id="btnExportarCsv" class="sec" type="button">⬇️ Exportar CSV do período</button>
-                <button id="btnVoltarTempoReal" style="background: var(--signal-on); display: none;">🟢 Voltar ao Tempo Real</button>
-            </div>
-        </div>
-
-        <div id="statusModo" class="box" style="border-color: var(--signal-off); text-align: center; font-weight: bold; font-size: 0.9em; color: var(--signal-off);">
-            Aguardando seleção...
-        </div>
-
-        <div class="box" style="text-align:center; font-size:0.78em; color: var(--text-dim);">
-            👆 Toque em qualquer trecho da rota no mapa pra abrir os dados daquele ponto aqui embaixo.
-        </div>
-
-        <div class="box" id="boxRotaPlanejada" style="display:none; border-color: var(--telemetry);">
-            <div class="box-title">🧭 Rota Planejada</div>
-            <div class="telemetry-row"><span>Destino</span><b id="txtDestinoPlanejado">—</b></div>
-            <div class="telemetry-row"><span>Distância</span><b id="txtDistanciaPlanejada">—</b></div>
-            <div class="telemetry-row"><span>Tempo estimado</span><b id="txtDuracaoPlanejada">—</b></div>
-            <div class="telemetry-row"><span>Traçada em</span><b id="txtCriadaEmPlanejada">—</b></div>
-
-            <div id="boxProximaManobraAdmin" style="display:none; align-items:center; gap:10px; background:var(--bg-input); border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:10px;">
-                <span id="iconeProximaManobraAdmin" style="font-size:1.8em; line-height:1;">🚦</span>
-                <div style="flex:1; min-width:0;">
-                    <div id="textoProximaManobraAdmin" style="color:var(--text); font-weight:700; font-size:0.95em;">—</div>
-                    <div id="distanciaProximaManobraAdmin" style="color:var(--telemetry); font-family:ui-monospace,monospace; font-size:0.82em; margin-top:2px;">—</div>
-                </div>
-            </div>
-
-            <button id="btnAlternarPassoAPassoAdmin" type="button" style="display:none; background:var(--bg-input); color:var(--text); border:1px solid var(--border); font-size:0.8em; padding:10px; margin-top:8px;">Ver passo a passo completo ▾</button>
-            <div id="listaPassosRotaAdmin" style="display:none; max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:6px;"></div>
-        </div>
-
-        <div class="box">
-            <div class="box-title">📊 Dados do Ponto Selecionado</div>
-            <div class="telemetry-row"><span>Última posição</span><b id="txtHaQuanto" style="color:var(--signal-on);">—</b></div>
-            <div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">—</span></div>
-            <div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
-            <div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">00:00:00</b></div>
-            <div class="telemetry-row"><span>Rua</span><b id="txtRua">—</b></div>
-            <div class="telemetry-row"><span>Bairro</span><b id="txtBairro">—</b></div>
-            <div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
-            <div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
-            <div class="telemetry-row"><span>Coordenadas</span><b id="txtCoords">—</b></div>
-        </div>
-
-        <button id="btnSair" style="background: #1a212b; color: var(--danger); border: 1px solid var(--border);">❌ Desconectar</button>
-    </div>
+<div class="header"><h2>🛠️ Admin Everton GPS V3</h2><span id="userLogado" style="font-size:0.8em;color:var(--signal-on)">Letra Grande + Clique Rápido</span></div>
+<div class="content">
+<div class="box"><div class="box-title" id="tituloSelecionar">🚗 Veículo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">🗺️ Ver todos</button></div>
+<div class="box"><div class="box-title">📅 Histórico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">🔍 Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:var(--signal-on);display:none;">🟢 Tempo Real</button></div>
+<div id="statusModo" class="box" style="text-align:center;font-weight:bold;">Aguardando...</div>
+<div class="box"><div class="box-title">📊 Ponto Selecionado</div>
+<div class="telemetry-row"><span>Situação REAL</span><span id="txtStatus" class="badge badge-parado">—</span></div>
+<div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div>
+<div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia" style="color:var(--telemetry);">—</b></div>
+<div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">—</b></div>
+<div class="telemetry-row"><span>Rua</span><b id="txtRua">—</b></div>
+<div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">—</b></div>
+<div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">—</b></div>
 </div>
-
+<button id="btnSair" style="background:#1a212b;color:var(--danger);border:1px solid var(--border);">❌ Sair</button>
+</div>
+</div>
 <div id="map"></div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
+var MAPTILER_KEY = "Lf1G9agog5yDhlo9haAO";
 var firebaseConfig = {
     apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
     authDomain: "everton-gps.firebaseapp.com",
@@ -223,764 +96,264 @@ var firebaseConfig = {
     appId: "1:688936933095:web:790b2407334e8b148e3442"
 };
 firebase.initializeApp(firebaseConfig);
-var db = firebase.database();
-var auth = firebase.auth();
-
-// ===================== MAPA =====================
-var map = L.map('map', { zoomControl: true }).setView([-29.6133, -52.1919], 13);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+var db=firebase.database(), auth=firebase.auth();
+// MAPA COM LETRA GRANDE - BRIGHT V2 tem fonte 2x maior que streets-v2 e fundo claro igual Waze/Google
+var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],13);
+var camadaBase=L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY,{
+    tileSize:512,
+    zoomOffset:-1,
+    maxZoom:20,
+    attribution:'© MapTiler © OpenStreetMap'
 }).addTo(map);
 
-var marcadorVeiculo = L.marker([-29.6133, -52.1919]).addTo(map);
-// Linha tracejada da rota que o MOTORISTA planejou/digitou no app dele (destino), pra
-// diferenciar visualmente do trajeto real percorrido (linhas sólidas coloridas por status).
-var polilinhaRotaPlanejadaAdmin = L.polyline([], {color: '#34b3ff', weight: 5, opacity: 0.85, dashArray: '8,8'}).addTo(map);
-// Camada com um marcador por unidade (veículo/pessoa) — usada pelo botão "Ver todos no
-// mapa", independente do marcador único de cima que segue a unidade selecionada.
-var camadaTodos = L.layerGroup();
+var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
+var camadaRotaAtual=L.layerGroup().addTo(map);
+var camadaTodos=L.layerGroup();
+var cacheLimite={};
+var popupAtual=null;
 
-function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-    var R = 6371000;
-    var dLat = (lat2 - lat1) * Math.PI / 180;
-    var dLon = (lon2 - lon1) * Math.PI / 180;
-    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+function calcularDistanciaMetros(lat1,lon1,lat2,lon2){
+    var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+    var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-function formatarDistanciaCurtaAdmin(metros) {
-    if (metros == null) return "—";
-    if (metros >= 1000) return (metros / 1000).toFixed(1) + " km";
-    return Math.round(metros) + " m";
-}
-function formatarTempoDecorrido(ms) {
-    var s = Math.max(0, Math.round(ms / 1000));
-    if (s < 60) return s + "s atrás";
-    var m = Math.round(s / 60);
-    if (m < 60) return m + "min atrás";
-    var h = Math.floor(m / 60);
-    return h + "h " + (m % 60) + "min atrás";
-}
-/* O app grava data e hora como texto ("19/09/2026" e "14:03:22"). Converte para milissegundos. */
-function parseDataHoraAdmin(d, h) {
-    var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || '');
-    var t = /^(\d{2}):(\d{2}):(\d{2})$/.exec(h || '');
-    if (!m || !t) return null;
-    return new Date(+m[3], +m[2] - 1, +m[1], +t[1], +t[2], +t[3]).getTime();
+function parseDataHoraAdmin(d,h){
+    var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''), t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||'');
+    if(!m||!t) return null;
+    return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime();
 }
 
-// Mostra a mesma rota (com destino, distância e tempo) e o mesmo passo a passo tipo Waze
-// que o app do motorista calcula — os "passos" e o "indiceProximaManobra" já vêm prontos
-// no objeto sincronizado do Firebase, então o admin só precisa exibir, sem recalcular nada.
-// A manobra "atual" e sua distância acompanham a posição mais recente do veículo no mapa.
-function atualizarRotaPlanejadaNoPainel(rota) {
-    var caixa = document.getElementById('boxRotaPlanejada');
-    var btnAlternar = document.getElementById('btnAlternarPassoAPassoAdmin');
-    var listaEl = document.getElementById('listaPassosRotaAdmin');
-    var boxManobra = document.getElementById('boxProximaManobraAdmin');
-
-    if (!rota || !rota.geometria || rota.geometria.length < 2) {
-        caixa.style.display = 'none';
-        polilinhaRotaPlanejadaAdmin.setLatLngs([]);
-        btnAlternar.style.display = 'none';
-        listaEl.style.display = 'none';
-        boxManobra.style.display = 'none';
-        rotaPlanejadaAtualAdmin = null;
-        return;
+async function buscarLimiteVia(lat,lon){
+    var chave = lat.toFixed(4)+","+lon.toFixed(4);
+    if(cacheLimite[chave]!==undefined) return cacheLimite[chave];
+    try{
+        var query = `[out:json][timeout:4];way(around:25,${lat},${lon})[highway][maxspeed];out tags 1;`;
+        var res = await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));
+        var data = await res.json();
+        if(data.elements && data.elements[0] && data.elements[0].tags && data.elements[0].tags.maxspeed){
+            var max = data.elements[0].tags.maxspeed;
+            if(max.includes("BR:urban")) max="60";
+            if(max.includes("BR:rural")) max="80";
+            if(max.includes("BR:motorway")) max="110";
+            var num = parseInt(max);
+            if(!isNaN(num)){ cacheLimite[chave]=num; return num; }
+        }
+        var query2 = `[out:json][timeout:4];way(around:15,${lat},${lon})[highway];out tags 1;`;
+        var res2 = await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query2));
+        var data2 = await res2.json();
+        if(data2.elements && data2.elements[0] && data2.elements[0].tags){
+            var hw=data2.elements[0].tags.highway;
+            if(hw==='motorway'||hw==='trunk'){ cacheLimite[chave]=110; return 110; }
+            if(hw==='primary'){ cacheLimite[chave]=80; return 80; }
+            if(hw==='secondary'){ cacheLimite[chave]=60; return 60; }
+            if(hw==='residential'){ cacheLimite[chave]=40; return 40; }
+        }
+    }catch(e){}
+    cacheLimite[chave]=null; return null;
+}
+function statusRealDoPonto(ponto,pontoAnterior){
+    if(!pontoAnterior) return (ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";
+    var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);
+    var t1=parseDataHoraAdmin(pontoAnterior.data,pontoAnterior.hora), t2=parseDataHoraAdmin(ponto.data,ponto.hora);
+    var dt=(t1&&t2)?(t2-t1)/1000:0;
+    if(dt>0 && dt<180){
+        if(dist>15) return "EM MOVIMENTO";
+        if(dist/dt*3.6>4) return "EM MOVIMENTO";
     }
-    caixa.style.display = 'block';
-    document.getElementById('txtDestinoPlanejado').textContent = rota.destino || "—";
-    document.getElementById('txtDistanciaPlanejada').textContent = (rota.distanciaMetros / 1000).toFixed(1) + " km";
-    document.getElementById('txtDuracaoPlanejada').textContent = Math.round(rota.duracaoSegundos / 60) + " min";
-    document.getElementById('txtCriadaEmPlanejada').textContent = rota.criadoEm ? new Date(rota.criadoEm).toLocaleString('pt-BR') : "—";
-    polilinhaRotaPlanejadaAdmin.setLatLngs(rota.geometria);
+    if((ponto.velocidade||0)>4) return "EM MOVIMENTO";
+    return "PARADO";
+}
+function corPorStatusPonto(ponto,pontoAnterior){
+    return statusRealDoPonto(ponto,pontoAnterior)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
+}
+function limparRotaAtual(){ camadaRotaAtual.clearLayers(); }
 
-    rotaPlanejadaAtualAdmin = rota;
+function desenharTrechoClicavel(p1,p2,cor){
+    var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
+    // Linha invisível GROSSA pra facilitar o toque no celular
+    var toque=L.polyline(coords,{color:'#000',opacity:0,weight:35}).addTo(camadaRotaAtual);
+    var vis=L.polyline(coords,{color:cor,weight:7,opacity:0.95,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+    var fn=function(){ mostrarInfoDoPontoRapido(p2); };
+    toque.on('click',fn);
+    vis.on('click',fn);
+    // Também permite clique no mapa próximo
+    toque.on('touchend',fn);
+    vis.on('touchend',fn);
+}
 
-    if (rota.passos && rota.passos.length) {
-        btnAlternar.style.display = 'block';
-        boxManobra.style.display = 'flex';
-        renderizarListaPassosAdmin();
-        atualizarBannerProximaManobraAdmin();
-    } else {
-        btnAlternar.style.display = 'none';
-        listaEl.style.display = 'none';
-        boxManobra.style.display = 'none';
+function filtrarRuidoGPS(pontos){
+    if(pontos.length<2) return pontos;
+    var res=[pontos[0]];
+    for(var i=1;i<pontos.length;i++){
+        var ant=res[res.length-1], cur=pontos[i];
+        if(!cur.lat||!cur.lon) continue;
+        var dist=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);
+        var tAnt=parseDataHoraAdmin(ant.data,ant.hora), tCur=parseDataHoraAdmin(cur.data,cur.hora);
+        var dt=tAnt&&tCur?Math.abs(tCur-tAnt)/1000:999;
+        if(dist<10 && (cur.velocidade||0)<3) continue;
+        if(dt<15 && dist>250) continue; // pula salto de GPS
+        res.push(cur);
+    }
+    return res;
+}
+function desenharRotaClicavel(pontos,opcoes){
+    opcoes=opcoes||{}; limparRotaAtual();
+    var validos=filtrarRuidoGPS(pontos.filter(function(p){return p&&p.lat!=null;}));
+    if(validos.length===0) return;
+    if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
+    if(!opcoes.manterEnquadramento){ try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }
+    for(var i=0;i<validos.length-1;i++){
+        var p1=validos[i],p2=validos[i+1];
+        var dist=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
+        // Se for muito longe, não desenha (evita linha atravessando cidade)
+        if(dist>300) continue;
+        desenharTrechoClicavel(p1,p2,corPorStatusPonto(p2,p1));
     }
 }
 
-var rotaPlanejadaAtualAdmin = null;
-
-function atualizarBannerProximaManobraAdmin() {
-    var elIcone = document.getElementById('iconeProximaManobraAdmin');
-    var elTexto = document.getElementById('textoProximaManobraAdmin');
-    var elDistancia = document.getElementById('distanciaProximaManobraAdmin');
-    if (!rotaPlanejadaAtualAdmin || !rotaPlanejadaAtualAdmin.passos || !rotaPlanejadaAtualAdmin.passos.length) return;
-    var passos = rotaPlanejadaAtualAdmin.passos;
-    var indice = rotaPlanejadaAtualAdmin.indiceProximaManobra != null ? rotaPlanejadaAtualAdmin.indiceProximaManobra : 1;
-
-    if (indice >= passos.length) {
-        elIcone.textContent = '🏁';
-        elTexto.textContent = 'O veículo chegou ao destino!';
-        elDistancia.textContent = '';
-        return;
-    }
-    var passo = passos[indice];
-    elIcone.textContent = passo.icone;
-    elTexto.textContent = passo.instrucao;
-    var posAtual = marcadorVeiculo.getLatLng();
-    elDistancia.textContent = posAtual
-        ? ('em ' + formatarDistanciaCurtaAdmin(calcularDistanciaMetros(posAtual.lat, posAtual.lng, passo.localizacao[0], passo.localizacao[1])))
-        : '—';
-}
-
-function renderizarListaPassosAdmin() {
-    var container = document.getElementById('listaPassosRotaAdmin');
-    if (!rotaPlanejadaAtualAdmin || !rotaPlanejadaAtualAdmin.passos) { container.innerHTML = ''; return; }
-    var indiceAtivo = rotaPlanejadaAtualAdmin.indiceProximaManobra;
-    var html = '';
-    rotaPlanejadaAtualAdmin.passos.forEach(function(passo, i) {
-        html += '<div class="linha-passo-rota' + (i === indiceAtivo ? ' ativo' : '') + '" id="passo-admin-row-' + i + '">' +
-            '<span style="font-size:1.3em;">' + passo.icone + '</span>' +
-            '<div style="flex:1; min-width:0;">' +
-            '<div style="color:var(--text); font-size:0.9em;">' + passo.instrucao + '</div>' +
-            (passo.distanciaMetros > 0 ? '<div style="color:var(--text-dim); font-size:0.76em;">' + formatarDistanciaCurtaAdmin(passo.distanciaMetros) + '</div>' : '') +
-            '</div></div>';
+// NOVA FUNÇÃO: abre popup INSTANTANEAMENTE, depois busca limite
+function mostrarInfoDoPontoRapido(ponto){
+    if(!ponto) return;
+    atualizarPainelEletricoSimples(ponto);
+    var vel = ponto.velocidade||0;
+    var sitReal = statusRealDoPonto(ponto,null);
+    // Abre popup imediatamente SEM esperar Overpass
+    var htmlInicial = '<div class="popup-rua">'+(ponto.rua||"Rua não localizada")+'</div>'+
+               '<div class="popup-vel">'+vel+' km/h · '+sitReal+'</div>'+
+               '<div class="popup-limite" id="popup-limite-temp">🚦 Buscando limite da via...</div>'+
+               '<div class="popup-linha">🏘️ '+(ponto.bairro||"—")+'</div>'+
+               '<div class="popup-linha">🏙️ '+(ponto.cidade||"—")+' / '+(ponto.estado||"—")+'</div>'+
+               '<div class="popup-linha" style="margin-top:6px;color:#74808f;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';
+    popupAtual = L.popup({closeButton:true,maxWidth:300,className:'popup-grande'}).setLatLng([ponto.lat,ponto.lon]).setContent(htmlInicial).openOn(map);
+    
+    // Busca limite em segundo plano e atualiza popup + painel
+    buscarLimiteVia(ponto.lat, ponto.lon).then(function(limite){
+        var limiteTxt = limite ? limite+" km/h" : "Não cadastrado";
+        var aviso = "";
+        var classe = "popup-limite";
+        if(limite){
+            if(vel > limite){ aviso="⚠️ ACIMA DO LIMITE"; classe="popup-limite acima"; }
+            else { aviso="✅ Dentro do limite"; }
+        }
+        // Atualiza painel lateral
+        document.getElementById('txtLimiteVia').textContent = limiteTxt;
+        document.getElementById('txtLimiteVia').style.color = (limite && vel > limite) ? 'var(--danger)' : 'var(--telemetry)';
+        
+        // Atualiza popup se ainda estiver aberto
+        var el = document.getElementById('popup-limite-temp');
+        if(el){
+            el.className = classe;
+            el.innerHTML = '🚦 Limite da via: <b>'+limiteTxt+'</b><br>'+aviso;
+        }
     });
-    container.innerHTML = html;
 }
 
-document.getElementById('btnAlternarPassoAPassoAdmin').addEventListener('click', function() {
-    var lista = document.getElementById('listaPassosRotaAdmin');
-    var estaAberta = lista.style.display !== 'none';
-    lista.style.display = estaAberta ? 'none' : 'block';
-    this.textContent = estaAberta ? 'Ver passo a passo completo ▾' : 'Ocultar passo a passo ▴';
-    if (!estaAberta) {
-        var ativo = document.getElementById('passo-admin-row-' + (rotaPlanejadaAtualAdmin ? rotaPlanejadaAtualAdmin.indiceProximaManobra : -1));
-        if (ativo) { try { ativo.scrollIntoView({ block: 'nearest' }); } catch(e) {} }
-    }
+var veiculoSelecionado="", veiculoComListenerAtivo=null, primeiraCentralizacaoFeita=false, listenerTempoReal=null, dadosHistoricoCarregados=[], EMPRESA_ID_ADMIN=null, tipoEmpresaAdmin=null, dadosTodasUnidades={};
+function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
+function caminhoVeiculos(){return 'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
+document.getElementById('filtroData').value=new Date().toISOString().slice(0,10);
+document.getElementById('btnEntrarPainel').addEventListener('click',function(){
+    var e=document.getElementById('authEmail').value.trim(), s=document.getElementById('authSenha').value;
+    var erro=document.getElementById('erroLogin');
+    if(!e||!s) return alert("Preencha");
+    erro.style.display="none";
+    auth.signInWithEmailAndPassword(e,s).catch(function(){ erro.textContent="Acesso negado"; erro.style.display="block"; });
 });
-
-// ===================== ROTA TOCÁVEL, ENCAIXADA NAS RUAS =====================
-var camadaRotaAtual = L.layerGroup().addTo(map);
-var idDesenhoRotaAtual = 0;
-var MAX_PONTOS_ROTEAMENTO = 80;
-var URL_OSRM_ROTA_ADMIN = "https://router.project-osrm.org/route/v1/driving/";
-
-function limparRotaAtual() {
-    camadaRotaAtual.clearLayers();
-}
-
-function corPorStatusPonto(ponto) {
-    if (ponto.status === "VELOCIDADE ACIMA DO LIMITE") return getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ff5470';
-    if (ponto.status === "EM MOVIMENTO" || (ponto.velocidade || 0) > 2) return getComputedStyle(document.documentElement).getPropertyValue('--signal-on').trim() || '#00ffa6';
-    return getComputedStyle(document.documentElement).getPropertyValue('--signal-off').trim() || '#ffb020';
-}
-
-function desenharTrechoClicavel(coordsLatLng, cor, pontoAnterior, pontoAtual) {
-    function aoTocar(e) {
-        var pontoDoTrecho = pontoAtual;
-        if (pontoAnterior && pontoAnterior.lat != null && e && e.latlng) {
-            var distAnterior = calcularDistanciaMetros(e.latlng.lat, e.latlng.lng, pontoAnterior.lat, pontoAnterior.lon);
-            var distAtual = calcularDistanciaMetros(e.latlng.lat, e.latlng.lng, pontoAtual.lat, pontoAtual.lon);
-            if (distAnterior < distAtual) pontoDoTrecho = pontoAnterior;
-        }
-        mostrarInfoDoPonto(pontoDoTrecho);
-    }
-    var areaDeToque = L.polyline(coordsLatLng, { color: '#000000', opacity: 0, weight: 24 }).addTo(camadaRotaAtual);
-    var linhaVisivel = L.polyline(coordsLatLng, { color: cor, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(camadaRotaAtual);
-    areaDeToque.on('click', aoTocar);
-    linhaVisivel.on('click', aoTocar);
-}
-
-function amostrarPontosParaRota(pontos, maxPontos) {
-    if (pontos.length <= maxPontos) return pontos;
-    var passo = pontos.length / maxPontos;
-    var resultado = [];
-    for (var i = 0; i < maxPontos; i++) resultado.push(pontos[Math.floor(i * passo)]);
-    resultado.push(pontos[pontos.length - 1]);
-    return resultado;
-}
-
-function fetchComTimeoutAdmin(url, timeoutMs) {
-    var controller = new AbortController();
-    var id = setTimeout(function() { controller.abort(); }, timeoutMs);
-    return fetch(url, { signal: controller.signal }).finally(function() { clearTimeout(id); });
-}
-
-function desenharSegmentosRetos(pontos) {
-    for (var i = 0; i < pontos.length - 1; i++) {
-        var p1 = pontos[i], p2 = pontos[i + 1];
-        desenharTrechoClicavel([[p1.lat, p1.lon], [p2.lat, p2.lon]], corPorStatusPonto(p2), p1, p2);
-    }
-}
-
-function desenharRotaEncaixadaNasRuas(pontos, meuIdDesenho) {
-    var coordsStr = pontos.map(function(p) { return p.lon + "," + p.lat; }).join(";");
-    var url = URL_OSRM_ROTA_ADMIN + coordsStr + "?geometries=geojson&overview=false&steps=true";
-
-    fetchComTimeoutAdmin(url, 12000).then(function(res) { return res.json(); }).then(function(data) {
-        if (meuIdDesenho !== idDesenhoRotaAtual) return;
-
-        if (!data || data.code !== "Ok" || !data.routes || !data.routes[0] || !data.routes[0].legs || data.routes[0].legs.length !== pontos.length - 1) {
-            desenharSegmentosRetos(pontos);
-            return;
-        }
-
-        var legs = data.routes[0].legs;
-        for (var i = 0; i < legs.length; i++) {
-            var coordsLatLng = [];
-            (legs[i].steps || []).forEach(function(step) {
-                if (step.geometry && step.geometry.coordinates) {
-                    step.geometry.coordinates.forEach(function(c) { coordsLatLng.push([c[1], c[0]]); });
-                }
-            });
-            var p1 = pontos[i], p2 = pontos[i + 1];
-            if (coordsLatLng.length < 2) {
-                coordsLatLng = [[p1.lat, p1.lon], [p2.lat, p2.lon]];
-            }
-            desenharTrechoClicavel(coordsLatLng, corPorStatusPonto(p2), p1, p2);
-        }
-    }).catch(function(e) {
-        if (meuIdDesenho !== idDesenhoRotaAtual) return;
-        console.warn("Falha ao encaixar rota nas ruas, desenhando linha reta:", e);
-        desenharSegmentosRetos(pontos);
-    });
-}
-
-function desenharRotaClicavel(pontos, opcoes) {
-    opcoes = opcoes || {};
-    idDesenhoRotaAtual++;
-    var meuIdDesenho = idDesenhoRotaAtual;
-    limparRotaAtual();
-    if (!pontos || pontos.length === 0) return;
-
-    var pontosValidos = pontos.filter(function(p) { return p && p.lat != null && p.lon != null; });
-    if (pontosValidos.length === 0) return;
-
-    if (pontosValidos.length === 1) {
-        if (!opcoes.manterEnquadramento) {
-            map.setView([pontosValidos[0].lat, pontosValidos[0].lon], Math.max(map.getZoom(), 15));
-        }
-        return;
-    }
-
-    if (!opcoes.manterEnquadramento) {
-        var todasCoords = pontosValidos.map(function(p) { return [p.lat, p.lon]; });
-        try {
-            map.fitBounds(L.polyline(todasCoords).getBounds(), { padding: [30, 30], maxZoom: 17 });
-        } catch (e) { /* se o fitBounds falhar (ex: bounds inválido), o mapa só não recentraliza */ }
-    }
-
-    var pontosParaRotear = amostrarPontosParaRota(pontosValidos, MAX_PONTOS_ROTEAMENTO);
-    desenharRotaEncaixadaNasRuas(pontosParaRotear, meuIdDesenho);
-}
-
-function mostrarInfoDoPonto(ponto) {
-    atualizarPainelEletrico(ponto);
-
-    var velocidadeTxt = (ponto.velocidade != null ? ponto.velocidade : 0) + " km/h";
-    var horaTxt = (ponto.data ? ponto.data + " " : "") + (ponto.hora || "");
-    var situacaoTxt = ponto.status || "—";
-    var bairroTxt = ponto.bairro || "—";
-    var cidadeEstadoTxt = (ponto.cidade || "—") + " / " + (ponto.estado || "—");
-    var tempoParadoTxt = ponto.tempoParado || null;
-
-    var conteudoPopup =
-        '<div class="popup-rota-rua">' + (ponto.rua || "Rua não localizada") + '</div>' +
-        '<div class="popup-rota-vel">' + velocidadeTxt + ' · ' + situacaoTxt + '</div>' +
-        '<div class="popup-rota-linha">🏘️ ' + bairroTxt + '</div>' +
-        '<div class="popup-rota-linha">🏙️ ' + cidadeEstadoTxt + '</div>' +
-        (tempoParadoTxt ? '<div class="popup-rota-linha">⏱️ Parado há ' + tempoParadoTxt + '</div>' : '') +
-        '<div class="popup-rota-hora">' + horaTxt + '</div>';
-
-    L.popup({ closeButton: true, maxWidth: 260 })
-        .setLatLng([ponto.lat, ponto.lon])
-        .setContent(conteudoPopup)
-        .openOn(map);
-}
-
-var veiculoSelecionado = "";
-// NOVO (corrige os "soluços" ao trocar de veículo): guarda qual veículo tinha
-// mesmo o listener em tempo real ligado. Antes, ao desligar o listener
-// antigo, o código usava "veiculoSelecionado" — só que essa variável já
-// tinha sido trocada pro veículo NOVO no momento em que o desligamento
-// rodava, então o .off() tentava desligar no caminho ERRADO (o do veículo
-// novo, que nunca teve listener nenhum). Resultado: o listener do veículo
-// antigo nunca era removido de verdade, e ficava competindo com o do
-// veículo novo — daí os dois brigando pra atualizar o mesmo marcador/painel,
-// dando a sensação de "soluço"/tremida ao alternar.
-var veiculoComListenerAtivo = null;
-var primeiraCentralizacaoFeita = false;
-var listenerTempoReal = null;
-var listenerRotaPlanejada = null;
-var dadosHistoricoCarregados = [];
-var EMPRESA_ID_ADMIN = null;
-var tipoEmpresaAdmin = null;   // 'frota' | 'familia' | 'combo' | null (desconhecido/antigo)
-var dadosTodasUnidades = {};  // último snapshot de cada unidade (chave -> dados), pra "Ver todos" e SOS
-
-function sanitizarChavePath(valor) {
-    return String(valor).replace(/[.#$\[\]\/]/g, "_");
-}
-// Tudo que o app do motorista/família grava fica dentro de 'empresas/{empresaId}/veiculos/...'
-// (o modo Família reaproveita o mesmo caminho — cada pessoa é gravada como se fosse um
-// "veículo") — então o admin precisa saber a empresa deste usuário antes de ler qualquer coisa.
-function caminhoVeiculos() {
-    return 'empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/veiculos';
-}
-
-document.getElementById('filtroData').value = new Date().toISOString().slice(0, 10);
-
-// ===================== AUTENTICAÇÃO =====================
-document.getElementById('btnEntrarPainel').addEventListener('click', function() {
-    var email = document.getElementById('authEmail').value.trim();
-    var senha = document.getElementById('authSenha').value;
-    var erroDiv = document.getElementById('erroLogin');
-    if(!email || !senha) return alert("Preencha todos os campos!");
-    erroDiv.style.display = "none";
-    auth.signInWithEmailAndPassword(email, senha)
-        .catch(function() {
-            erroDiv.textContent = "Acesso negado: dados incorretos.";
-            erroDiv.style.display = "block";
+auth.onAuthStateChanged(function(user){
+    if(user){
+        document.getElementById('authOverlay').style.display="none";
+        document.getElementById('userLogado').textContent="🟢 "+user.email;
+        db.ref('mapaUsuarioEmpresa/'+user.uid).once('value').then(function(snap){
+            EMPRESA_ID_ADMIN=snap.val(); if(!EMPRESA_ID_ADMIN){ auth.signOut(); return; } inicializarEscutaBanco();
         });
-});
-
-auth.onAuthStateChanged(function(user) {
-    if (user) {
-        document.getElementById('authOverlay').style.display = "none";
-        document.getElementById('userLogado').textContent = "🟢 Admin: " + user.email;
-        db.ref('mapaUsuarioEmpresa/' + user.uid).once('value').then(function(snap) {
-            EMPRESA_ID_ADMIN = snap.val();
-            if (!EMPRESA_ID_ADMIN) {
-                var erroDiv = document.getElementById('erroLogin');
-                erroDiv.textContent = "Este usuário não está vinculado a nenhuma empresa.";
-                erroDiv.style.display = 'block';
-                auth.signOut();
-                return;
-            }
-            inicializarEscutaBanco();
-        }).catch(function(e) {
-            console.warn(e);
-            var erroDiv = document.getElementById('erroLogin');
-            erroDiv.textContent = "Falha ao identificar a empresa deste usuário.";
-            erroDiv.style.display = 'block';
-        });
-    } else {
-        if (refStatusEmpresaAdmin) refStatusEmpresaAdmin.off();
-        if (refTrialEmpresaAdmin) refTrialEmpresaAdmin.off();
-        if (refAssinaturaEmpresaAdmin) refAssinaturaEmpresaAdmin.off();
-        if (refTipoEmpresaAdmin) refTipoEmpresaAdmin.off();
-        EMPRESA_ID_ADMIN = null;
-        document.getElementById('authOverlay').style.display = "flex";
-        document.getElementById('avisoSuspensoAdmin').style.display = "none";
-        document.getElementById('selectVeiculo').innerHTML = '<option value="">Aguardando login...</option>';
-        // Usa veiculoComListenerAtivo (não veiculoSelecionado) pelo mesmo motivo explicado
-        // acima — é o caminho que realmente tem o listener ligado.
-        if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
-        if (listenerRotaPlanejada && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/rotaPlanejada').off('value', listenerRotaPlanejada);
-        veiculoComListenerAtivo = null;
-        veiculoSelecionado = "";
+    }else{
+        EMPRESA_ID_ADMIN=null;
+        document.getElementById('authOverlay').style.display="flex";
+        document.getElementById('selectVeiculo').innerHTML='<option value="">Aguardando login...</option>';
     }
 });
-
-document.getElementById('btnSair').addEventListener('click', function() {
-    auth.signOut();
-});
-
-// ===================== STATUS DA ASSINATURA/TESTE =====================
-function formatarContagemRegressiva(ms) {
-    ms = Math.max(0, ms);
-    var totalMinutos = Math.floor(ms / 60000);
-    var dias = Math.floor(totalMinutos / 1440);
-    var horas = Math.floor((totalMinutos % 1440) / 60);
-    var minutos = totalMinutos % 60;
-    var partes = [];
-    if (dias > 0) partes.push(dias + "d");
-    if (dias > 0 || horas > 0) partes.push(horas + "h");
-    partes.push(minutos + "min");
-    return partes.join(" ");
-}
-
-var estadoEmpresaAdmin = { status: null, trialExpiraEm: null, assinaturaExpiraEm: null };
-
-var refStatusEmpresaAdmin = null;
-var refTrialEmpresaAdmin = null;
-var refAssinaturaEmpresaAdmin = null;
-var refTipoEmpresaAdmin = null;
-
-// NOVO: ícones e textos do painel mudam conforme o tipo de conta (Frota, Família ou
-// Combo), pra o mesmo painel servir bem os dois casos em vez de falar "Veículo" pra quem
-// só tem gente cadastrada.
-var TEXTOS_POR_TIPO = {
-    frota:   { titulo: '🚚 Selecionar Veículo',  unidade: 'veículo', icone: '🚗', placeholderVazio: 'Nenhum veículo ativo' },
-    familia: { titulo: '👨‍👩‍👧 Selecionar Pessoa', unidade: 'pessoa',  icone: '👤', placeholderVazio: 'Nenhuma pessoa ativa' },
-    combo:   { titulo: '📍 Selecionar Veículo/Pessoa', unidade: 'unidade', icone: '📍', placeholderVazio: 'Nenhuma unidade ativa' }
-};
-function textosDoTipo() {
-    return TEXTOS_POR_TIPO[tipoEmpresaAdmin] || TEXTOS_POR_TIPO.combo;
-}
-function atualizarTextosPorTipo() {
-    document.getElementById('tituloSelecionar').textContent = textosDoTipo().titulo;
-}
-
-function inicializarStatusAssinatura() {
-    refStatusEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/status');
-    refTrialEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/trialExpiraEm');
-    refAssinaturaEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/assinaturaExpiraEm');
-    refTipoEmpresaAdmin = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID_ADMIN) + '/tipo');
-
-    refStatusEmpresaAdmin.on('value', function(snap) {
-        estadoEmpresaAdmin.status = snap.val();
-        atualizarPainelStatusAssinatura();
-    }, function(erro) { console.warn("Falha ao ler status da empresa (verifique as regras do Firebase):", erro); });
-
-    refTrialEmpresaAdmin.on('value', function(snap) {
-        estadoEmpresaAdmin.trialExpiraEm = snap.val();
-        atualizarPainelStatusAssinatura();
-    }, function(erro) { console.warn("Falha ao ler trialExpiraEm:", erro); });
-
-    refAssinaturaEmpresaAdmin.on('value', function(snap) {
-        estadoEmpresaAdmin.assinaturaExpiraEm = snap.val();
-        atualizarPainelStatusAssinatura();
-    }, function(erro) { console.warn("Falha ao ler assinaturaExpiraEm:", erro); });
-
-    refTipoEmpresaAdmin.on('value', function(snap) {
-        var v = snap.val();
-        tipoEmpresaAdmin = (v === 'frota' || v === 'familia' || v === 'combo') ? v : null;
-        atualizarTextosPorTipo();
-    }, function(erro) { console.warn("Falha ao ler tipo da empresa:", erro); });
-
-    setInterval(atualizarPainelStatusAssinatura, 20000);
-}
-
-function atualizarPainelStatusAssinatura() {
-    var caixa = document.getElementById('boxStatusAssinatura');
-    var texto = document.getElementById('txtStatusAssinatura');
-
-    var testeVencido = estadoEmpresaAdmin.status === 'trial' && estadoEmpresaAdmin.trialExpiraEm && new Date(estadoEmpresaAdmin.trialExpiraEm).getTime() < Date.now();
-    var assinaturaVencida = estadoEmpresaAdmin.status === 'ativo' && estadoEmpresaAdmin.assinaturaExpiraEm && new Date(estadoEmpresaAdmin.assinaturaExpiraEm).getTime() < Date.now();
-    var suspenso = estadoEmpresaAdmin.status === 'suspenso' || testeVencido || assinaturaVencida;
-    var overlayBloqueio = document.getElementById('avisoSuspensoAdmin');
-    if (overlayBloqueio) overlayBloqueio.style.display = (EMPRESA_ID_ADMIN && suspenso) ? 'flex' : 'none';
-
-    if (!EMPRESA_ID_ADMIN) { caixa.style.display = 'none'; return; }
-
-    if (estadoEmpresaAdmin.status === 'suspenso') {
-        caixa.style.display = 'block';
-        caixa.style.borderColor = 'var(--danger)';
-        texto.style.color = 'var(--danger)';
-        texto.textContent = "🚫 Conta suspensa";
-    } else if (estadoEmpresaAdmin.status === 'trial' && estadoEmpresaAdmin.trialExpiraEm) {
-        var restanteTeste = new Date(estadoEmpresaAdmin.trialExpiraEm).getTime() - Date.now();
-        caixa.style.display = 'block';
-        caixa.style.borderColor = 'var(--telemetry)';
-        texto.style.color = restanteTeste <= 0 ? 'var(--danger)' : 'var(--telemetry)';
-        texto.textContent = restanteTeste <= 0
-            ? "🚫 Período de teste encerrado"
-            : "🎁 Teste grátis — " + formatarContagemRegressiva(restanteTeste) + " restantes";
-    } else if (estadoEmpresaAdmin.status === 'ativo' && estadoEmpresaAdmin.assinaturaExpiraEm) {
-        var restanteAssinatura = new Date(estadoEmpresaAdmin.assinaturaExpiraEm).getTime() - Date.now();
-        caixa.style.display = 'block';
-        caixa.style.borderColor = 'var(--signal-on)';
-        texto.style.color = restanteAssinatura <= 0 ? 'var(--danger)' : 'var(--signal-on)';
-        texto.textContent = restanteAssinatura <= 0
-            ? "🚫 Assinatura vencida"
-            : "✅ Faltam " + formatarContagemRegressiva(restanteAssinatura) + " de assinatura";
-    } else {
-        caixa.style.display = 'none';
-    }
-}
-
-// ===================== SOS (modo Família) =====================
-// O app do motorista/família grava um SOS em empresas/{id}/veiculos/{chave}/atual/sos
-// (ver modo-familia.js) mas o painel admin nunca mostrava isso — o administrador não
-// tinha como saber que alguém pediu ajuda a menos que já estivesse com aquela pessoa
-// selecionada bem na hora. Agora, o mesmo snapshot que já é lido pra montar a lista de
-// unidades também é usado pra procurar SOS ativo em QUALQUER uma delas, com um banner
-// no topo do painel — clicável, pra já abrir a pessoa em questão.
-var SOS_JANELA_MS = 30 * 60000; // mesmo critério usado no app (30 min)
-
-function atualizarBannerSos() {
-    var box = document.getElementById('boxSos');
-    var lista = document.getElementById('listaSos');
-    var ativos = [];
-
-    Object.keys(dadosTodasUnidades).forEach(function(chave) {
-        var d = dadosTodasUnidades[chave];
-        var atual = d && d.atual;
-        var sos = atual && atual.sos;
-        if (sos && sos.ts && (Date.now() - sos.ts) < SOS_JANELA_MS) {
-            ativos.push({ chave: chave, nome: chave.replace(/_/g, ' '), ts: sos.ts });
+document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
+var TEXTOS_POR_TIPO={ frota:{titulo:'🚚 Veículo',unidade:'veículo',icone:'🚗'}, familia:{titulo:'👨‍👩‍👧 Pessoa',unidade:'pessoa',icone:'👤'}, combo:{titulo:'📍 Unidade',unidade:'unidade',icone:'📍'} };
+function textosDoTipo(){return TEXTOS_POR_TIPO[tipoEmpresaAdmin]||TEXTOS_POR_TIPO.combo;}
+function inicializarEscutaBanco(){
+    db.ref(caminhoVeiculos()).on('value',function(snap){
+        var sel=document.getElementById('selectVeiculo'), ant=sel.value;
+        sel.innerHTML='<option value="">-- Escolha --</option>'; dadosTodasUnidades={};
+        if(snap.exists()){
+            snap.forEach(function(ch){ var k=ch.key; dadosTodasUnidades[k]=ch.val(); var o=document.createElement('option'); o.value=k; o.textContent=textosDoTipo().icone+" "+k.replace(/_/g,' '); sel.appendChild(o); });
+            if(ant) sel.value=ant;
         }
     });
-
-    if (!ativos.length) { box.classList.remove('ativo'); lista.innerHTML = ''; return; }
-
-    ativos.sort(function(a, b) { return b.ts - a.ts; });
-    lista.innerHTML = ativos.map(function(a) {
-        return '<div class="item" data-chave="' + a.chave + '">' +
-            '<span>🆘 ' + a.nome + '</span>' +
-            '<span class="tempo">' + formatarTempoDecorrido(Date.now() - a.ts) + '</span>' +
-            '</div>';
-    }).join('');
-    lista.querySelectorAll('.item').forEach(function(el) {
-        el.addEventListener('click', function() {
-            var chave = el.getAttribute('data-chave');
-            var select = document.getElementById('selectVeiculo');
-            if ([].slice.call(select.options).some(function(o) { return o.value === chave; })) {
-                select.value = chave;
-                veiculoSelecionado = chave;
-                verificarEAtivarTempoReal();
-            }
-        });
-    });
-    box.classList.add('ativo');
+    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/tipo').on('value',function(s){ var v=s.val(); tipoEmpresaAdmin=(v==='frota'||v==='familia'||v==='combo')?v:null; document.getElementById('tituloSelecionar').textContent=textosDoTipo().titulo; });
 }
-setInterval(atualizarBannerSos, 15000); // atualiza o "há Xmin" mesmo sem nenhum dado novo chegar
-
-function inicializarEscutaBanco() {
-    inicializarStatusAssinatura();
-    db.ref(caminhoVeiculos()).on('value', function(snapshot) {
-        var select = document.getElementById('selectVeiculo');
-        var valorAnterior = select.value;
-        select.innerHTML = '<option value="">-- Escolha ' + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + ' --</option>';
-        dadosTodasUnidades = {};
-
-        if(snapshot.exists()) {
-            snapshot.forEach(function(childSnapshot) {
-                var nomeChave = childSnapshot.key;
-                dadosTodasUnidades[nomeChave] = childSnapshot.val();
-                var option = document.createElement('option');
-                option.value = nomeChave;
-                option.textContent = textosDoTipo().icone + " " + nomeChave.replace(/_/g, ' ');
-                select.appendChild(option);
-            });
-            if (valorAnterior) select.value = valorAnterior;
-        } else {
-            select.innerHTML = '<option value="">' + textosDoTipo().placeholderVazio + '</option>';
-        }
-        atualizarBannerSos();
+document.getElementById('selectVeiculo').addEventListener('change',function(e){ veiculoSelecionado=e.target.value; if(veiculoSelecionado) verificarEAtivarTempoReal(); });
+function verificarEAtivarTempoReal(){
+    if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
+    veiculoComListenerAtivo=veiculoSelecionado;
+    document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> TEMPO REAL - Letra Grande';
+    document.getElementById('btnVoltarTempoReal').style.display="none";
+    primeiraCentralizacaoFeita=false;
+    listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){ if(!snap.exists()) return; atualizarPainelEletricoSimples(snap.val(),{seguindoAoVivo:true}); desenharLinhaDoTempoReal(); });
+}
+function desenharLinhaDoTempoReal(){
+    db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(50).once('value',function(snap){
+        var pts=[]; snap.forEach(function(c){ var p=c.val(); if(p&&p.lat&&p.lon) pts.push(p); });
+        desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita});
     });
 }
-
-document.getElementById('selectVeiculo').addEventListener('change', function(e) {
-    veiculoSelecionado = e.target.value;
-    if(veiculoSelecionado) verificarEAtivarTempoReal();
-});
-
-function verificarEAtivarTempoReal() {
-    // Desliga o listener antigo no caminho onde ele REALMENTE estava ligado
-    // (veiculoComListenerAtivo), não no veículo recém-selecionado.
-    if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
-    if (listenerRotaPlanejada && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/rotaPlanejada').off('value', listenerRotaPlanejada);
-    veiculoComListenerAtivo = veiculoSelecionado;
-
-    document.getElementById('statusModo').innerHTML = '<span class="live-indicator"></span> MONITORANDO EM TEMPO REAL';
-    document.getElementById('statusModo').style.color = "var(--signal-on)";
-    document.getElementById('statusModo').style.borderColor = "var(--signal-on)";
-    document.getElementById('btnVoltarTempoReal').style.display = "none";
-
-    primeiraCentralizacaoFeita = false;
-    ultimaAssinaturaRotaTempoReal = null;
-
-    listenerTempoReal = db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/atual').on('value', function(snapshot) {
-        if(!snapshot.exists()) return;
-        atualizarPainelEletrico(snapshot.val(), { seguindoAoVivo: true });
-        desenharLinhaDoTempoReal();
-    });
-
-    listenerRotaPlanejada = db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/rotaPlanejada').on('value', function(snapshot) {
-        atualizarRotaPlanejadaNoPainel(snapshot.val());
-    });
-}
-
-var ultimaAssinaturaRotaTempoReal = null;
-
-function desenharLinhaDoTempoReal() {
-    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').limitToLast(30).once('value', function(snapshot) {
-        var pontos = [];
-        snapshot.forEach(function(child) {
-            var p = child.val();
-            if(p && p.lat && p.lon) pontos.push(p);
-        });
-        var assinatura = pontos.length + (pontos.length ? ('|' + pontos[pontos.length - 1].id) : '');
-        if (assinatura === ultimaAssinaturaRotaTempoReal) return;
-        ultimaAssinaturaRotaTempoReal = assinatura;
-        desenharRotaClicavel(pontos, { manterEnquadramento: primeiraCentralizacaoFeita });
-    });
-}
-
-// ===================== VER TODOS NO MAPA =====================
-// Mostra um marcador simples pra cada unidade (veículo/pessoa) com posição conhecida, tudo
-// de uma vez — dá uma visão geral de onde está toda a frota/família sem precisar
-// selecionar unidade por unidade. Não interfere no monitoramento em tempo real da unidade
-// selecionada, que continua rodando por baixo.
-var mostrandoTodos = false;
-document.getElementById('btnVerTodos').addEventListener('click', function() {
-    mostrandoTodos = !mostrandoTodos;
-    if (!mostrandoTodos) {
-        camadaTodos.remove();
-        this.textContent = '🗺️ Ver todos no mapa';
-        return;
-    }
-    this.textContent = '🗺️ Ocultar todos';
-    redesenharTodos();
-});
-
-function redesenharTodos() {
+document.getElementById('btnVerTodos').addEventListener('click',function(){
     camadaTodos.clearLayers();
-    var pontos = [];
-    Object.keys(dadosTodasUnidades).forEach(function(chave) {
-        var atual = dadosTodasUnidades[chave] && dadosTodasUnidades[chave].atual;
-        if (!atual || atual.lat == null || atual.lon == null) return;
-        var nome = chave.replace(/_/g, ' ');
-        var cor = corPorStatusPonto(atual);
-        var marcador = L.circleMarker([atual.lat, atual.lon], {
-            radius: 9, weight: 2, color: '#fff', fillColor: cor, fillOpacity: 0.95
-        });
-        marcador.bindPopup(
-            '<div class="popup-todos-nome">' + textosDoTipo().icone + ' ' + nome + '</div>' +
-            '<div class="popup-rota-vel">' + (atual.velocidade || 0) + ' km/h · ' + (atual.status || '—') + '</div>' +
-            '<div class="popup-rota-linha">' + (atual.rua || 'Rua não localizada') + '</div>' +
-            '<div class="popup-rota-hora">' + (atual.data || '') + ' ' + (atual.hora || '') + '</div>'
-        );
-        marcador.on('click', function() {
-            var select = document.getElementById('selectVeiculo');
-            if ([].slice.call(select.options).some(function(o) { return o.value === chave; })) {
-                select.value = chave;
-                veiculoSelecionado = chave;
-                verificarEAtivarTempoReal();
-            }
-        });
-        marcador.addTo(camadaTodos);
-        pontos.push([atual.lat, atual.lon]);
+    var pontos=[];
+    Object.keys(dadosTodasUnidades).forEach(function(ch){
+        var atual=dadosTodasUnidades[ch]&&dadosTodasUnidades[ch].atual;
+        if(!atual||atual.lat==null) return;
+        L.circleMarker([atual.lat,atual.lon],{radius:9,weight:2,color:'#fff',fillColor:corPorStatusPonto(atual,null),fillOpacity:0.95}).addTo(camadaTodos);
+        pontos.push([atual.lat,atual.lon]);
     });
     camadaTodos.addTo(map);
-    if (pontos.length > 1) {
-        try { map.fitBounds(L.latLngBounds(pontos), { padding: [40, 40], maxZoom: 15 }); } catch (e) {}
-    } else if (pontos.length === 1) {
-        map.setView(pontos[0], Math.max(map.getZoom(), 14));
-    }
-}
-
-// ===================== BUSCA DE HISTÓRICO =====================
-// CORREÇÃO: o horário gravado em cada ponto tem segundos ("14:03:22"), mas os campos de
-// filtro (<input type="time">) só dão "HH:MM", sem segundos. Comparar "14:03:59" <= "14:03"
-// direto como texto dava FALSO (porque como string, "14:03:59" é "maior" que "14:03") —
-// ou seja, o ÚLTIMO minuto do intervalo escolhido ficava de fora silenciosamente, dando a
-// impressão de que mudar o horário "não funcionava" direito. Agora compara só os 5
-// primeiros caracteres (HH:MM) dos dois lados, sem os segundos.
-function buscarHistoricoComFiltro(callback) {
-    var dataFiltro = document.getElementById('filtroData').value;
-    var horaInicio = document.getElementById('filtroHoraInicio').value;
-    var horaFim = document.getElementById('filtroHoraFim').value;
-    if (!dataFiltro) { alert("Selecione a data!"); return; }
-
-    var partesData = dataFiltro.split('-');
-    var dataFormatadaBr = partesData[2] + "/" + partesData[1] + "/" + partesData[0];
-
-    db.ref(caminhoVeiculos() + '/' + veiculoSelecionado + '/historico').once('value', function(snapshot) {
-        var resultado = [];
-        snapshot.forEach(function(child) {
-            var ponto = child.val();
-            if (ponto && ponto.data === dataFormatadaBr) {
-                var horaCurta = (ponto.hora || '').slice(0, 5);
-                if (horaCurta >= horaInicio && horaCurta <= horaFim) {
-                    resultado.push(ponto);
-                }
-            }
-        });
-        callback(resultado, dataFormatadaBr, horaInicio, horaFim);
+    if(pontos.length>1){ try{ map.fitBounds(L.latLngBounds(pontos),{padding:[40,40]}); }catch(e){} }
+});
+function buscarHistoricoComFiltro(cb){
+    var dataF=document.getElementById('filtroData').value, hI=document.getElementById('filtroHoraInicio').value, hF=document.getElementById('filtroHoraFim').value;
+    if(!dataF){ alert("Selecione data"); return; }
+    var partes=dataF.split('-'), br=partes[2]+"/"+partes[1]+"/"+partes[0];
+    db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){
+        var res=[]; snap.forEach(function(ch){ var p=ch.val(); if(p&&p.data===br){ var hc=(p.hora||'').slice(0,5); if(hc>=hI&&hc<=hF) res.push(p); } });
+        cb(res);
     });
 }
-
-document.getElementById('btnBuscarHistorico').addEventListener('click', function() {
-    if (!veiculoSelecionado) return alert("Selecione " + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + " primeiro!");
-
-    if (listenerTempoReal && veiculoComListenerAtivo) db.ref(caminhoVeiculos() + '/' + veiculoComListenerAtivo + '/atual').off('value', listenerTempoReal);
-    listenerTempoReal = null;
-    document.getElementById('statusModo').innerHTML = '📅 EXIBINDO HISTÓRICO PASSADO';
-    document.getElementById('statusModo').style.color = "var(--signal-off)";
-    document.getElementById('statusModo').style.borderColor = "var(--signal-off)";
-    document.getElementById('btnVoltarTempoReal').style.display = "block";
-
-    buscarHistoricoComFiltro(function(resultado) {
-        dadosHistoricoCarregados = resultado;
-        if (resultado.length === 0) {
-            alert("Nenhum registro encontrado para este período.");
-            verificarEAtivarTempoReal();
-            return;
-        }
-        atualizarPainelEletrico(resultado[resultado.length - 1]);
-        desenharRotaClicavel(resultado);
+document.getElementById('btnBuscarHistorico').addEventListener('click',function(){
+    if(!veiculoSelecionado) return alert("Selecione veículo");
+    if(listenerTempoReal&&veiculoComListenerAtivo) db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);
+    listenerTempoReal=null;
+    document.getElementById('statusModo').innerHTML='📅 HISTÓRICO';
+    document.getElementById('btnVoltarTempoReal').style.display="block";
+    buscarHistoricoComFiltro(function(res){
+        dadosHistoricoCarregados=res;
+        if(res.length===0){ alert("Nenhum registro"); verificarEAtivarTempoReal(); return; }
+        atualizarPainelEletricoSimples(res[res.length-1]);
+        desenharRotaClicavel(res);
     });
 });
-
-document.getElementById('btnVoltarTempoReal').addEventListener('click', verificarEAtivarTempoReal);
-
-// ===================== EXPORTAR CSV (do painel admin) =====================
-// Mesmo formato de colunas que o app do motorista já exporta, só que aqui puxando
-// direto do Firebase pro período escolhido nos filtros — não depende de estar no modo
-// histórico: busca fresco a cada clique.
-document.getElementById('btnExportarCsv').addEventListener('click', function() {
-    if (!veiculoSelecionado) return alert("Selecione " + (textosDoTipo().unidade === 'pessoa' ? 'uma pessoa' : 'um veículo') + " primeiro!");
-    var btn = this;
-    btn.disabled = true; btn.textContent = "Gerando CSV...";
-
-    buscarHistoricoComFiltro(function(resultado, dataFormatadaBr) {
-        btn.disabled = false; btn.textContent = "⬇️ Exportar CSV do período";
-        if (!resultado.length) { alert("Nenhum registro encontrado para exportar nesse período."); return; }
-
-        var linhas = ["Data;Hora;Latitude;Longitude;Velocidade(km/h);Situacao;Rua;Bairro;Cidade;Estado"];
-        resultado.forEach(function(p) {
-            linhas.push([p.data, p.hora, p.lat, p.lon, p.velocidade, p.status, p.rua, p.bairro, p.cidade, p.estado].join(";"));
-        });
-        var conteudoCsv = linhas.join("\n");
-        var nomeArquivo = "historico_" + veiculoSelecionado + "_" + dataFormatadaBr.split('/').reverse().join('-') + ".csv";
-        var blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url; a.download = nomeArquivo; a.click();
-        URL.revokeObjectURL(url);
-    });
-});
-
-function atualizarPainelEletrico(dados, opcoes) {
-    if(!dados || !dados.lat || !dados.lon) return;
-    opcoes = opcoes || {};
-    var latlng = [dados.lat, dados.lon];
-    marcadorVeiculo.setLatLng(latlng);
-
-    if (opcoes.seguindoAoVivo) {
-        if (!primeiraCentralizacaoFeita) {
-            map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
-            primeiraCentralizacaoFeita = true;
-        } else if (!map.getBounds().pad(-0.15).contains(latlng)) {
-            map.panTo(latlng, { animate: true });
-        }
-    } else {
-        map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
-    }
-
-    // NOVO: há quanto tempo essa posição foi gravada — ajuda o admin a perceber uma
-    // unidade que parou de mandar dados (app fechado, sem sinal, celular desligado) em
-    // vez de achar que ela está mesmo parada naquele lugar pra sempre.
-    var tsPosicao = parseDataHoraAdmin(dados.data, dados.hora);
-    document.getElementById('txtHaQuanto').textContent = tsPosicao ? formatarTempoDecorrido(Date.now() - tsPosicao) : "—";
-
-    document.getElementById('txtVelocidade').textContent = (dados.velocidade || 0) + " km/h";
-    document.getElementById('txtTempoParado').textContent = dados.tempoParado || "00:00:00";
-    document.getElementById('txtRua').textContent = dados.rua || "Não localizada";
-    document.getElementById('txtBairro').textContent = dados.bairro || "—";
-    document.getElementById('txtCidadeEstado').textContent = (dados.cidade || "—") + " / " + (dados.estado || "—");
-    document.getElementById('txtDataHora').textContent = dados.data + " às " + dados.hora;
-    document.getElementById('txtCoords').textContent = dados.lat.toFixed(6) + ", " + dados.lon.toFixed(6);
-
-    var badge = document.getElementById('txtStatus');
-    badge.textContent = dados.status || "PARADO";
-    badge.className = dados.velocidade > 80 ? "badge badge-perigo" : (dados.velocidade > 2 ? "badge badge-movimento" : "badge badge-parado");
-
-    if (rotaPlanejadaAtualAdmin) atualizarBannerProximaManobraAdmin();
+document.getElementById('btnVoltarTempoReal').addEventListener('click',verificarEAtivarTempoReal);
+function atualizarPainelEletricoSimples(dados,opcoes){
+    if(!dados||!dados.lat||!dados.lon) return;
+    opcoes=opcoes||{};
+    var latlng=[dados.lat,dados.lon]; marcadorVeiculo.setLatLng(latlng);
+    if(opcoes.seguindoAoVivo){
+        if(!primeiraCentralizacaoFeita){ map.setView(latlng,17); primeiraCentralizacaoFeita=true; }
+        else if(!map.getBounds().pad(-0.15).contains(latlng)) map.panTo(latlng,{animate:true});
+    }else map.setView(latlng,17);
+    var real = statusRealDoPonto(dados,null);
+    document.getElementById('txtVelocidade').textContent=(dados.velocidade||0)+" km/h";
+    document.getElementById('txtTempoParado').textContent= real==="EM MOVIMENTO" ? "Em movimento" : (dados.tempoParado||"Parado");
+    document.getElementById('txtRua').textContent=dados.rua||"—";
+    document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"—")+" / "+(dados.estado||"—");
+    document.getElementById('txtDataHora').textContent=dados.data+" às "+dados.hora;
+    var badge=document.getElementById('txtStatus');
+    badge.textContent=real;
+    badge.className = real==="EM MOVIMENTO" ? "badge badge-movimento" : "badge badge-parado";
 }
 </script>
-</body>
+<script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
