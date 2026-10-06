@@ -24,7 +24,7 @@
 </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Everton GPS - SEM CRUZAR QUARTEIRÃO</title>
+<title>Admin Everton GPS - Linha Contínua</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <style>
 :root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
@@ -60,13 +60,13 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 <div class="auth-card"><h3>Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:#ff5470;font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
 <div class="sidebar">
-<div class="header"><h2>Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:#00ffa6">FIX: NÃO CRUZA QUARTEIRÃO</span></div>
+<div class="header"><h2>Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:#00ffa6">FIX LINHA CONTÍNUA 200m</span></div>
 <div class="content">
-<div class="box"><div class="box-title" id="tituloSelecionar">Veiculo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
+<div class="box"><div class="box-title">Veiculo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
 <div class="box"><div class="box-title">Historico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Historico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;">Aguardando...</div>
-<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);"><div class="box-title">Relatorio de Tempo Parado <span id="badgeTotalParadas" style="background:#ffb020;color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div><div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiencia</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div><div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:12px;display:none;">Nenhuma parada detectada</div></div>
-<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação REAL</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Tempo Parado Agora</span><b id="txtTempoParado">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
+<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);"><div class="box-title">Relatorio de Tempo Parado <span id="badgeTotalParadas" style="background:#ffb020;color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div><div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiencia</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div><div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:12px;display:none;">Nenhuma parada</div></div>
+<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
 <button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div>
 </div>
@@ -90,11 +90,11 @@ function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-l
 function parseDataHora(d,h){var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''),t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||'');if(!m||!t)return null;return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime();}
 function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
 function formatarDuracaoCurta(ms){if(!ms||ms<1000)return"0s";var s=Math.floor(ms/1000);if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"min";var h=Math.floor(m/60);return h+"h "+m%60+"min";}
-async function buscarLimiteVia(lat,lon){var chave=lat.toFixed(4)+","+lon.toFixed(4);if(cacheLimite[chave]!==undefined)return cacheLimite[chave];try{var query="[out:json][timeout:5];way(around:30,"+lat+","+lon+")[highway][maxspeed];out tags 1;";var res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));var data=await res.json();if(data.elements&&data.elements.length>0&&data.elements[0].tags&&data.elements[0].tags.maxspeed){var max=data.elements[0].tags.maxspeed;if(max.includes("BR:urban"))max="60";if(max.includes("BR:rural"))max="80";if(max.includes("BR:motorway"))max="110";var num=parseInt(max);if(!isNaN(num)){cacheLimite[chave]=num;return num;}}var query2="[out:json][timeout:5];way(around:20,"+lat+","+lon+")[highway];out tags 1;";var res2=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query2));var data2=await res2.json();if(data2.elements&&data2.elements[0]&&data2.elements[0].tags){var hw=data2.elements[0].tags.highway;if(hw==='motorway'||hw==='trunk'){cacheLimite[chave]=110;return 110;}if(hw==='primary'){cacheLimite[chave]=80;return 80;}if(hw==='secondary'){cacheLimite[chave]=60;return 60;}if(hw==='residential'){cacheLimite[chave]=40;return 40;}}}catch(e){}cacheLimite[chave]=null;return null;}
+async function buscarLimiteVia(lat,lon){var chave=lat.toFixed(4)+","+lon.toFixed(4);if(cacheLimite[chave]!==undefined)return cacheLimite[chave];try{var q="[out:json][timeout:5];way(around:30,"+lat+","+lon+")[highway][maxspeed];out tags 1;";var res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q));var data=await res.json();if(data.elements&&data.elements[0]&&data.elements[0].tags&&data.elements[0].tags.maxspeed){var max=data.elements[0].tags.maxspeed;if(max.includes("BR:urban"))max="60";if(max.includes("BR:rural"))max="80";if(max.includes("BR:motorway"))max="110";var num=parseInt(max);if(!isNaN(num)){cacheLimite[chave]=num;return num;}}var q2="[out:json][timeout:5];way(around:20,"+lat+","+lon+")[highway];out tags 1;";var res2=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q2));var data2=await res2.json();if(data2.elements&&data2.elements[0]&&data2.elements[0].tags){var hw=data2.elements[0].tags.highway;if(hw==='motorway'||hw==='trunk'){cacheLimite[chave]=110;return 110;}if(hw==='primary'){cacheLimite[chave]=80;return 80;}if(hw==='secondary'){cacheLimite[chave]=60;return 60;}if(hw==='residential'){cacheLimite[chave]=40;return 40;}}}catch(e){}cacheLimite[chave]=null;return null;}
 function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=parseDataHora(ponto.data,ponto.hora)-parseDataHora(anterior.data,anterior.hora);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
 function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=parseDataHora(pontoAnterior.data,pontoAnterior.hora),t2=parseDataHora(ponto.data,ponto.hora);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
 
-// === FIX CRÍTICO PARA NÃO CRUZAR QUARTEIRÃO ===
+// === FIX LINHA CONTÍNUA: NÃO PICOTADO ===
 function separarViagens(pontos){
     if(pontos.length<2) return [pontos];
     var viagens=[]; var atual=[pontos[0]];
@@ -103,9 +103,10 @@ function separarViagens(pontos){
         var tAnt=parseDataHora(ant.data,ant.hora), tCur=parseDataHora(cur.data,cur.hora);
         var dt=(tAnt&&tCur)?tCur-tAnt:0;
         var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);
-        // FIX: Se ficou parado 90s OU andou mais de 80m (tamanho de um quarteirão), é outra viagem
-        // Isso impede a linha de cortar por cima das casas como nos seus prints
-        if(dt>90*1000 || d>80){
+        // CORREÇÃO: Antes era 90s/80m e ficou picotado
+        // Agora: só separa se ficou parado 2 minutos OU pulou mais de 250m (carro desligado)
+        // Se está andando, mesmo a 80km/h (22m/s * 10s = 220m), continua mesma viagem
+        if(dt>120*1000 || d>250){
             if(atual.length>0) viagens.push(atual);
             atual=[cur];
         }else atual.push(cur);
@@ -114,7 +115,7 @@ function separarViagens(pontos){
     return viagens;
 }
 
-function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{total:0,paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0)});var paradas=[];var tempoParadoTotal=0;var tempoTotal=(parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora)-parseDataHora(ordenados[0].data,ordenados[0].hora))||0;var emParada=false;var inicioParada=null;var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1];var cur=ordenados[i];var tAnt=parseDataHora(ant.data,ant.hora);var tCur=parseDataHora(cur.data,cur.hora);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}}}if(emParada&&inicioParada){var ultimoT=parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
+function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0)});var paradas=[];var tempoParadoTotal=0;var tempoTotal=(parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora)-parseDataHora(ordenados[0].data,ordenados[0].hora))||0;var emParada=false;var inicioParada=null;var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1];var cur=ordenados[i];var tAnt=parseDataHora(ant.data,ant.hora);var tCur=parseDataHora(cur.data,cur.hora);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}}}if(emParada&&inicioParada){var ultimoT=parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
 function renderizarRelatorioParadas(pontos){var rel=calcularRelatorioParadas(pontos);document.getElementById('kpiTotalParado').textContent=formatarDuracao(rel.tempoParado);document.getElementById('kpiTotalMovimento').textContent=formatarDuracao(rel.tempoMov);document.getElementById('kpiTempoTotal').textContent=formatarDuracao(rel.tempoTotal);var eficiencia=rel.tempoTotal>0?Math.round((rel.tempoMov/rel.tempoTotal)*100):0;document.getElementById('kpiEficiencia').textContent=eficiencia+"% em uso";document.getElementById('badgeTotalParadas').textContent=rel.paradas.length+" paradas";var lista=document.getElementById('listaParadas');var msg=document.getElementById('msgSemParadas');lista.innerHTML="";if(rel.paradas.length===0){msg.style.display="block";return;}else msg.style.display="none";rel.paradas.slice().reverse().forEach(function(par,idx){var div=document.createElement('div');div.className='parada-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>Parada '+(rel.paradas.length-idx)+'</b><span style="font-weight:800;color:#ffb020;">'+formatarDuracaoCurta(par.duracao)+'</span></div><div>'+par.rua+'</div><div style="color:#74808f;font-size:0.9em;">'+par.horaIni+' -> '+par.horaFim+(par.atual?' (agora)':'')+'</div>';div.addEventListener('click',function(){if(par.ponto&&par.ponto.lat){map.setView([par.ponto.lat,par.ponto.lon],18);L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent('<b>Parada '+formatarDuracaoCurta(par.duracao)+'</b><br>'+par.rua+'<br>'+par.horaIni+' ate '+par.horaFim).openOn(map);}});lista.appendChild(div);});}
 function limparRotaAtual(){camadaRotaAtual.clearLayers();camadaTodos.clearLayers();}
 
@@ -125,7 +126,6 @@ function desenharRotaClicavel(pontos,opcoes){
     if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
     validos.sort(function(a,b){ return (parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0); });
     
-    // === FIX PRINCIPAL: Separa em viagens para não cruzar quarteirão ===
     var viagens=separarViagens(validos);
     
     if(!opcoes.manterEnquadramento){
@@ -134,34 +134,35 @@ function desenharRotaClicavel(pontos,opcoes){
     
     for(var v=0; v<viagens.length; v++){
         var viagem=viagens[v];
-        // Filtra pontos dançando quando parado
         var filtrada=[]; var ultimo=null;
         for(var i=0;i<viagem.length;i++){
             var p=viagem[i]; var ant=i>0?viagem[i-1]:null;
             var parado = statusRealDoPonto(p,ant)==="PARADO";
-            if(parado && ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<20) continue;
-            if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<5) continue;
+            // Só filtra se parado e muito próximo (GPS dançando)
+            if(parado && ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<15) continue;
+            if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<3) continue;
             filtrada.push(p); ultimo=p;
         }
-        // Desenha cada trecho da viagem - NUNCA liga pontos com mais de 80m
+        // CORREÇÃO LINHA CONTÍNUA: Desenha tudo, só não desenha se >250m (carro desligado)
+        // Antes era 80m e ficava picotado, agora 250m fica contínuo mas não cruza quarteirão parado
         for(var i2=0;i2<filtrada.length-1;i2++){
             var p1=filtrada[i2],p2=filtrada[i2+1];
             var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
-            // FIX: Se distância > 80m (1 quarteirão), NÃO desenha linha - impede cruzar casas
-            if(d>80) continue;
+            // Se distância >250m, é pulo (carro desligado/ligado em outro lugar) - não liga
+            if(d>250) continue;
+            // Se ambos parados, não desenha linha (evita mancha)
             if(statusRealDoPonto(p1,i2>0?filtrada[i2-1]:null)==="PARADO" && statusRealDoPonto(p2,p1)==="PARADO") continue;
             
             var cor = statusRealDoPonto(p2,p1)==="EM MOVIMENTO" ? '#00ffa6' : '#ffb020';
             if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
             
             var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
-            // Linha grossa invisível para clique fácil + linha visível
-            var toque=L.polyline(coords,{color:'#000',opacity:0,weight:35}).addTo(camadaRotaAtual);
-            var vis=L.polyline(coords,{color:cor,weight:7,opacity:0.95,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+            var toque=L.polyline(coords,{color:'#000',opacity:0,weight:40}).addTo(camadaRotaAtual);
+            var vis=L.polyline(coords,{color:cor,weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
             (function(pp, ant){ var fn=function(){ mostrarInfoDoPontoRapido(pp,ant); }; toque.on('click',fn); vis.on('click',fn); })(p2,p1);
         }
     }
-    document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • FIX: máx 80m por trecho, sem cruzar casas";
+    document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • LINHA CONTÍNUA (max 250m, sem picote)";
     renderizarRelatorioParadas(pontos);
 }
 
@@ -170,13 +171,13 @@ function mostrarInfoDoPontoRapido(ponto,anterior){
     atualizarPainelEletrico(ponto,anterior);
     var vel=ponto.velocidade||0;
     var sitReal=statusRealDoPonto(ponto,anterior);
-    var htmlInicial='<div style="font-weight:bold;">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;">'+vel+' km/h - '+sitReal+'</div><div id="popup-limite-temp" style="margin-top:6px;font-size:0.85em;">Buscando limite...</div><div style="font-size:0.82em;color:#74808f;margin-top:3px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';
-    L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(htmlInicial).openOn(map);
+    var html='<div style="font-weight:bold;">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;">'+vel+' km/h - '+sitReal+'</div><div id="popup-limite-temp" style="margin-top:6px;font-size:0.85em;">Buscando limite...</div><div style="font-size:0.82em;color:#74808f;margin-top:3px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';
+    L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(html).openOn(map);
     buscarLimiteVia(ponto.lat,ponto.lon).then(function(limite){
-        var limiteTxt=limite?limite+" km/h":"Não cadastrado";
+        var txt=limite?limite+" km/h":"Não cadastrado";
         var el=document.getElementById('popup-limite-temp');
-        if(el){ el.innerHTML='Limite: <b>'+limiteTxt+'</b> '+((limite&&vel>limite)?"⚠️ ACIMA":""); }
-        document.getElementById('txtLimiteVia').textContent=limiteTxt;
+        if(el){ el.innerHTML='Limite: <b>'+txt+'</b> '+((limite&&vel>limite)?"⚠️ ACIMA":""); }
+        document.getElementById('txtLimiteVia').textContent=txt;
         document.getElementById('txtLimiteVia').style.color=(limite&&vel>limite)?'#ff5470':'#2dd4ff';
     });
 }
@@ -190,7 +191,7 @@ auth.onAuthStateChanged(function(user){if(user){document.getElementById('authOve
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
 function inicializarEscutaBanco(){db.ref(caminhoVeiculos()).on('value',function(snap){var sel=document.getElementById('selectVeiculo'),ant=sel.value;sel.innerHTML='<option value="">-- Escolha --</option>';dadosTodasUnidades={};if(snap.exists()){snap.forEach(function(ch){var k=ch.key;dadosTodasUnidades[k]=ch.val();var o=document.createElement('option');o.value=k;o.textContent=k.replace(/_/g,' ');sel.appendChild(o);});if(ant)sel.value=ant;}});}
 document.getElementById('selectVeiculo').addEventListener('change',function(e){veiculoSelecionado=e.target.value;if(veiculoSelecionado)verificarEAtivarTempoReal();});
-function verificarEAtivarTempoReal(){if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);veiculoComListenerAtivo=veiculoSelecionado;document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> TEMPO REAL';document.getElementById('btnVoltarTempoReal').style.display="none";primeiraCentralizacaoFeita=false;listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){if(!snap.exists())return;var p=snap.val();atualizarPainelEletrico(p,null,{seguindoAoVivo:true});desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita});db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(60).once('value',function(s){var pts=[];s.forEach(function(c){var pp=c.val();if(pp&&pp.lat&&pp.lon)pts.push(pp);});dadosHistoricoCarregados=pts;desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita});renderizarRelatorioParadas(pts);});});}
+function verificarEAtivarTempoReal(){if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);veiculoComListenerAtivo=veiculoSelecionado;document.getElementById('statusModo').innerHTML='<span class="live-indicator"></span> TEMPO REAL';document.getElementById('btnVoltarTempoReal').style.display="none";primeiraCentralizacaoFeita=false;listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){if(!snap.exists())return;var p=snap.val();atualizarPainelEletrico(p,null,{seguindoAoVivo:true});desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita});db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(80).once('value',function(s){var pts=[];s.forEach(function(c){var pp=c.val();if(pp&&pp.lat&&pp.lon)pts.push(pp);});dadosHistoricoCarregados=pts;desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita});renderizarRelatorioParadas(pts);});});}
 document.getElementById('btnVerTodos').addEventListener('click',function(){if(!EMPRESA_ID_ADMIN){alert("Faça login");return;}document.getElementById('statusModo').textContent="Buscando todos...";limparRotaAtual();camadaTodos.clearLayers();db.ref(caminhoVeiculos()).once('value').then(function(snap){var pontos=[];var total=0;if(!snap.exists()){alert("Nenhum veículo");return;}snap.forEach(function(child){var atual=child.val()&&child.val().atual;if(!atual||atual.lat==null)return;total++;var cor=(atual.velocidade||0)>3?'#00ffa6':'#ffb020';var m=L.circleMarker([atual.lat,atual.lon],{radius:12,weight:3,color:'#fff',fillColor:cor,fillOpacity:1}).addTo(camadaTodos);m.bindPopup('<b>'+child.key.replace(/_/g,' ')+'</b><br>'+(atual.rua||"")+'<br>'+(atual.velocidade||0)+' km/h');pontos.push([atual.lat,atual.lon]);});camadaTodos.addTo(map);if(pontos.length===0){alert("Nenhum com posição");return;}if(pontos.length===1)map.setView(pontos[0],16);else try{map.fitBounds(L.latLngBounds(pontos),{padding:[80,80],maxZoom:16});}catch(e){}document.getElementById('statusModo').textContent=total+" veículo(s) no mapa";});});
 function buscarHistoricoComFiltro(cb){var dataF=document.getElementById('filtroData').value,hI=document.getElementById('filtroHoraInicio').value,hF=document.getElementById('filtroHoraFim').value;if(!dataF){alert("Selecione data");return;}var partes=dataF.split('-'),br=partes[2]+"/"+partes[1]+"/"+partes[0];db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){var res=[];snap.forEach(function(ch){var p=ch.val();if(p&&p.data===br){var hc=(p.hora||'').slice(0,5);if(hc>=hI&&hc<=hF)res.push(p);}});cb(res);});}
 document.getElementById('btnBuscarHistorico').addEventListener('click',function(){if(!veiculoSelecionado)return alert("Selecione veículo");if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);listenerTempoReal=null;camadaTodos.clearLayers();document.getElementById('statusModo').innerHTML='HISTÓRICO';document.getElementById('btnVoltarTempoReal').style.display="block";buscarHistoricoComFiltro(function(res){dadosHistoricoCarregados=res;if(res.length===0){alert("Nenhum registro");verificarEAtivarTempoReal();return;}atualizarPainelEletrico(res[res.length-1],res.length>1?res[res.length-2]:null);desenharRotaClicavel(res);});});
