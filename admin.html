@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-<head><style>
+<html lang="pt-br"><head><style>
 @font-face {
   font-family: "Optimistic";
   font-style: normal;
@@ -21,35 +20,46 @@
 :where(code, pre, kbd, samp) {
   font-family: "Optimistic Mono", ui-monospace, monospace;
 }
-</style>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Everton GPS</title>
+</style><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin Everton GPS</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <style>
 :root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
 body{margin:0;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);display:flex;height:100vh;overflow:hidden}
-.sidebar{width:420px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
+.sidebar{width:440px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
 #map{flex:1;height:100%;background:#e8e6e0}
 .header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
-.header h2{margin:0;font-size:1.2em;color:var(--telemetry)}
+.header h2{margin:0;font-size:1.25em;color:var(--telemetry);font-weight:900}
 .header .email{font-size:0.82em;color:#00ffa6;margin-top:4px}
 .content{padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
-.box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:11px;border-radius:10px}
+.box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:12px;border-radius:12px}
 .box-title{font-size:0.7em;text-transform:uppercase;color:var(--text-dim);font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.box-assinatura{border-color:rgba(0,255,166,.3);background:linear-gradient(135deg,rgba(0,255,166,.08),rgba(45,212,255,.06))}
+.box-assinatura.vencendo{border-color:rgba(255,176,32,.5);background:linear-gradient(135deg,rgba(255,176,32,.12),rgba(255,84,112,.08))}
+.box-assinatura.bloqueada{border-color:rgba(255,84,112,.5);background:linear-gradient(135deg,rgba(255,84,112,.15),rgba(0,0,0,.2))}
+.box-rota{border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)}
+.box-sos{border-color:rgba(255,84,112,.4);background:rgba(255,84,112,.1)}
 select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:8px;color:#fff;font-size:0.9em;box-sizing:border-box}
 button{background:var(--telemetry);color:#000;font-weight:800;cursor:pointer;margin-top:6px;border:none}
 button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
-.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85em}
+button.renew{background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;font-weight:900;padding:12px;box-shadow:0 4px 15px rgba(0,255,166,.3)}
+button.renew.vencendo{background:linear-gradient(135deg,#ffb020,#ff7a45)}
+button.renew.bloqueado{background:linear-gradient(135deg,#ff4d6d,#ff7a6d);color:#fff}
+.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85em;gap:8px}
 .badge{font-size:0.7em;padding:3px 8px;border-radius:6px;font-weight:800}
 .badge-movimento{background:rgba(0,255,166,0.15);color:var(--signal-on)}
 .badge-parado{background:rgba(255,176,32,0.18);color:var(--signal-off)}
+.badge-tipo{padding:4px 10px;border-radius:20px;font-size:0.75em;font-weight:900;text-transform:uppercase}
+.badge-tipo.combo{background:linear-gradient(135deg,#7c3aed,#2dd4ff);color:#fff}
+.badge-tipo.frota{background:linear-gradient(135deg,#00ffa6,#059669);color:#000}
+.badge-tipo.familia{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff}
+.badge-status-ativo{background:rgba(0,255,166,.15);color:#00ffa6}
+.badge-status-vencendo{background:rgba(255,176,32,.2);color:#ffb020}
+.badge-status-bloqueado{background:rgba(255,84,112,.2);color:#ff5470}
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .kpi{background:#0f141c;border:1px solid var(--border);border-radius:8px;padding:9px;text-align:center}
 .kpi b{display:block;font-size:1.08em;margin-top:2px}
 .kpi small{color:var(--text-dim);font-size:0.62em;text-transform:uppercase;font-weight:700}
 .viagem-item{background:rgba(0,255,166,0.08);border:1px solid rgba(0,255,166,0.2);border-radius:8px;padding:9px;margin-top:7px;font-size:0.82em;cursor:pointer}
-.viagem-item.ativa{border-color:var(--signal-on);background:rgba(0,255,166,0.18)}
 .parada-item{background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.18);border-radius:8px;padding:8px 10px;margin-top:6px;font-size:0.8em;cursor:pointer}
 .rota-item{background:rgba(52,179,255,.12);border:1px solid rgba(52,179,255,.25);border-radius:8px;padding:8px;margin-top:6px;font-size:0.82em;cursor:pointer}
 .sos-item{background:rgba(255,84,112,.15);border:1px solid rgba(255,84,112,.35);border-radius:8px;padding:10px;margin-top:8px;font-size:0.84em}
@@ -58,73 +68,93 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 .tab.ativa{background:var(--telemetry);color:#000;border-color:var(--telemetry)}
 .auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
 .auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:14px}
-/* BLOQUEIO - CENTRALIZADO IGUAL APP */
-.bloqueio-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#080a12;z-index:20000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;overflow-y:auto}
-.bloqueio-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;width:100%;max-width:400px;margin:0 auto}
-.bloqueio-icon{width:120px;height:120px;border-radius:28px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 0 50px rgba(255,77,109,.5),0 0 0 1px rgba(255,77,109,.2);margin:0 auto 24px auto}
-.bloqueio-title{font-size:1.5em;font-weight:900;letter-spacing:3px;margin-bottom:32px;color:#fff;text-align:center;width:100%}
-.bloqueio-card{background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:24px;padding:32px 24px;max-width:380px;width:100%;margin:0 auto;text-align:center;backdrop-filter:blur(10px)}
-@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:64vh}#map{height:36vh}}
+.bloqueio-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#080a12;z-index:20000;display:none;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;overflow-y:auto}
+.bloqueio-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;max-width:400px;margin:auto;box-sizing:border-box}
+.bloqueio-icon{width:100px;height:100px;border-radius:24px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 0 40px rgba(255,77,109,.5);margin:0 auto 16px auto}
+.bloqueio-title{font-size:1.35em;font-weight:900;letter-spacing:3px;margin-bottom:20px;color:#fff;text-align:center;width:100%}
+.bloqueio-card{background:#15101c;border:1px solid rgba(255,77,109,.25);border-radius:20px;padding:18px 14px;width:100%;max-width:100%;box-sizing:border-box;text-align:center}
+.bloqueio-info-grid{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;margin-top:12px;text-align:left;width:100%;box-sizing:border-box}
+.bloqueio-info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:0.82em;gap:8px}
+.bloqueio-info-row:last-child{border:none}
+.bloqueio-info-row span:first-child{color:#74808f;flex-shrink:0;font-size:0.9em}
+.bloqueio-info-row b{color:#eef2f6;text-align:right;word-break:break-word;max-width:58%;font-size:0.88em;font-weight:700}
+.pagamento-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;margin-top:12px;width:100%;box-sizing:border-box}
+.qr-pix{width:160px;height:160px;background:#fff;border-radius:10px;padding:6px;margin:8px auto;display:block}
+@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:68vh}#map{height:32vh}}
 </style>
 </head>
 <body>
-
 <div id="overlayBloqueio" class="bloqueio-overlay">
 <div class="bloqueio-wrapper">
 <div class="bloqueio-icon">📡</div>
 <div class="bloqueio-title">EVERTON GPS</div>
 <div class="bloqueio-card">
-<div style="font-size:48px">🚫</div>
-<h3 id="bloqueioTitulo" style="color:#ff5a79;margin:12px 0 8px 0;font-size:1.3em">Acesso suspenso</h3>
-<p id="bloqueioMensagem" style="color:#7c8aa0;font-size:0.92em;line-height:1.5">Entre em contato com o suporte para regularizar o pagamento.</p>
-<div id="bloqueioDetalhes" style="margin-top:14px;font-size:0.8em;color:#4a5568"></div>
-<button id="btnWhatsappSuporte" style="margin-top:22px;background:#ff4d6d;color:#fff;border:none;padding:14px;border-radius:12px;font-weight:800;width:100%;font-size:0.95em;cursor:pointer">💬 Falar com Suporte no WhatsApp</button>
-<button onclick="auth.signOut()" style="margin-top:10px;background:transparent;color:#7c8aa0;border:1px solid rgba(255,255,255,.12);padding:10px;border-radius:10px;width:100%">Sair</button>
+<div style="font-size:38px">🚫</div>
+<h3 id="bloqueioTitulo" style="color:#ff5a79;margin:8px 0 4px 0;font-size:1.2em">Acesso suspenso</h3>
+<p id="bloqueioMensagem" style="color:#7c8aa0;font-size:0.84em;line-height:1.3;margin:0">Entre em contato com o suporte para regularizar o pagamento.</p>
+<div id="bloqueioAssinaturaInfo" class="bloqueio-info-grid"></div>
+<div id="bloqueioDetalhes" style="margin-top:8px;font-size:0.75em;color:#4a5568"></div>
+<div class="pagamento-box">
+<div style="font-weight:800;font-size:0.82em;color:#eef2f6;margin-bottom:8px;text-align:center">💳 Renovar Assinatura</div>
+<button id="btnMercadoPago" style="background:linear-gradient(135deg,#009ee3,#00d4ff);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:900;width:100%;font-size:0.88em;margin-bottom:8px;cursor:pointer">🔗 Pagar com Mercado Pago</button>
+<div style="display:flex;align-items:center;gap:8px;margin:10px 0"><div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div><span style="font-size:0.68em;color:#74808f">OU PIX</span><div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div></div>
+<img id="qrPixImg" class="qr-pix" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA1YAAANWAQAAAADVJyDGAAAHR0lEQVR4nO3dT66jOBDH8Z+HSL0kNyI3a/XNyFH6BrAcKahmgW2qDK+lkUbtdObLJnr8+0gsinqmXE6m37Vtf/02SsLCwsLCwsLCwsLCwsLCwsLCwsLCwsJ6Z0u2b37XZBrMbN6PzWWnvfZj9a/xuM7MFnfMbHH3G3bi9anPEAsLC+uPsHIwzhF6S3dJKaW7JHtptB9J0miz7CXpmTTYz5SShhDStR+TcrgPr5CPf4ZYWFhYb2jVfD7H68GWI0Lbaz9naNLznLrXqD9Zue617wzZPfk8FhYWVkfrdrk3SePyfNhg0vNhW3LHrP6sabI02Hp/JtvSaM9kg+07X1d3/dRniIWFhfXO1nWc1/Ba02RJGhcpDWXsZb1LSdrHbV6jPZO2NNrzkXKA30/7oib/U58hFhYW1jtbLs6PLjzn9FxaUw7bz0c5tifraUvjMlna3wjaU37bXwV5a8P9pz5DLCwsrD/C2lLe7pI02M/03dJN0mTppjV9t2Ngfk2P/ZRHuTp9s0VS2l8b6SbpWW54tn7DhoWFhYW1byWfj7l3Hm5X/KlbzfyfqYzdb2m047r4z0HZPvUZYmFhYb2zJXNbrZTxhfN+cxXzR4XNRQnlUC4fbaZ+HgsLC6unVeP8XhEpVy2ZZz/J1U7aHraXMJVqCffLl4/uNUGcx8LCwupnuXx+kUqpfAnULpbXWa5Hrp+ze/9iuAzwRpzHwsLC6ma5fN7n7FLsdFCzdDvv9HexI+VXOUY+j4WFhdXRCuM2xwxYHfNaa/Oackoby0ezMufVj+nkXN+YD4uFhYXV0wrjNpP5gZfjI2tsYGYlli/nQXs14z2M22BhYWF1ts7zYXPjgvX+TDY01ZHjkosmn6nMjKoTpHIlZZ4Wm2fO7tNp8z8Jn/oMsbCwsN7ZCn2Jp5J6x0GZ0p3scmgn/KX24+zo0nryeSwsLKwO1rmusu6szSjNQhFOPcXt9GfGt0X9iziPhYWF1cNy+fwYfuqxWXEM3lzF/FSye5/WH/m8+a+yxHksLCysHlabz7cVkb6rfJhKVb61hg+3x21doQ1xHgsLC6uj1dTPxwz+NC22rcWJIzxqr3tRV4mFhYXV22rWh21C+uAL5yXVpaMUKimtDsy7ebT+AuI8FhYWVi+rKXJXXA0wnxLmtZahnZr5L/uxpdyx/lfgf4jzWFhYWH2sNs7XeB3Xeb2sqXGdLWMzhLJRb4OFhYXV3XLzpNa78kJSj7zHLwM4mQZb73XaU14+sFlBartJk2m7SdOc6qpU+/apzxALCwvrna1zXaWkMEQzmf+sOl/dY3Ll95d3IZ/HwsLC6mXVOF/H2eMw/Wh+vpM/pQ7Tn6/z32FFv0osLCysnlbTr/JUReO6FJ9alkmXSb7vccY8KSwsLKzOVtPfpknWr5ohNCm/61756y7FxHksLCysHlabz+etrgTlg7jL7vMW03pzPc78RpzHwsLC6me58fn6c7SmvGpK74dv5HYuikWaM+tJYWFhYb2B1a74F3ZKYVqs+Vju1xKZm1m1ktwwff2P4VOfIRYWFtY7W+e+xKML/G72kzVfXi2sCm7nvgesJ4WFhYX1DlZYN1CujYEbzInrjDTXu85lkyvXkeQm0BLnsbCwsHpZV/U2s8pflw0PXs1gTn0VHG+E8D8CcR4LCwuro1X7Hgyv9Z6Xe51M221cJOWVXfdlYtO+MGxZNHbLXRG03qc5DbamaY733nca68NiYWFhdbTaEpnzwPxcT3Xl8LN0bnV2dE9o29eTz2NhYWH1stq+B1IcsBlL1Pe96d06I/mC07qBku9iT5zHwsLC6mW1Y+mvIy+f3TojcXPBPzZDiB91yeexsLCw+lvNPClrO85fLCs1NKf4lUVCzSV9D7CwsLD6W+cZTi6yn6pv/NRXt1S4mmF6X2gzM26DhYWF1dO66j9/tDNTE68XKSwdZbWg0sIIzxACPOM2WFhYWP2sq3qbWXKFNnXU/bRzkUKBjkIvy3YncR4LCwurh9W2sqk7/UJSNfjH1sWu4YFCXWXTlJ44j4WFhdXPairmS9R3A/NH3YxbPvC44GoxQf85tt6TOI+FhYXVwzqP27SdiL9I+SXVwvm2DX05TL0NFhYWVnerbSpZQ7ok19VsCfU29ZQ6TH9scX3Y0Yw4j4WFhdXTuu4cH6O3H59Xsz5srMxRXBi23ow4j4WFhdXLup4n5dd5ndsrXD7/1dZ+qiXOY2FhYfWy2v42bbdhKa7uPYeL4+Sptv/8cYw4j4WFhdXLuo7zvrdB3ma3pMi4vwPa2slZpxfDIpHPY2FhYfW0vsjnXbyOi79OdrmzmSAVi+rJ57GwsLDewhqPkZpjgP1n+m7a0l3PlD/Opm/lG+2aUllrxP7eT3HtiX/sx9zO/8EzxMLCwno764t6m7DOiK+Kn9wEKbeY4NH7JtZVOoF8HgsLC6uHlX5dOPNfbtunPkMsLCwsLCwsLCwsLCwsLCwsLCwsLCysf7v9A7JbPsywN+0qAAAAAElFTkSuQmCC" alt="QR Code Pix"/>
+<div style="font-size:0.72em;color:#74808f;margin:4px 0">Escaneie no app do banco</div>
+<button id="btnCopiarPix" style="background:#1a212b;color:#eef2f6;border:1px solid rgba(255,255,255,.12);padding:10px;border-radius:9px;font-weight:700;width:100%;font-size:0.82em;cursor:pointer">📋 Copiar código Pix</button>
+<div id="pixCopiadoMsg" style="display:none;color:#00ffa6;font-size:0.72em;margin-top:5px">✅ Código copiado!</div>
+<div style="font-size:0.65em;color:#4a5568;margin-top:6px">🔒 Chave protegida</div>
+</div>
+<button id="btnWhatsappSuporteBloqueio" style="margin-top:12px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:900;width:100%;font-size:0.88em;cursor:pointer">💬 WhatsApp Suporte</button>
+<button onclick="auth.signOut()" style="margin-top:6px;background:transparent;color:#7c8aa0;border:1px solid rgba(255,255,255,.1);padding:9px;border-radius:10px;width:100%;font-size:0.82em">Sair</button>
 </div>
 </div>
 </div>
-
 <div id="authOverlay" class="auth-overlay">
 <div class="auth-card"><h3>Admin Everton GPS</h3><input type="email" id="authEmail" placeholder="email"><input type="password" id="authSenha" placeholder="senha"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:#ff5470;font-size:0.85em;display:none;"></div></div>
 </div>
-
 <div class="sidebar">
 <div class="header"><h2>Admin Everton GPS</h2><div class="email" id="userLogado"></div></div>
 <div class="content">
+<div class="box box-assinatura" id="boxAssinatura">
+<div class="box-title">💳 Minha Assinatura <span id="badgeStatusAssinatura" class="badge badge-status-ativo">Ativo</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<span style="font-weight:800;font-size:1.05em" id="nomeEmpresaAssinatura">Carregando...</span>
+<span id="badgeTipoPlano" class="badge-tipo combo">COMBO</span>
+</div>
+<div class="kpi-grid" style="margin-bottom:10px">
+<div class="kpi" style="background:rgba(0,0,0,.2)"><small>Dias Restantes</small><b id="kpiDiasRestantes" style="font-size:1.3em">-</b></div>
+<div class="kpi" style="background:rgba(0,0,0,.2)"><small>Vencimento</small><b id="kpiVencimento" style="font-size:0.9em">-</b></div>
+</div>
+<div id="listaInfoAssinatura" style="font-size:0.82em"></div>
+<div id="barraProgressoAssinatura" style="height:6px;background:rgba(255,255,255,.08);border-radius:10px;margin:10px 0;overflow:hidden;display:none"><div id="progressoAssinatura" style="height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4ff);width:50%;border-radius:10px"></div></div>
+<button id="btnRenovarAssinatura" class="renew" style="display:none">💳 Renovar Assinatura</button>
+<button id="btnVerDetalhesAssinatura" class="sec" style="font-size:0.8em;margin-top:6px">Ver detalhes</button>
+</div>
 <div class="box"><div class="box-title">Veículo</div><select id="selectVeiculo"><option>Aguardando...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
-<div class="box" id="boxSOS" style="display:none;border-color:rgba(255,84,112,.4);background:rgba(255,84,112,.1)"><div class="box-title">🚨 SOS FAMÍLIA <span id="badgeSOS" style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaSOS" style="max-height:140px;overflow-y:auto;"></div></div>
-<div class="box" style="border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)"><div class="box-title">🧭 Rota Traçada (Frotas) <span id="badgeRotas" style="background:#2dd4ff;color:#000;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaRotasPlanejadas" style="max-height:110px;overflow-y:auto;"></div><div id="msgSemRotas" style="text-align:center;color:#74808f;font-size:0.8em;padding:6px;">Nenhuma rota</div></div>
-<div class="box"><div class="box-title">Histórico Completo</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Histórico Completo</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">← Tempo Real</button></div>
+<div class="box" id="boxSOS" style="display:none"><div class="box-title">🚨 SOS FAMÍLIA <span id="badgeSOS" style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaSOS" style="max-height:140px;overflow-y:auto;"></div></div>
+<div class="box" style="border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)"><div class="box-title">🧭 Rota Traçada <span id="badgeRotas" style="background:#2dd4ff;color:#000;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaRotasPlanejadas" style="max-height:110px;overflow-y:auto;"></div><div id="msgSemRotas" style="text-align:center;color:#74808f;font-size:0.8em;padding:6px;">Nenhuma rota</div></div>
+<div class="box"><div class="box-title">Histórico Completo</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">← Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;font-size:0.9em;">Aguardando...</div>
 <div class="box" style="border-color:rgba(255,255,255,.15);">
 <div class="tabs"><div class="tab ativa" id="tabViagens" onclick="mostrarAba('viagens')">🚚 VIAGENS <span id="badgeTabViagens">(0)</span></div><div class="tab" id="tabParadas" onclick="mostrarAba('paradas')">🅿️ PARADAS <span id="badgeTabParadas">(0)</span></div></div>
-<div id="painelViagens">
-<div class="kpi-grid"><div class="kpi"><small>Viagens</small><b id="kpiTotalViagens">0</b></div><div class="kpi"><small>Distância Total</small><b id="kpiDistanciaTotal" style="color:#00ffa6">0 km</b></div><div class="kpi"><small>Tempo em Movimento</small><b id="kpiTempoMovViagens" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Vel. Média</small><b id="kpiVelMedia">0 km/h</b></div></div>
-<div id="listaViagens" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div>
-<div id="msgSemViagens" style="text-align:center;color:#74808f;font-size:0.8em;padding:12px;display:none;">Nenhuma viagem</div>
+<div id="painelViagens"><div class="kpi-grid"><div class="kpi"><small>Viagens</small><b id="kpiTotalViagens">0</b></div><div class="kpi"><small>Distância</small><b id="kpiDistanciaTotal" style="color:#00ffa6">0 km</b></div><div class="kpi"><small>Tempo Mov</small><b id="kpiTempoMovViagens" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Vel Média</small><b id="kpiVelMedia">0 km/h</b></div></div><div id="listaViagens" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div></div>
+<div id="painelParadas" style="display:none;"><div class="kpi-grid"><div class="kpi"><small>Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Total</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:260px;overflow-y:auto;margin-top:8px;"></div></div>
 </div>
-<div id="painelParadas" style="display:none;">
-<div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">-</b></div></div>
-<div id="listaParadas" style="max-height:260px;overflow-y:auto;margin-top:8px;"></div>
-<div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:10px;display:none;">Nenhuma parada</div>
-</div>
-</div>
-<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
+<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
 <button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div>
 </div>
 <div id="map"></div>
 <audio id="audioSOS" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-var MAPTILER_KEY = "Lf1G9agog5yDhlo9haAO";
-var firebaseConfig = {apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:"everton-gps.firebaseapp.com",databaseURL:"https://everton-gps-default-rtdb.firebaseio.com",projectId:"everton-gps",storageBucket:"everton-gps.firebasestorage.app",messagingSenderId:"688936933095",appId:"1:688936933095:web:790b2407334e8b148e3442"};
+var MAPTILER_KEY="Lf1G9agog5yDhlo9haAO";
+var firebaseConfig={apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:"everton-gps.firebaseapp.com",databaseURL:"https://everton-gps-default-rtdb.firebaseio.com",projectId:"everton-gps",storageBucket:"everton-gps.firebasestorage.app",messagingSenderId:"688936933095",appId:"1:688936933095:web:790b2407334e8b148e3442"};
 firebase.initializeApp(firebaseConfig);
-var db=firebase.database(), auth=firebase.auth();
+var db=firebase.database(),auth=firebase.auth();
 var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],16);
 L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY,{tileSize:512,zoomOffset:-1,maxZoom:20,attribution:'© MapTiler © OSM'}).addTo(map);
 var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
@@ -132,120 +162,94 @@ var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup();
 var camadaRotasPlanejadas=L.layerGroup().addTo(map);
 var camadaSOS=L.layerGroup().addTo(map);
-var cacheLimite={};
+var DADOS_EMPRESA_BLOQUEADA=null;var EMPRESA_ID_ADMIN=null;
+var PIX_PAYLOAD="00020126360014br.gov.bcb.pix0114+55519858032435204000053039865802BR5911EVERTON GPS6012SAO LEOPOLDO62070503***630405B0";
 
-// === BLOQUEIO CORRIGIDO - USA assinaturaExpiraEm e trialExpiraEm IGUAL APP ===
+function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function parseDataHora(d,h){if(!d||!h) return null;var m1=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d);var m2=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d);var t=/^(\d{2}):(\d{2})(?::(\d{2}))?/.exec(h);if(!t) return null;if(m1){return new Date(+m1[3],+m1[2]-1,+m1[1],+t[1],+t[2],+(t[3]||0)).getTime();}if(m2){return new Date(+m2[1],+m2[2]-1,+m2[3],+t[1],+t[2],+(t[3]||0)).getTime();}return null;}
+function getTimestampDoPonto(p){if(p.timestamp) return p.timestamp;if(p.ts) return p.ts;var ts=parseDataHora(p.data,p.hora);if(ts) return ts;if(p.id && /^\d{13}/.test(p.id)){var m=p.id.match(/^(\d{13})/); if(m) return parseInt(m[1]);}return null;}
+function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
+function formatarDuracaoCurta(ms){if(!ms||ms<1000)return"0s";var s=Math.floor(ms/1000);if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"min";var h=Math.floor(m/60);return h+"h "+m%60+"min";}
+function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=getTimestampDoPonto(ponto)-getTimestampDoPonto(anterior);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
+function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=getTimestampDoPonto(pontoAnterior),t2=getTimestampDoPonto(ponto);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
+function separarViagens(pontos){if(pontos.length<2) return [pontos];var viagens=[]; var atual=[pontos[0]];for(var i=1;i<pontos.length;i++){var ant=pontos[i-1], cur=pontos[i];var tAnt=getTimestampDoPonto(ant), tCur=getTimestampDoPonto(cur);var dt=(tAnt&&tCur)?tCur-tAnt:0;var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);if(dt>120*1000 || d>250){ if(atual.length>0) viagens.push(atual); atual=[cur]; }else atual.push(cur);}if(atual.length>0) viagens.push(atual);return viagens;}
+function renderizarPainelAssinatura(dados){
+    DADOS_EMPRESA_BLOQUEADA=dados;
+    var nomeEl=document.getElementById('nomeEmpresaAssinatura');
+    var badgeTipo=document.getElementById('badgeTipoPlano');
+    var badgeStatus=document.getElementById('badgeStatusAssinatura');
+    var kpiDias=document.getElementById('kpiDiasRestantes');
+    var kpiVenc=document.getElementById('kpiVencimento');
+    var listaInfo=document.getElementById('listaInfoAssinatura');
+    var btnRenovar=document.getElementById('btnRenovarAssinatura');
+    var barra=document.getElementById('barraProgressoAssinatura');
+    var progresso=document.getElementById('progressoAssinatura');
+    var nome=dados.nome||EMPRESA_ID_ADMIN.replace(/_/g,' ');
+    nomeEl.textContent=nome;
+    var tipo=(dados.tipo||'combo').toLowerCase();
+    badgeTipo.textContent=tipo.toUpperCase();
+    badgeTipo.className='badge-tipo '+tipo;
+    if(!['combo','frota','familia'].includes(tipo)) badgeTipo.className='badge-tipo combo';
+    var hoje=new Date(); hoje.setHours(0,0,0,0);
+    var dataVenc=null; if(dados.assinaturaExpiraEm) dataVenc=new Date(dados.assinaturaExpiraEm);
+    var box=document.getElementById('boxAssinatura');
+    if(dataVenc && !isNaN(dataVenc.getTime())){
+        var diff=dataVenc - hoje; var dias=Math.ceil(diff/(1000*60*60*24));
+        kpiVenc.textContent=dataVenc.toLocaleDateString('pt-BR');
+        if(dias<0){badgeStatus.textContent='Vencido';badgeStatus.className='badge badge-status-bloqueado';kpiDias.textContent=dias+' dias';kpiDias.style.color='#ff5470';box.className='box box-assinatura bloqueada';btnRenovar.style.display='block';btnRenovar.className='renew bloqueado';btnRenovar.textContent='💳 Renovar Agora';}
+        else if(dias<=5){badgeStatus.textContent=dias+' dias restantes';badgeStatus.className='badge badge-status-vencendo';kpiDias.textContent=dias+' dias';kpiDias.style.color='#ffb020';box.className='box box-assinatura vencendo';btnRenovar.style.display='block';btnRenovar.className='renew vencendo';btnRenovar.textContent='⚠️ Renovar - '+dias+' dias';barra.style.display='block';progresso.style.width=Math.max(10,Math.min(100,(dias/30)*100))+'%';}
+        else{kpiDias.textContent=dias+' dias';kpiDias.style.color='#00ffa6';box.className='box box-assinatura';btnRenovar.style.display='none';barra.style.display='block';progresso.style.width=Math.min(100,(dias/30)*100)+'%';}
+    }
+    var html='';html+='<div class="telemetry-row"><span>📦 Plano</span><b>'+tipo.toUpperCase()+'</b></div>';
+    html+='<div class="telemetry-row"><span>📊 Status</span><b>'+(dados.status||'ativo')+'</b></div>';
+    if(dados.telefone) html+='<div class="telemetry-row"><span>📞 Telefone</span><b>'+dados.telefone+'</b></div>';
+    if(dados.criadoEm) html+='<div class="telemetry-row"><span>📅 Criado</span><b>'+new Date(dados.criadoEm).toLocaleDateString('pt-BR')+'</b></div>';
+    if(dados.trialExpiraEm) html+='<div class="telemetry-row"><span>🆓 Trial</span><b>'+new Date(dados.trialExpiraEm).toLocaleDateString('pt-BR')+'</b></div>';
+    if(dataVenc) html+='<div class="telemetry-row"><span>💳 Vencimento</span><b>'+dataVenc.toLocaleDateString('pt-BR')+'</b></div>';
+    if(dados.veiculos) html+='<div class="telemetry-row"><span>🚚 Veículos</span><b>'+Object.keys(dados.veiculos).length+'</b></div>';
+    listaInfo.innerHTML=html;
+}
 async function verificarBloqueioAssinatura(){
     if(!EMPRESA_ID_ADMIN) return false;
     try{
         var snap=await db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)).once('value');
         if(!snap.exists()) return false;
-        var dados=snap.val();
-        var hoje=new Date();
-        var bloqueado=false;
-        var motivo="";
-        var detalhe="";
-        
-        // 1. Status
-        if(dados.status){
-            var st=String(dados.status).toLowerCase();
-            if(['bloqueado','suspenso','inativo','vencido','expirado','cancelado'].includes(st)){
-                bloqueado=true; motivo="Acesso suspenso"; detalhe="Status: "+dados.status;
-            }
-        }
-        if(dados.bloqueado===true || dados.suspenso===true || dados.ativo===false){ bloqueado=true; motivo="Acesso suspenso"; }
-        
-        // 2. Verifica assinaturaExpiraEm - CAMPO REAL DO SEU FIREBASE (2026-10-06T02:11:22.116Z)
-        if(dados.assinaturaExpiraEm){
-            var dataAss=new Date(dados.assinaturaExpiraEm);
-            if(!isNaN(dataAss.getTime()) && dataAss < hoje){
-                bloqueado=true;
-                motivo="Acesso suspenso";
-                detalhe="Assinatura venceu em "+dataAss.toLocaleDateString('pt-BR')+" às "+dataAss.toLocaleTimeString('pt-BR');
-            }
-        }
-        
-        // 3. Verifica trialExpiraEm - CAMPO REAL DO SEU FIREBASE (2026-09-15T16:46:23.653Z)
-        if(dados.trialExpiraEm){
-            var dataTrial=new Date(dados.trialExpiraEm);
-            if(!isNaN(dataTrial.getTime()) && dataTrial < hoje){
-                // Se é trial ou combo mas trial venceu E assinatura também venceu ou não tem assinatura válida
-                // Para tipo combo, só bloqueia se assinatura também venceu
-                var assinaturaVencida = false;
-                if(dados.assinaturaExpiraEm){
-                    var dAss=new Date(dados.assinaturaExpiraEm);
-                    if(!isNaN(dAss.getTime()) && dAss < hoje) assinaturaVencida=true;
-                }else{
-                    // Se não tem assinaturaExpiraEm e trial venceu, bloqueia (era só trial)
-                    assinaturaVencida=true;
-                }
-                
-                // Se tipo for trial, bloqueia direto quando trial vence
-                // Se tipo for combo/familia/etc, bloqueia se trial venceu E assinatura venceu
-                if(dados.tipo==='trial' || dados.tipo==='teste'){
-                    bloqueado=true;
-                    motivo="Teste expirado";
-                    detalhe="Período de teste venceu em "+dataTrial.toLocaleDateString('pt-BR');
-                }else if(assinaturaVencida){
-                    bloqueado=true;
-                    motivo="Acesso suspenso";
-                    detalhe="Teste venceu em "+dataTrial.toLocaleDateString('pt-BR')+" e assinatura também vencida";
-                }
-            }
-        }
-        
-        // Campos legados também
-        var camposLegados=['dataVencimento','vencimento','expiraEm','validade'];
-        for(var i=0;i<camposLegados.length;i++){
-            var v=dados[camposLegados[i]];
-            if(!v) continue;
-            var d=null;
-            if(typeof v==='number') d=new Date(v>1e12?v:v*1000);
-            else{
-                var m=/^(\d{2})\/(\d{2})\/(\d{4})/.exec(String(v));
-                if(m) d=new Date(+m[3],+m[2]-1,+m[1]);
-                else{ var t=new Date(v); if(!isNaN(t)) d=t; }
-            }
-            if(d && d<hoje){ bloqueado=true; motivo="Acesso suspenso"; detalhe="Vencimento: "+d.toLocaleDateString('pt-BR'); }
-        }
-        
-        if(bloqueado){
-            DADOS_EMPRESA_BLOQUEADA=dados;
-            mostrarBloqueio(motivo, detalhe);
-            return true;
-        }
-        return false;
-    }catch(e){ console.error(e); return false; }
+        var dados=snap.val(); DADOS_EMPRESA_BLOQUEADA=dados;
+        renderizarPainelAssinatura(dados);
+        var hoje=new Date(); hoje.setHours(0,0,0,0);
+        var bloqueado=false; var motivo=""; var detalhe="";
+        if(dados.status){var st=String(dados.status).toLowerCase(); if(['bloqueado','suspenso','inativo','vencido','expirado','cancelado'].includes(st)){bloqueado=true; motivo="Acesso suspenso"; detalhe="Status: "+dados.status;}}
+        if(dados.bloqueado===true || dados.suspenso===true || dados.ativo===false){bloqueado=true; motivo="Acesso suspenso";}
+        if(dados.assinaturaExpiraEm){var dataAss=new Date(dados.assinaturaExpiraEm); if(!isNaN(dataAss.getTime()) && dataAss < hoje){bloqueado=true; motivo="Acesso suspenso"; detalhe="Assinatura venceu em "+dataAss.toLocaleDateString('pt-BR');}}
+        if(dados.trialExpiraEm){var dataTrial=new Date(dados.trialExpiraEm); if(!isNaN(dataTrial.getTime()) && dataTrial < hoje){var assinaturaVencida=false; if(dados.assinaturaExpiraEm){var dAss=new Date(dados.assinaturaExpiraEm); if(!isNaN(dAss.getTime()) && dAss < hoje) assinaturaVencida=true;}else assinaturaVencida=true; if(dados.tipo==='trial' || dados.tipo==='teste'){bloqueado=true; motivo="Teste expirado"; detalhe="Teste venceu em "+dataTrial.toLocaleDateString('pt-BR');}else if(assinaturaVencida){bloqueado=true; motivo="Acesso suspenso"; detalhe="Assinatura vencida";}}}
+        if(bloqueado){mostrarBloqueio(motivo, detalhe); return true;} return false;
+    }catch(e){console.error(e); return false;}
 }
 function mostrarBloqueio(titulo, detalhes){
     document.getElementById('bloqueioTitulo').textContent=titulo||"Acesso suspenso";
     document.getElementById('bloqueioDetalhes').textContent=detalhes||"";
+    var infoDiv=document.getElementById('bloqueioAssinaturaInfo');
+    if(DADOS_EMPRESA_BLOQUEADA){
+        var d=DADOS_EMPRESA_BLOQUEADA;
+        var vencStr=d.assinaturaExpiraEm?new Date(d.assinaturaExpiraEm).toLocaleDateString('pt-BR'):'-';
+        var trialStr=d.trialExpiraEm?new Date(d.trialExpiraEm).toLocaleDateString('pt-BR'):'-';
+        var nomeCurto=(d.nome||EMPRESA_ID_ADMIN||'').toString(); if(nomeCurto.length>28) nomeCurto=nomeCurto.slice(0,28)+'…';
+        var html='<div class="bloqueio-info-row"><span>🏢 Empresa</span><b>'+nomeCurto+'</b></div>';
+        html+='<div class="bloqueio-info-row"><span>📦 Plano</span><b>'+(d.tipo||'combo').toUpperCase()+'</b></div>';
+        html+='<div class="bloqueio-info-row"><span>💳 Vencimento</span><b>'+vencStr+'</b></div>';
+        html+='<div class="bloqueio-info-row"><span>🆓 Trial</span><b>'+trialStr+'</b></div>';
+        if(d.telefone) html+='<div class="bloqueio-info-row"><span>📞 Telefone</span><b>'+d.telefone+'</b></div>';
+        infoDiv.innerHTML=html;
+    }
     document.getElementById('overlayBloqueio').style.display='flex';
-    // Garante centralização total
-    document.getElementById('overlayBloqueio').style.alignItems='center';
-    document.getElementById('overlayBloqueio').style.justifyContent='center';
-    var sidebar=document.querySelector('.sidebar');
-    if(sidebar) sidebar.style.display='none';
-    var mapa=document.getElementById('map');
-    if(mapa) mapa.style.display='none';
 }
-
-function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
-function parseDataHora(d,h){if(!d||!h) return null;var m1=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d);var m2=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d);var t=/^(\d{2}):(\d{2})(?::(\d{2}))?/.exec(h);if(!t) return null;if(m1){ return new Date(+m1[3],+m1[2]-1,+m1[1],+t[1],+t[2],+(t[3]||0)).getTime(); }if(m2){ return new Date(+m2[1],+m2[2]-1,+m2[3],+t[1],+t[2],+(t[3]||0)).getTime(); }return null;}
-function getTimestampDoPonto(p){if(p.timestamp) return p.timestamp;if(p.ts) return p.ts;var ts=parseDataHora(p.data,p.hora);if(ts) return ts;if(p.id && /^\d{13}/.test(p.id)){ var m=p.id.match(/^(\d{13})/); if(m) return parseInt(m[1]); }return null;}
-function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
-function formatarDuracaoCurta(ms){if(!ms||ms<1000)return"0s";var s=Math.floor(ms/1000);if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"min";var h=Math.floor(m/60);return h+"h "+m%60+"min";}
-async function buscarLimiteVia(lat,lon){var chave=lat.toFixed(4)+","+lon.toFixed(4);if(cacheLimite[chave]!==undefined)return cacheLimite[chave];try{var q="[out:json][timeout:5];way(around:30,"+lat+","+lon+")[highway][maxspeed];out tags 1;";var res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q));var data=await res.json();if(data.elements&&data.elements[0]&&data.elements[0].tags&&data.elements[0].tags.maxspeed){var max=data.elements[0].tags.maxspeed;if(max.includes("BR:urban"))max="60";if(max.includes("BR:rural"))max="80";if(max.includes("BR:motorway"))max="110";var num=parseInt(max);if(!isNaN(num)){cacheLimite[chave]=num;return num;}}var q2="[out:json][timeout:5];way(around:20,"+lat+","+lon+")[highway];out tags 1;";var res2=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q2));var data2=await res2.json();if(data2.elements&&data2.elements[0]&&data2.elements[0].tags){var hw=data2.elements[0].tags.highway;if(hw==='motorway'||hw==='trunk'){cacheLimite[chave]=110;return 110;}if(hw==='primary'){cacheLimite[chave]=80;return 80;}if(hw==='secondary'){cacheLimite[chave]=60;return 60;}if(hw==='residential'){cacheLimite[chave]=40;return 40;}}}catch(e){}cacheLimite[chave]=null;return null;}
-function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=getTimestampDoPonto(ponto)-getTimestampDoPonto(anterior);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
-function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=getTimestampDoPonto(pontoAnterior),t2=getTimestampDoPonto(ponto);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
-function separarViagens(pontos){if(pontos.length<2) return [pontos];var viagens=[]; var atual=[pontos[0]];for(var i=1;i<pontos.length;i++){var ant=pontos[i-1], cur=pontos[i];var tAnt=getTimestampDoPonto(ant), tCur=getTimestampDoPonto(cur);var dt=(tAnt&&tCur)?tCur-tAnt:0;var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);if(dt>120*1000 || d>250){ if(atual.length>0) viagens.push(atual); atual=[cur]; }else atual.push(cur);}if(atual.length>0) viagens.push(atual);return viagens;}
 function calcularHistoricoViagens(pontos){if(!pontos||pontos.length<2) return [];var viagens=separarViagens(pontos.slice().sort(function(a,b){return(getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0)}));var lista=[];viagens.forEach(function(viagem, idx){if(viagem.length<2) return;var inicio=viagem[0], fim=viagem[viagem.length-1];var tIni=getTimestampDoPonto(inicio), tFim=getTimestampDoPonto(fim);if(!tIni||!tFim) return;var duracao=tFim-tIni;if(duracao<30*1000) return;var distancia=0;var velMax=0;var velSoma=0;var velCount=0;for(var i=1;i<viagem.length;i++){distancia+=calcularDistanciaMetros(viagem[i-1].lat,viagem[i-1].lon,viagem[i].lat,viagem[i].lon);if(viagem[i].velocidade){ velMax=Math.max(velMax,viagem[i].velocidade); velSoma+=viagem[i].velocidade; velCount++; }}var velMedia=velCount>0?Math.round(velSoma/velCount):0;lista.push({id:idx+1,viagem:viagem,inicio:inicio, fim:fim,tIni:tIni, tFim:tFim,duracao:duracao,distancia:distancia,velMax:velMax,velMedia:velMedia,ruaInicio:inicio.rua||"—",ruaFim:fim.rua||"—"});});return lista;}
-function renderizarHistoricoCompleto(pontos){var viagens=calcularHistoricoViagens(pontos);document.getElementById('badgeTabViagens').textContent='('+viagens.length+')';document.getElementById('kpiTotalViagens').textContent=viagens.length;var distTotal=0; var tempoMovTotal=0; var velSoma=0;viagens.forEach(function(v){ distTotal+=v.distancia; tempoMovTotal+=v.duracao; velSoma+=v.velMedia; });document.getElementById('kpiDistanciaTotal').textContent=(distTotal/1000).toFixed(1)+' km';document.getElementById('kpiTempoMovViagens').textContent=formatarDuracao(tempoMovTotal);document.getElementById('kpiVelMedia').textContent=viagens.length>0?Math.round(velSoma/viagens.length)+' km/h':'0 km/h';var listaV=document.getElementById('listaViagens');var msgV=document.getElementById('msgSemViagens');listaV.innerHTML='';if(viagens.length===0){ msgV.style.display='block'; }else{ msgV.style.display='none'; }viagens.slice().reverse().forEach(function(v){var div=document.createElement('div'); div.className='viagem-item';div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;"><b>🚚 Viagem '+v.id+'</b><span style="background:#00ffa6;color:#000;padding:2px 6px;border-radius:10px;font-size:0.75em;font-weight:800;">'+(v.distancia/1000).toFixed(1)+' km</span></div><div style="margin-top:4px;">📍 '+v.ruaInicio.slice(0,35)+'</div><div>🏁 '+v.ruaFim.slice(0,35)+'</div><div style="display:flex;justify-content:space-between;margin-top:4px;color:#74808f;font-size:0.85em;"><span>🕐 '+v.inicio.hora+' → '+v.fim.hora+'</span><span>⏱️ '+formatarDuracaoCurta(v.duracao)+'</span></div><div style="display:flex;justify-content:space-between;color:#74808f;font-size:0.8em;"><span>⚡ Máx '+v.velMax+' km/h</span><span>📊 Méd '+v.velMedia+' km/h</span></div>';div.addEventListener('click',function(){document.querySelectorAll('.viagem-item').forEach(function(el){el.classList.remove('ativa')});div.classList.add('ativa');desenharRotaClicavel(v.viagem);});listaV.appendChild(div);});var rel=calcularRelatorioParadas(pontos);document.getElementById('badgeTabParadas').textContent='('+rel.paradas.length+')';document.getElementById('kpiTotalParado').textContent=formatarDuracao(rel.tempoParado);document.getElementById('kpiTotalMovimento').textContent=formatarDuracao(rel.tempoMov);document.getElementById('kpiTempoTotal').textContent=formatarDuracao(rel.tempoTotal);var eficiencia=rel.tempoTotal>0?Math.round((rel.tempoMov/rel.tempoTotal)*100):0;document.getElementById('kpiEficiencia').textContent=rel.tempoTotal>0?eficiencia+"% em uso":"-";var listaP=document.getElementById('listaParadas');var msgP=document.getElementById('msgSemParadas');listaP.innerHTML="";if(rel.paradas.length===0){msgP.style.display="block";}else msgP.style.display="none";rel.paradas.slice().reverse().forEach(function(par,idx){var div=document.createElement('div');div.className='parada-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🅿️ Parada '+(rel.paradas.length-idx)+'</b><span style="font-weight:800;color:#ffb020;">'+formatarDuracaoCurta(par.duracao)+'</span></div><div>📍 '+par.rua.slice(0,38)+'</div><div style="color:#74808f;font-size:0.9em;">'+par.horaIni+' → '+par.horaFim+(par.atual?' (agora)':'')+'</div>';div.addEventListener('click',function(){if(par.ponto&&par.ponto.lat){map.setView([par.ponto.lat,par.ponto.lon],18);L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent('<b>Parada '+formatarDuracaoCurta(par.duracao)+'</b><br>'+par.rua+'<br>'+par.horaIni+' ate '+par.horaFim).openOn(map);}});listaP.appendChild(div);});}
+function renderizarHistoricoCompleto(pontos){var viagens=calcularHistoricoViagens(pontos);document.getElementById('badgeTabViagens').textContent='('+viagens.length+')';document.getElementById('kpiTotalViagens').textContent=viagens.length;var distTotal=0; var tempoMovTotal=0; var velSoma=0;viagens.forEach(function(v){ distTotal+=v.distancia; tempoMovTotal+=v.duracao; velSoma+=v.velMedia; });document.getElementById('kpiDistanciaTotal').textContent=(distTotal/1000).toFixed(1)+' km';document.getElementById('kpiTempoMovViagens').textContent=formatarDuracao(tempoMovTotal);document.getElementById('kpiVelMedia').textContent=viagens.length>0?Math.round(velSoma/viagens.length)+' km/h':'0 km/h';var listaV=document.getElementById('listaViagens');listaV.innerHTML='';viagens.slice().reverse().forEach(function(v){var div=document.createElement('div'); div.className='viagem-item';div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;"><b>🚚 Viagem '+v.id+'</b><span style="background:#00ffa6;color:#000;padding:2px 6px;border-radius:10px;font-size:0.75em;font-weight:800;">'+(v.distancia/1000).toFixed(1)+' km</span></div><div style="margin-top:4px;">📍 '+v.ruaInicio.slice(0,35)+'</div><div>🏁 '+v.ruaFim.slice(0,35)+'</div><div style="display:flex;justify-content:space-between;margin-top:4px;color:#74808f;font-size:0.85em;"><span>🕐 '+v.inicio.hora+' → '+v.fim.hora+'</span><span>⏱️ '+formatarDuracaoCurta(v.duracao)+'</span></div>';div.addEventListener('click',function(){document.querySelectorAll('.viagem-item').forEach(function(el){el.classList.remove('ativa')});div.classList.add('ativa');desenharRotaClicavel(v.viagem);});listaV.appendChild(div);});var rel=calcularRelatorioParadas(pontos);document.getElementById('badgeTabParadas').textContent='('+rel.paradas.length+')';document.getElementById('kpiTotalParado').textContent=formatarDuracao(rel.tempoParado);document.getElementById('kpiTotalMovimento').textContent=formatarDuracao(rel.tempoMov);document.getElementById('kpiTempoTotal').textContent=formatarDuracao(rel.tempoTotal);var eficiencia=rel.tempoTotal>0?Math.round((rel.tempoMov/rel.tempoTotal)*100):0;document.getElementById('kpiEficiencia').textContent=rel.tempoTotal>0?eficiencia+"% em uso":"-";var listaP=document.getElementById('listaParadas');listaP.innerHTML="";rel.paradas.slice().reverse().forEach(function(par,idx){var div=document.createElement('div');div.className='parada-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🅿️ Parada '+(rel.paradas.length-idx)+'</b><span style="font-weight:800;color:#ffb020;">'+formatarDuracaoCurta(par.duracao)+'</span></div><div>📍 '+par.rua.slice(0,38)+'</div><div style="color:#74808f;font-size:0.9em;">'+par.horaIni+' → '+par.horaFim+(par.atual?' (agora)':'')+'</div>';div.addEventListener('click',function(){if(par.ponto&&par.ponto.lat){map.setView([par.ponto.lat,par.ponto.lon],18);L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent('<b>Parada '+formatarDuracaoCurta(par.duracao)+'</b><br>'+par.rua+'<br>'+par.horaIni+' ate '+par.horaFim).openOn(map);}});listaP.appendChild(div);});}
 function mostrarAba(aba){document.getElementById('tabViagens').classList.toggle('ativa', aba==='viagens');document.getElementById('tabParadas').classList.toggle('ativa', aba==='paradas');document.getElementById('painelViagens').style.display=aba==='viagens'?'block':'none';document.getElementById('painelParadas').style.display=aba==='paradas'?'block':'none';}
 function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0)});var paradas=[]; var tempoParadoTotal=0;var tempoTotal=(getTimestampDoPonto(ordenados[ordenados.length-1])-getTimestampDoPonto(ordenados[0]))||0;if(tempoTotal<0) tempoTotal=0;var emParada=false; var inicioParada=null; var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1]; var cur=ordenados[i];var tAnt=getTimestampDoPonto(ant); var tCur=getTimestampDoPonto(cur);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}} }if(emParada&&inicioParada){var ultimoT=getTimestampDoPonto(ordenados[ordenados.length-1]);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
 function limparRotaAtual(){camadaRotaAtual.clearLayers();}
 var rotasPlanejadasAtivas={};
-function desenharRotaPlanejada(veiculo, rota){if(!rota || !rota.geometria || rota.geometria.length<2) return;if(rotasPlanejadasAtivas[veiculo]){ camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]); }var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);poly.bindPopup('<div style="font-weight:bold;">🧭 Rota - '+veiculo.replace(/_/g,' ')+'</div><div>'+(rota.destino||"")+'</div><div>'+(rota.distanciaMetros/1000).toFixed(1)+' km</div>');rotasPlanejadasAtivas[veiculo]=poly;atualizarListaRotasPlanejadas();}
+function desenharRotaPlanejada(veiculo, rota){if(!rota || !rota.geometria || rota.geometria.length<2) return;if(rotasPlanejadasAtivas[veiculo]){ camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]); }var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);poly.bindPopup('<div style="font-weight:bold;">🧭 Rota - '+veiculo.replace(/_/g,' ')+'</div><div>'+(rota.destino||"")+'</div>');rotasPlanejadasAtivas[veiculo]=poly;atualizarListaRotasPlanejadas();}
 function atualizarListaRotasPlanejadas(){var lista=document.getElementById('listaRotasPlanejadas');var badge=document.getElementById('badgeRotas');var msg=document.getElementById('msgSemRotas');lista.innerHTML="";var keys=Object.keys(rotasPlanejadasAtivas);badge.textContent=keys.length+" rotas";if(keys.length===0){ msg.style.display="block"; return; }msg.style.display="none";keys.forEach(function(veic){db.ref(caminhoVeiculos()+'/'+veic+'/rotaPlanejada').once('value').then(function(snap){var rota=snap.val(); if(!rota) return;var div=document.createElement('div'); div.className='rota-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🚚 '+veic.replace(/_/g,' ')+'</b><span style="color:#2dd4ff;font-weight:800;">'+(rota.distanciaMetros/1000).toFixed(1)+'km</span></div><div>📍 '+(rota.destino?rota.destino.slice(0,40):"")+'</div>';div.addEventListener('click',function(){ if(rota.geometria){ try{ map.fitBounds(L.latLngBounds(rota.geometria),{padding:[50,50]}); }catch(e){} rotasPlanejadasAtivas[veic].openPopup(); } });lista.appendChild(div);});});}
 function escutarRotasPlanejadas(){db.ref(caminhoVeiculos()).on('value', function(snap){camadaRotasPlanejadas.clearLayers(); rotasPlanejadasAtivas={};if(!snap.exists()){ atualizarListaRotasPlanejadas(); return; }snap.forEach(function(child){var veic=child.key; var dados=child.val();if(dados && dados.rotaPlanejada && dados.rotaPlanejada.geometria){ desenharRotaPlanejada(veic, dados.rotaPlanejada); }});});}
 var sosAtivos={};
@@ -253,14 +257,12 @@ function escutarSOSFamilia(){var caminhosPossiveis=['empresas/'+sanitizarChavePa
 function processarSOS(id, dados, origem){if(!dados.lat || !dados.lon) return;var jaExiste=sosAtivos[id];if(jaExiste && jaExiste.timestamp && dados.timestamp && jaExiste.timestamp===dados.timestamp) return;sosAtivos[id]=dados;var icon=L.divIcon({className:'sos-icon',html:'<div style="background:#ff5470;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);">🆘</div>',iconSize:[36,36],iconAnchor:[18,18]});var marker=L.marker([dados.lat,dados.lon],{icon:icon}).addTo(camadaSOS);marker.bindPopup('<div style="font-weight:bold;color:#ff5470;">🚨 SOS - '+id.replace(/_/g,' ')+'</div><div>'+(dados.mensagem||"Socorro!")+'</div>');try{ document.getElementById('audioSOS').play(); }catch(e){}document.getElementById('boxSOS').style.display='block';atualizarListaSOS();}
 function atualizarListaSOS(){var lista=document.getElementById('listaSOS');var badge=document.getElementById('badgeSOS');lista.innerHTML="";var keys=Object.keys(sosAtivos);badge.textContent=keys.length+" alertas";if(keys.length===0){ document.getElementById('boxSOS').style.display='none'; return; }keys.slice().reverse().forEach(function(id){var dados=sosAtivos[id];var div=document.createElement('div'); div.className='sos-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🚨 '+id.replace(/_/g,' ').slice(0,20)+'</b></div><div>'+(dados.mensagem||"SOS!")+'</div><div style="color:#ff8fa3;font-size:0.85em;">📍 '+(dados.rua||dados.lat.toFixed(4))+'</div>';div.addEventListener('click',function(){ map.setView([dados.lat,dados.lon],18); });lista.appendChild(div);});}
 function desenharRotaClicavel(pontos,opcoes){opcoes=opcoes||{}; limparRotaAtual();var validos=pontos.filter(function(p){return p&&p.lat!=null;});if(validos.length===0) return;if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }validos.sort(function(a,b){ return (getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0); });var viagens=separarViagens(validos);if(!opcoes.manterEnquadramento){ try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }for(var v=0; v<viagens.length; v++){var viagem=viagens[v]; var filtrada=[]; var ultimo=null;for(var i=0;i<viagem.length;i++){var p=viagem[i]; var ant=i>0?viagem[i-1]:null;var parado = statusRealDoPonto(p,ant)==="PARADO";if(parado && ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<15) continue;if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<3) continue;filtrada.push(p); ultimo=p;}for(var i2=0;i2<filtrada.length-1;i2++){var p1=filtrada[i2],p2=filtrada[i2+1];var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);if(d>250) continue;if(statusRealDoPonto(p1,i2>0?filtrada[i2-1]:null)==="PARADO" && statusRealDoPonto(p2,p1)==="PARADO") continue;var cor = statusRealDoPonto(p2,p1)==="EM MOVIMENTO" ? '#00ffa6' : '#ffb020';if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];var toque=L.polyline(coords,{color:'#000',opacity:0,weight:40}).addTo(camadaRotaAtual);var vis=L.polyline(coords,{color:cor,weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);(function(pp, ant){ var fn=function(){ mostrarInfoDoPontoRapido(pp,ant); }; toque.on('click',fn); vis.on('click',fn); })(p2,p1);}}document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos";renderizarHistoricoCompleto(pontos);}
-function mostrarInfoDoPontoRapido(ponto,anterior){if(!ponto) return;atualizarPainelEletrico(ponto,anterior);var vel=ponto.velocidade||0;var sitReal=statusRealDoPonto(ponto,anterior);var html='<div style="font-weight:bold;">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;">'+vel+' km/h - '+sitReal+'</div><div id="popup-limite-temp" style="margin-top:6px;font-size:0.85em;">Buscando limite...</div><div style="font-size:0.82em;color:#74808f;margin-top:3px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(html).openOn(map);buscarLimiteVia(ponto.lat,ponto.lon).then(function(limite){var txt=limite?limite+" km/h":"Não cadastrado";var el=document.getElementById('popup-limite-temp');if(el){ el.innerHTML='Limite: <b>'+txt+'</b> '+((limite&&vel>limite)?"⚠️ ACIMA":""); }document.getElementById('txtLimiteVia').textContent=txt;document.getElementById('txtLimiteVia').style.color=(limite&&vel>limite)?'#ff5470':'#2dd4ff';});}
-var veiculoSelecionado="",veiculoComListenerAtivo=null,primeiraCentralizacaoFeita=false,listenerTempoReal=null,EMPRESA_ID_ADMIN=null;
+function mostrarInfoDoPontoRapido(ponto,anterior){if(!ponto) return;atualizarPainelEletrico(ponto,anterior);var vel=ponto.velocidade||0;var sitReal=statusRealDoPonto(ponto,anterior);var html='<div style="font-weight:bold;">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;">'+vel+' km/h - '+sitReal+'</div><div style="font-size:0.82em;color:#74808f;margin-top:3px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>';L.popup({maxWidth:300}).setLatLng([ponto.lat,ponto.lon]).setContent(html).openOn(map);}
+var veiculoSelecionado="",veiculoComListenerAtivo=null,primeiraCentralizacaoFeita=false,listenerTempoReal=null;
 function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
 function caminhoVeiculos(){return'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
 document.getElementById('filtroData').value=new Date().toISOString().slice(0,10);
 document.getElementById('btnEntrarPainel').addEventListener('click',function(){var e=document.getElementById('authEmail').value.trim(),s=document.getElementById('authSenha').value;var erro=document.getElementById('erroLogin');if(!e||!s)return alert("Preencha");erro.style.display="none";auth.signInWithEmailAndPassword(e,s).catch(function(){erro.textContent="Acesso negado";erro.style.display="block";});});
-var DADOS_EMPRESA_BLOQUEADA=null;
-
 auth.onAuthStateChanged(async function(user){
     if(user){
         document.getElementById('authOverlay').style.display="none";
@@ -275,25 +277,40 @@ auth.onAuthStateChanged(async function(user){
         EMPRESA_ID_ADMIN=null;
         document.getElementById('authOverlay').style.display="flex";
         document.getElementById('overlayBloqueio').style.display='none';
-        document.querySelector('.sidebar').style.display='flex';
-        document.getElementById('map').style.display='block';
+        var sb=document.querySelector('.sidebar'); if(sb) sb.style.display='flex';
+        var mp=document.getElementById('map'); if(mp) mp.style.display='block';
     }
-});
-
-// BOTÃO WHATSAPP COM MENSAGEM PRONTA
-document.getElementById('btnWhatsappSuporte').addEventListener('click', function(){
-    var empresa = EMPRESA_ID_ADMIN ? EMPRESA_ID_ADMIN.replace(/_/g,' ') : 'minha empresa';
-    var nomeEmpresa = DADOS_EMPRESA_BLOQUEADA && DADOS_EMPRESA_BLOQUEADA.nome ? DADOS_EMPRESA_BLOQUEADA.nome : empresa;
-    var venc = '';
-    if(DADOS_EMPRESA_BLOQUEADA){
-        if(DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm) venc = ' Venceu em ' + new Date(DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm).toLocaleDateString('pt-BR');
-        else if(DADOS_EMPRESA_BLOQUEADA.trialExpiraEm) venc = ' Teste venceu em ' + new Date(DADOS_EMPRESA_BLOQUEADA.trialExpiraEm).toLocaleDateString('pt-BR');
-    }
-    var mensagem = `Olá, sou da empresa *${nomeEmpresa}* (${EMPRESA_ID_ADMIN}).\n\nMeu acesso ao *Admin Everton GPS* foi suspenso. 🚫${venc}\n\nPoderia verificar meu pagamento/assinatura e liberar meu acesso novamente?\n\nObrigado!`;
-    var url = 'https://wa.me/5551985803243?text=' + encodeURIComponent(mensagem);
-    window.open(url, '_blank');
 });
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
+document.getElementById('btnVerDetalhesAssinatura').addEventListener('click', function(){
+    var lista=document.getElementById('listaInfoAssinatura');
+    if(lista.dataset.expandido==='true'){ renderizarPainelAssinatura(DADOS_EMPRESA_BLOQUEADA); lista.dataset.expandido='false'; this.textContent='Ver detalhes';}
+    else{ lista.innerHTML='<div style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,.3);padding:8px;border-radius:8px;font-family:monospace;font-size:0.7em;white-space:pre-wrap;word-break:break-all;">'+JSON.stringify(DADOS_EMPRESA_BLOQUEADA,null,2)+'</div>'; lista.dataset.expandido='true'; this.textContent='Recolher';}
+});
+document.getElementById('btnRenovarAssinatura').addEventListener('click', function(){
+    var nome=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.nome?DADOS_EMPRESA_BLOQUEADA.nome:EMPRESA_ID_ADMIN;
+    var tipo=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.tipo?DADOS_EMPRESA_BLOQUEADA.tipo:'combo';
+    var msg="Olá! Gostaria de renovar minha assinatura do Admin Everton GPS.\n\n🏢 Empresa: *"+nome+"* ("+EMPRESA_ID_ADMIN+")\n📦 Plano: *"+tipo.toUpperCase()+"*\n\nPoderia me enviar as opções?";
+    window.open('https://wa.me/5551985803243?text='+encodeURIComponent(msg),'_blank');
+});
+document.getElementById('btnMercadoPago').addEventListener('click', function(){ window.open('https://link.mercadopago.com.br/josidocesgoumert','_blank'); });
+document.getElementById('btnCopiarPix').addEventListener('click', function(){
+    navigator.clipboard.writeText(PIX_PAYLOAD).then(function(){
+        document.getElementById('pixCopiadoMsg').style.display='block';
+        document.getElementById('btnCopiarPix').textContent='✅ Copiado!';
+        setTimeout(function(){document.getElementById('pixCopiadoMsg').style.display='none'; document.getElementById('btnCopiarPix').textContent='📋 Copiar código Pix';},3000);
+    }).catch(function(){
+        var ta=document.createElement('textarea'); ta.value=PIX_PAYLOAD; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        document.getElementById('pixCopiadoMsg').style.display='block';
+    });
+});
+document.getElementById('btnWhatsappSuporteBloqueio').addEventListener('click', function(){
+    var nome=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.nome?DADOS_EMPRESA_BLOQUEADA.nome:EMPRESA_ID_ADMIN;
+    var tipo=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.tipo?DADOS_EMPRESA_BLOQUEADA.tipo:'combo';
+    var venc=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm?new Date(DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm).toLocaleDateString('pt-BR'):'';
+    var msg="Olá, sou da empresa *"+nome+"* ("+EMPRESA_ID_ADMIN+").\n\nMeu acesso ao *Admin Everton GPS* foi suspenso. 🚫"+(venc?' Venceu em '+venc:'')+"\n📦 Plano: *"+tipo.toUpperCase()+"*\n\nGostaria de *renovar minha assinatura* agora. Já tentei pelo Mercado Pago e Pix. Poderia me ajudar?\n\nObrigado!";
+    window.open('https://wa.me/5551985803243?text='+encodeURIComponent(msg),'_blank');
+});
 function inicializarEscutaBanco(){db.ref(caminhoVeiculos()).on('value',function(snap){var sel=document.getElementById('selectVeiculo'),ant=sel.value;sel.innerHTML='<option value="">-- Escolha --</option>';if(snap.exists()){snap.forEach(function(ch){var o=document.createElement('option');o.value=ch.key;o.textContent=ch.key.replace(/_/g,' ');sel.appendChild(o);});if(ant)sel.value=ant;}});}
 document.getElementById('selectVeiculo').addEventListener('change',function(e){veiculoSelecionado=e.target.value;if(veiculoSelecionado)verificarEAtivarTempoReal();});
 function verificarEAtivarTempoReal(){if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);veiculoComListenerAtivo=veiculoSelecionado;document.getElementById('statusModo').innerHTML='<span style="display:inline-block;width:8px;height:8px;background:#00ffa6;border-radius:50%;margin-right:6px;"></span> TEMPO REAL';document.getElementById('btnVoltarTempoReal').style.display="none";primeiraCentralizacaoFeita=false;listenerTempoReal=db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/atual').on('value',function(snap){if(!snap.exists())return;var p=snap.val();atualizarPainelEletrico(p,null,{seguindoAoVivo:true});desenharRotaClicavel([p],{manterEnquadramento:primeiraCentralizacaoFeita});db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').limitToLast(80).once('value',function(s){var pts=[];s.forEach(function(c){var pp=c.val();if(pp&&pp.lat&&pp.lon)pts.push(pp);});desenharRotaClicavel(pts,{manterEnquadramento:primeiraCentralizacaoFeita});});});}
