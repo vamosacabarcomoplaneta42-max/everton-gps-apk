@@ -24,53 +24,71 @@
 </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Everton GPS - Linha Contínua</title>
+<title>Admin Everton GPS - Rotas + SOS Família</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <style>
 :root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
 body{margin:0;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);display:flex;height:100vh;overflow:hidden}
-.sidebar{width:380px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
+.sidebar{width:400px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%}
 #map{flex:1;height:100%;background:#e8e6e0}
-.header{padding:16px;border-bottom:1px solid var(--border);text-align:center}
-.header h2{margin:0;font-size:1.1em;color:var(--telemetry)}
-.content{padding:14px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
-.box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:12px;border-radius:10px}
-.box-title{font-size:0.7em;text-transform:uppercase;color:var(--text-dim);font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:10px;border-radius:8px;color:#fff;font-size:0.92em;box-sizing:border-box}
-button{background:var(--telemetry);color:#000;font-weight:800;cursor:pointer;margin-top:8px;border:none}
+.header{padding:14px;border-bottom:1px solid var(--border);text-align:center}
+.header h2{margin:0;font-size:1.05em;color:var(--telemetry)}
+.content{padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:11px;border-radius:10px}
+.box-title{font-size:0.68em;text-transform:uppercase;color:var(--text-dim);font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.box-rota{border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)}
+.box-sos{border-color:rgba(255,84,112,.4);background:rgba(255,84,112,.1);animation:pulseSOS 2s infinite}
+@keyframes pulseSOS{0%{border-color:rgba(255,84,112,.4)}50%{border-color:rgba(255,84,112,.8)}100%{border-color:rgba(255,84,112,.4)}}
+select,input,button{width:100%;background:#1a212b;border:1px solid var(--border);padding:9px;border-radius:8px;color:#fff;font-size:0.9em;box-sizing:border-box}
+button{background:var(--telemetry);color:#000;font-weight:800;cursor:pointer;margin-top:6px;border:none}
 button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
-.telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.88em}
-.badge{font-size:0.72em;padding:3px 8px;border-radius:6px;font-weight:800}
+button.danger{background:var(--danger);color:#fff}
+.telemetry-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.84em}
+.badge{font-size:0.7em;padding:3px 8px;border-radius:6px;font-weight:800}
 .badge-movimento{background:rgba(0,255,166,0.15);color:var(--signal-on)}
 .badge-parado{background:rgba(255,176,32,0.18);color:var(--signal-off)}
-.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.kpi{background:#0f141c;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
-.kpi b{display:block;font-size:1.12em;margin-top:2px}
-.kpi small{color:var(--text-dim);font-size:0.66em;text-transform:uppercase;font-weight:700}
-.parada-item{background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.18);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:0.82em;cursor:pointer}
-.live-indicator{display:inline-block;width:8px;height:8px;background:var(--signal-on);border-radius:50%;margin-right:6px;animation:pulse 1.5s infinite}
-@keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+.badge-sos{background:var(--danger);color:#fff;animation:blink 1s infinite}
+@keyframes blink{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kpi{background:#0f141c;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center}
+.kpi b{display:block;font-size:1.05em;margin-top:2px}
+.kpi small{color:var(--text-dim);font-size:0.62em;text-transform:uppercase;font-weight:700}
+.parada-item{background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.18);border-radius:8px;padding:7px 9px;margin-top:6px;font-size:0.8em;cursor:pointer}
+.sos-item{background:rgba(255,84,112,.15);border:1px solid rgba(255,84,112,.35);border-radius:8px;padding:10px;margin-top:8px;font-size:0.84em;cursor:pointer}
+.rota-item{background:rgba(52,179,255,.12);border:1px solid rgba(52,179,255,.25);border-radius:8px;padding:8px;margin-top:6px;font-size:0.82em;cursor:pointer}
 .auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
-.auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:16px}
-@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:58vh}#map{height:42vh}}
+.auth-card{background:var(--bg-card);border:1px solid var(--border);padding:22px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:14px}
+@media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:60vh}#map{height:40vh}}
 </style>
 </head>
 <body>
 <div id="authOverlay" class="auth-overlay">
-<div class="auth-card"><h3>Painel Admin</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:#ff5470;font-size:0.85em;text-align:center;display:none;"></div></div>
+<div class="auth-card"><h3>Admin - Rotas + SOS</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="******"><button id="btnEntrarPainel">Entrar</button><div id="erroLogin" style="color:#ff5470;font-size:0.85em;text-align:center;display:none;"></div></div>
 </div>
 <div class="sidebar">
-<div class="header"><h2>Admin Everton GPS</h2><span id="userLogado" style="font-size:0.78em;color:#00ffa6">FIX LINHA CONTÍNUA 200m</span></div>
+<div class="header"><h2>Admin Everton GPS</h2><span id="userLogado" style="font-size:0.75em;color:#00ffa6">Rotas + SOS Família • Linha Contínua</span></div>
 <div class="content">
-<div class="box"><div class="box-title">Veiculo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
-<div class="box"><div class="box-title">Historico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Historico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">Tempo Real</button></div>
+<div class="box"><div class="box-title">Veículo</div><select id="selectVeiculo"><option value="">Aguardando login...</option></select><button id="btnVerTodos" class="sec">Ver todos os veículos</button></div>
+
+<!-- NOVA BOX: SOS FAMÍLIA -->
+<div class="box box-sos" id="boxSOS" style="display:none;"><div class="box-title">🚨 SOS FAMÍLIA <span id="badgeSOS" class="badge badge-sos">0 alertas</span></div><div id="listaSOS" style="max-height:200px;overflow-y:auto;"></div><div id="msgSemSOS" style="text-align:center;color:#ff8fa3;font-size:0.8em;padding:8px;display:none;">Nenhum SOS no momento</div><button id="btnLimparSOS" class="sec" style="margin-top:8px;">Limpar alertas vistos</button></div>
+
+<!-- NOVA BOX: ROTA TRAÇADA PELO MOTORISTA (FROTAS) -->
+<div class="box box-rota" id="boxRotaPlanejada"><div class="box-title">🧭 Rota Traçada pelo Motorista (Frotas) <span id="badgeRotas" style="background:#2dd4ff;color:#000;padding:2px 6px;border-radius:10px;">0 rotas</span></div><div id="listaRotasPlanejadas" style="max-height:180px;overflow-y:auto;"></div><div id="msgSemRotas" style="text-align:center;color:#74808f;font-size:0.8em;padding:8px;">Nenhuma rota traçada no momento</div><button id="btnLimparRotas" class="sec" style="margin-top:6px;">Ocultar rotas planejadas</button></div>
+
+<div class="box"><div class="box-title">Histórico</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;">Aguardando...</div>
-<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);"><div class="box-title">Relatorio de Tempo Parado <span id="badgeTotalParadas" style="background:#ffb020;color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div><div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiencia</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:220px;overflow-y:auto;margin-top:8px;"></div><div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:12px;display:none;">Nenhuma parada</div></div>
-<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Tempo Parado</span><b id="txtTempoParado">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
+
+<div class="box" id="boxRelatorio" style="border-color:rgba(255,176,32,0.25);"><div class="box-title">Relatório de Tempo Parado <span id="badgeTotalParadas" style="background:#ffb020;color:#000;padding:2px 6px;border-radius:10px;font-size:0.9em;">0 paradas</span></div><div class="kpi-grid"><div class="kpi"><small>Total Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Em Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Tempo Analisado</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:180px;overflow-y:auto;margin-top:8px;"></div><div id="msgSemParadas" style="text-align:center;color:#74808f;font-size:0.8em;padding:10px;display:none;">Nenhuma parada</div></div>
+
+<div class="box"><div class="box-title">Ponto Selecionado</div><div class="telemetry-row"><span>Situação REAL</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade">0 km/h</b></div><div class="telemetry-row"><span>Limite da Via</span><b id="txtLimiteVia">-</b></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div></div>
+
 <button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div>
 </div>
 <div id="map"></div>
+<audio id="audioSOS" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -85,7 +103,10 @@ L.tileLayer('https://api.maptiler.com/maps/bright-v2/{z}/{x}/{y}.png?key='+MAPTI
 var marcadorVeiculo=L.marker([-29.6133,-52.1919]).addTo(map);
 var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup();
+var camadaRotasPlanejadas=L.layerGroup().addTo(map);
+var camadaSOS=L.layerGroup().addTo(map);
 var cacheLimite={};
+
 function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function parseDataHora(d,h){var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d||''),t=/^(\d{2}):(\d{2}):(\d{2})$/.exec(h||'');if(!m||!t)return null;return new Date(+m[3],+m[2]-1,+m[1],+t[1],+t[2],+t[3]).getTime();}
 function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
@@ -94,7 +115,7 @@ async function buscarLimiteVia(lat,lon){var chave=lat.toFixed(4)+","+lon.toFixed
 function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=parseDataHora(ponto.data,ponto.hora)-parseDataHora(anterior.data,anterior.hora);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
 function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=parseDataHora(pontoAnterior.data,pontoAnterior.hora),t2=parseDataHora(ponto.data,ponto.hora);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
 
-// === FIX LINHA CONTÍNUA: NÃO PICOTADO ===
+// === FIX LINHA CONTÍNUA (250m) ===
 function separarViagens(pontos){
     if(pontos.length<2) return [pontos];
     var viagens=[]; var atual=[pontos[0]];
@@ -103,13 +124,7 @@ function separarViagens(pontos){
         var tAnt=parseDataHora(ant.data,ant.hora), tCur=parseDataHora(cur.data,cur.hora);
         var dt=(tAnt&&tCur)?tCur-tAnt:0;
         var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);
-        // CORREÇÃO: Antes era 90s/80m e ficou picotado
-        // Agora: só separa se ficou parado 2 minutos OU pulou mais de 250m (carro desligado)
-        // Se está andando, mesmo a 80km/h (22m/s * 10s = 220m), continua mesma viagem
-        if(dt>120*1000 || d>250){
-            if(atual.length>0) viagens.push(atual);
-            atual=[cur];
-        }else atual.push(cur);
+        if(dt>120*1000 || d>250){ if(atual.length>0) viagens.push(atual); atual=[cur]; }else atual.push(cur);
     }
     if(atual.length>0) viagens.push(atual);
     return viagens;
@@ -117,7 +132,149 @@ function separarViagens(pontos){
 
 function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0)});var paradas=[];var tempoParadoTotal=0;var tempoTotal=(parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora)-parseDataHora(ordenados[0].data,ordenados[0].hora))||0;var emParada=false;var inicioParada=null;var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1];var cur=ordenados[i];var tAnt=parseDataHora(ant.data,ant.hora);var tCur=parseDataHora(cur.data,cur.hora);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}}}if(emParada&&inicioParada){var ultimoT=parseDataHora(ordenados[ordenados.length-1].data,ordenados[ordenados.length-1].hora);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
 function renderizarRelatorioParadas(pontos){var rel=calcularRelatorioParadas(pontos);document.getElementById('kpiTotalParado').textContent=formatarDuracao(rel.tempoParado);document.getElementById('kpiTotalMovimento').textContent=formatarDuracao(rel.tempoMov);document.getElementById('kpiTempoTotal').textContent=formatarDuracao(rel.tempoTotal);var eficiencia=rel.tempoTotal>0?Math.round((rel.tempoMov/rel.tempoTotal)*100):0;document.getElementById('kpiEficiencia').textContent=eficiencia+"% em uso";document.getElementById('badgeTotalParadas').textContent=rel.paradas.length+" paradas";var lista=document.getElementById('listaParadas');var msg=document.getElementById('msgSemParadas');lista.innerHTML="";if(rel.paradas.length===0){msg.style.display="block";return;}else msg.style.display="none";rel.paradas.slice().reverse().forEach(function(par,idx){var div=document.createElement('div');div.className='parada-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>Parada '+(rel.paradas.length-idx)+'</b><span style="font-weight:800;color:#ffb020;">'+formatarDuracaoCurta(par.duracao)+'</span></div><div>'+par.rua+'</div><div style="color:#74808f;font-size:0.9em;">'+par.horaIni+' -> '+par.horaFim+(par.atual?' (agora)':'')+'</div>';div.addEventListener('click',function(){if(par.ponto&&par.ponto.lat){map.setView([par.ponto.lat,par.ponto.lon],18);L.popup().setLatLng([par.ponto.lat,par.ponto.lon]).setContent('<b>Parada '+formatarDuracaoCurta(par.duracao)+'</b><br>'+par.rua+'<br>'+par.horaIni+' ate '+par.horaFim).openOn(map);}});lista.appendChild(div);});}
-function limparRotaAtual(){camadaRotaAtual.clearLayers();camadaTodos.clearLayers();}
+function limparRotaAtual(){camadaRotaAtual.clearLayers();}
+
+// === NOVO: ROTAS PLANEJADAS (FROTAS) ===
+var rotasPlanejadasAtivas={};
+function desenharRotaPlanejada(veiculo, rota){
+    if(!rota || !rota.geometria || rota.geometria.length<2) return;
+    // Remove rota antiga deste veículo
+    if(rotasPlanejadasAtivas[veiculo]){ camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]); }
+    var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);
+    poly.bindPopup('<div style="font-weight:bold;">🧭 Rota Planejada - '+veiculo.replace(/_/g,' ')+'</div><div>'+(rota.destino||"")+'</div><div>'+(rota.distanciaMetros/1000).toFixed(1)+' km • '+Math.round(rota.duracaoSegundos/60)+' min</div>');
+    rotasPlanejadasAtivas[veiculo]=poly;
+    
+    // Adiciona na lista
+    atualizarListaRotasPlanejadas();
+}
+
+function atualizarListaRotasPlanejadas(){
+    var lista=document.getElementById('listaRotasPlanejadas');
+    var badge=document.getElementById('badgeRotas');
+    var msg=document.getElementById('msgSemRotas');
+    lista.innerHTML="";
+    var keys=Object.keys(rotasPlanejadasAtivas);
+    badge.textContent=keys.length+" rotas";
+    if(keys.length===0){ msg.style.display="block"; return; }
+    msg.style.display="none";
+    keys.forEach(function(veic){
+        db.ref(caminhoVeiculos()+'/'+veic+'/rotaPlanejada').once('value').then(function(snap){
+            var rota=snap.val();
+            if(!rota) return;
+            var div=document.createElement('div'); div.className='rota-item';
+            div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🚚 '+veic.replace(/_/g,' ')+'</b><span style="color:#2dd4ff;font-weight:800;">'+(rota.distanciaMetros/1000).toFixed(1)+'km</span></div><div style="font-size:0.9em;">📍 '+(rota.destino?rota.destino.slice(0,40):"")+'</div><div style="color:#74808f;font-size:0.85em;">'+Math.round(rota.duracaoSegundos/60)+' min • Traçada pelo motorista</div>';
+            div.addEventListener('click',function(){
+                if(rota.geometria && rota.geometria.length>0){
+                    try{ map.fitBounds(L.latLngBounds(rota.geometria),{padding:[50,50]}); }catch(e){}
+                    rotasPlanejadasAtivas[veic].openPopup();
+                }
+            });
+            lista.appendChild(div);
+        });
+    });
+}
+
+function escutarRotasPlanejadas(){
+    // Escuta todas as rotas planejadas da empresa
+    db.ref(caminhoVeiculos()).on('value', function(snap){
+        camadaRotasPlanejadas.clearLayers();
+        rotasPlanejadasAtivas={};
+        if(!snap.exists()){ atualizarListaRotasPlanejadas(); return; }
+        snap.forEach(function(child){
+            var veic=child.key;
+            var dados=child.val();
+            if(dados && dados.rotaPlanejada && dados.rotaPlanejada.geometria){
+                desenharRotaPlanejada(veic, dados.rotaPlanejada);
+            }
+        });
+    });
+}
+
+// === NOVO: SOS FAMÍLIA ===
+var sosAtivos={};
+function escutarSOSFamilia(){
+    // Tenta vários caminhos possíveis onde o SOS pode estar
+    var caminhosPossiveis=[
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/sos',
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/alertasSOS',
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/familia'
+    ];
+    
+    caminhosPossiveis.forEach(function(caminhoBase){
+        db.ref(caminhoBase).on('value', function(snap){
+            if(!snap.exists()) return;
+            snap.forEach(function(child){
+                var val=child.val();
+                // Se o valor tem lat/lon e tipo SOS, é um SOS
+                if(val && (val.tipo==='SOS' || val.sos===true || val.alerta==='SOS' || val.lat && val.mensagem && val.mensagem.toLowerCase().includes('socorro'))){
+                    processarSOS(child.key, val, caminhoBase);
+                }
+                // Se tem filhos com SOS dentro (ex: familia/membro/sos)
+                if(val && typeof val==='object'){
+                    Object.keys(val).forEach(function(k){
+                        var sub=val[k];
+                        if(sub && (sub.tipo==='SOS' || sub.sos===true || sub.lat && sub.sosAtivo)){
+                            processarSOS(child.key+'/'+k, sub, caminhoBase);
+                        }
+                    });
+                }
+            });
+        });
+    });
+    
+    // Também escuta direto nos veículos: veiculos/VEICULO/sosAtivo
+    db.ref(caminhoVeiculos()).on('child_changed', function(snap){
+        var veic=snap.key;
+        var dados=snap.val();
+        if(dados && (dados.sosAtivo || dados.sos || (dados.atual && dados.atual.sos))){
+            var sosData=dados.sosAtivo || dados.sos || dados.atual;
+            processarSOS(veic, sosData, 'veiculo');
+        }
+    });
+}
+
+function processarSOS(id, dados, origem){
+    if(!dados.lat || !dados.lon) return;
+    var jaExiste=sosAtivos[id];
+    if(jaExiste && jaExiste.timestamp && dados.timestamp && jaExiste.timestamp===dados.timestamp) return;
+    
+    sosAtivos[id]=dados;
+    
+    // Marker no mapa
+    var icon=L.divIcon({className:'sos-icon',html:'<div style="background:#ff5470;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);">🆘</div>',iconSize:[36,36],iconAnchor:[18,18]});
+    var marker=L.marker([dados.lat,dados.lon],{icon:icon}).addTo(camadaSOS);
+    marker.bindPopup('<div style="font-weight:bold;color:#ff5470;font-size:14px;">🚨 SOS FAMÍLIA - '+id.replace(/_/g,' ')+'</div><div>'+(dados.mensagem||dados.texto||"Socorro!")+'</div><div style="font-size:11px;color:#74808f;">'+(dados.data||"")+' '+(dados.hora||"")+'</div><div style="font-size:11px;">Origem: '+origem+'</div>');
+    
+    // Toca som
+    try{ document.getElementById('audioSOS').play(); }catch(e){}
+    
+    // Mostra box
+    document.getElementById('boxSOS').style.display='block';
+    atualizarListaSOS();
+    
+    // Notificação browser se permitido
+    if(Notification && Notification.permission==="granted"){
+        new Notification("🚨 SOS Família - "+id, {body: dados.mensagem||"Alerta SOS recebido", icon: "📡"});
+    }
+}
+
+function atualizarListaSOS(){
+    var lista=document.getElementById('listaSOS');
+    var badge=document.getElementById('badgeSOS');
+    var msg=document.getElementById('msgSemSOS');
+    lista.innerHTML="";
+    var keys=Object.keys(sosAtivos);
+    badge.textContent=keys.length+" alertas";
+    if(keys.length===0){ msg.style.display="block"; document.getElementById('boxSOS').style.display='none'; return; }
+    msg.style.display="none";
+    keys.slice().reverse().forEach(function(id){
+        var dados=sosAtivos[id];
+        var div=document.createElement('div'); div.className='sos-item';
+        div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🚨 '+id.replace(/_/g,' ').slice(0,20)+'</b><span class="badge badge-sos">AGORA</span></div><div>'+(dados.mensagem||dados.texto||"SOS!")+'</div><div style="color:#ff8fa3;font-size:0.85em;">📍 '+(dados.rua||dados.lat.toFixed(4)+','+dados.lon.toFixed(4))+'</div><div style="color:#74808f;font-size:0.8em;">'+(dados.data||"")+' '+(dados.hora||"")+'</div>';
+        div.addEventListener('click',function(){ map.setView([dados.lat,dados.lon],18); L.popup().setLatLng([dados.lat,dados.lon]).setContent('<b>🚨 SOS '+id+'</b><br>'+(dados.mensagem||"")+'<br>'+(dados.rua||"")).openOn(map); });
+        lista.appendChild(div);
+    });
+}
 
 function desenharRotaClicavel(pontos,opcoes){
     opcoes=opcoes||{}; limparRotaAtual();
@@ -125,44 +282,31 @@ function desenharRotaClicavel(pontos,opcoes){
     if(validos.length===0) return;
     if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
     validos.sort(function(a,b){ return (parseDataHora(a.data,a.hora)||0)-(parseDataHora(b.data,b.hora)||0); });
-    
     var viagens=separarViagens(validos);
-    
-    if(!opcoes.manterEnquadramento){
-        try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){}
-    }
-    
+    if(!opcoes.manterEnquadramento){ try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }
     for(var v=0; v<viagens.length; v++){
-        var viagem=viagens[v];
-        var filtrada=[]; var ultimo=null;
+        var viagem=viagens[v]; var filtrada=[]; var ultimo=null;
         for(var i=0;i<viagem.length;i++){
             var p=viagem[i]; var ant=i>0?viagem[i-1]:null;
             var parado = statusRealDoPonto(p,ant)==="PARADO";
-            // Só filtra se parado e muito próximo (GPS dançando)
             if(parado && ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<15) continue;
             if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<3) continue;
             filtrada.push(p); ultimo=p;
         }
-        // CORREÇÃO LINHA CONTÍNUA: Desenha tudo, só não desenha se >250m (carro desligado)
-        // Antes era 80m e ficava picotado, agora 250m fica contínuo mas não cruza quarteirão parado
         for(var i2=0;i2<filtrada.length-1;i2++){
             var p1=filtrada[i2],p2=filtrada[i2+1];
             var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
-            // Se distância >250m, é pulo (carro desligado/ligado em outro lugar) - não liga
             if(d>250) continue;
-            // Se ambos parados, não desenha linha (evita mancha)
             if(statusRealDoPonto(p1,i2>0?filtrada[i2-1]:null)==="PARADO" && statusRealDoPonto(p2,p1)==="PARADO") continue;
-            
             var cor = statusRealDoPonto(p2,p1)==="EM MOVIMENTO" ? '#00ffa6' : '#ffb020';
             if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
-            
             var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
             var toque=L.polyline(coords,{color:'#000',opacity:0,weight:40}).addTo(camadaRotaAtual);
             var vis=L.polyline(coords,{color:cor,weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
             (function(pp, ant){ var fn=function(){ mostrarInfoDoPontoRapido(pp,ant); }; toque.on('click',fn); vis.on('click',fn); })(p2,p1);
         }
     }
-    document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • LINHA CONTÍNUA (max 250m, sem picote)";
+    document.getElementById('statusModo').textContent = viagens.length+" viagem(ns) • "+validos.length+" pontos • Contínua 250m + Rotas + SOS";
     renderizarRelatorioParadas(pontos);
 }
 
@@ -187,7 +331,7 @@ function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
 function caminhoVeiculos(){return'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
 document.getElementById('filtroData').value=new Date().toISOString().slice(0,10);
 document.getElementById('btnEntrarPainel').addEventListener('click',function(){var e=document.getElementById('authEmail').value.trim(),s=document.getElementById('authSenha').value;var erro=document.getElementById('erroLogin');if(!e||!s)return alert("Preencha");erro.style.display="none";auth.signInWithEmailAndPassword(e,s).catch(function(){erro.textContent="Acesso negado";erro.style.display="block";});});
-auth.onAuthStateChanged(function(user){if(user){document.getElementById('authOverlay').style.display="none";document.getElementById('userLogado').textContent=user.email;db.ref('mapaUsuarioEmpresa/'+user.uid).once('value').then(function(snap){EMPRESA_ID_ADMIN=snap.val();if(!EMPRESA_ID_ADMIN){auth.signOut();return;}inicializarEscutaBanco();});}else{EMPRESA_ID_ADMIN=null;document.getElementById('authOverlay').style.display="flex";document.getElementById('selectVeiculo').innerHTML='<option value="">Aguardando login...</option>';}});
+auth.onAuthStateChanged(function(user){if(user){document.getElementById('authOverlay').style.display="none";document.getElementById('userLogado').textContent=user.email;db.ref('mapaUsuarioEmpresa/'+user.uid).once('value').then(function(snap){EMPRESA_ID_ADMIN=snap.val();if(!EMPRESA_ID_ADMIN){auth.signOut();return;}inicializarEscutaBanco(); escutarRotasPlanejadas(); escutarSOSFamilia(); if(Notification && Notification.permission!=="granted") Notification.requestPermission();});}else{EMPRESA_ID_ADMIN=null;document.getElementById('authOverlay').style.display="flex";document.getElementById('selectVeiculo').innerHTML='<option value="">Aguardando login...</option>';}});
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
 function inicializarEscutaBanco(){db.ref(caminhoVeiculos()).on('value',function(snap){var sel=document.getElementById('selectVeiculo'),ant=sel.value;sel.innerHTML='<option value="">-- Escolha --</option>';dadosTodasUnidades={};if(snap.exists()){snap.forEach(function(ch){var k=ch.key;dadosTodasUnidades[k]=ch.val();var o=document.createElement('option');o.value=k;o.textContent=k.replace(/_/g,' ');sel.appendChild(o);});if(ant)sel.value=ant;}});}
 document.getElementById('selectVeiculo').addEventListener('change',function(e){veiculoSelecionado=e.target.value;if(veiculoSelecionado)verificarEAtivarTempoReal();});
@@ -196,6 +340,8 @@ document.getElementById('btnVerTodos').addEventListener('click',function(){if(!E
 function buscarHistoricoComFiltro(cb){var dataF=document.getElementById('filtroData').value,hI=document.getElementById('filtroHoraInicio').value,hF=document.getElementById('filtroHoraFim').value;if(!dataF){alert("Selecione data");return;}var partes=dataF.split('-'),br=partes[2]+"/"+partes[1]+"/"+partes[0];db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){var res=[];snap.forEach(function(ch){var p=ch.val();if(p&&p.data===br){var hc=(p.hora||'').slice(0,5);if(hc>=hI&&hc<=hF)res.push(p);}});cb(res);});}
 document.getElementById('btnBuscarHistorico').addEventListener('click',function(){if(!veiculoSelecionado)return alert("Selecione veículo");if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);listenerTempoReal=null;camadaTodos.clearLayers();document.getElementById('statusModo').innerHTML='HISTÓRICO';document.getElementById('btnVoltarTempoReal').style.display="block";buscarHistoricoComFiltro(function(res){dadosHistoricoCarregados=res;if(res.length===0){alert("Nenhum registro");verificarEAtivarTempoReal();return;}atualizarPainelEletrico(res[res.length-1],res.length>1?res[res.length-2]:null);desenharRotaClicavel(res);});});
 document.getElementById('btnVoltarTempoReal').addEventListener('click',verificarEAtivarTempoReal);
+document.getElementById('btnLimparRotas').addEventListener('click',function(){ camadaRotasPlanejadas.clearLayers(); rotasPlanejadasAtivas={}; atualizarListaRotasPlanejadas(); });
+document.getElementById('btnLimparSOS').addEventListener('click',function(){ camadaSOS.clearLayers(); sosAtivos={}; atualizarListaSOS(); });
 function atualizarPainelEletrico(dados,pontoAnterior,opcoes){if(!dados||!dados.lat||!dados.lon)return;opcoes=opcoes||{};var latlng=[dados.lat,dados.lon];marcadorVeiculo.setLatLng(latlng);if(opcoes.seguindoAoVivo){if(!primeiraCentralizacaoFeita){map.setView(latlng,17);primeiraCentralizacaoFeita=true;}else if(!map.getBounds().pad(-0.15).contains(latlng))map.panTo(latlng,{animate:true});}else map.setView(latlng,17);var real=statusRealDoPonto(dados,pontoAnterior);document.getElementById('txtVelocidade').textContent=(dados.velocidade||0)+" km/h";document.getElementById('txtRua').textContent=dados.rua||"-";document.getElementById('txtCidadeEstado').textContent=(dados.cidade||"-")+" / "+(dados.estado||"-");document.getElementById('txtDataHora').textContent=dados.data+" às "+dados.hora;document.getElementById('txtTempoParado').textContent=real==="EM MOVIMENTO"?"Em movimento":(dados.tempoParado||"Parado");var badge=document.getElementById('txtStatus');badge.textContent=real;badge.className=real==="EM MOVIMENTO"?"badge badge-movimento":"badge badge-parado";}
 </script>
 <script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
