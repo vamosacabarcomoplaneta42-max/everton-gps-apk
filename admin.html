@@ -132,7 +132,35 @@ button.renew.bloqueado{background:linear-gradient(135deg,#ff4d6d,#ff7a6d);color:
 </div>
 <div class="box"><div class="box-title">Veículo</div><select id="selectVeiculo"><option>Aguardando...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
 <div class="box" id="boxSOS" style="display:none"><div class="box-title">🚨 SOS FAMÍLIA <span id="badgeSOS" style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaSOS" style="max-height:140px;overflow-y:auto;"></div></div>
-<div class="box" style="border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)"><div class="box-title">🧭 Rota Traçada <span id="badgeRotas" style="background:#2dd4ff;color:#000;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaRotasPlanejadas" style="max-height:110px;overflow-y:auto;"></div><div id="msgSemRotas" style="text-align:center;color:#74808f;font-size:0.8em;padding:6px;">Nenhuma rota</div></div>
+<div class="box" style="border-color:rgba(52,179,255,.35);background:rgba(52,179,255,.08)"><div class="box-title">🧭 Rotas Traçadas <span id="badgeRotas" style="background:#2dd4ff;color:#000;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaRotasPlanejadas" style="max-height:110px;overflow-y:auto;"></div><div id="msgSemRotas" style="text-align:center;color:#74808f;font-size:0.8em;padding:6px;">Nenhuma rota ativa</div></div>
+<div class="box box-waze" id="boxWazeAcompanhamento" style="display:none">
+<div class="box-title">🚗 Acompanhamento Waze <span id="badgeWazeStatus" style="background:#00ffa6;color:#000;padding:2px 8px;border-radius:10px;font-size:0.7em">AO VIVO</span></div>
+<div class="waze-destino" id="wazeDestino">-</div>
+<div style="font-size:0.78em;color:var(--text-dim);margin-bottom:6px" id="wazeOrigem">Origem: -</div>
+<div class="waze-stats">
+<div class="waze-stat"><small>Restante</small><b id="wazeDistRestante">-</b></div>
+<div class="waze-stat"><small>Tempo</small><b id="wazeTempoRestante">-</b></div>
+<div class="waze-stat"><small>Chegada</small><b id="wazeETA">-</b></div>
+</div>
+<div class="waze-stats" style="grid-template-columns:1fr 1fr">
+<div class="waze-stat"><small>Velocidade</small><b id="wazeVelocidade">-</b></div>
+<div class="waze-stat"><small>Progresso</small><b id="wazeProgressoTxt">0%</b></div>
+</div>
+<div class="waze-progresso"><div class="waze-progresso-bar" id="wazeProgressoBar" style="width:0%"></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+<div style="font-size:0.75em;color:var(--text-dim)">Total: <b id="wazeDistTotal" style="color:var(--text)">-</b></div>
+<div style="font-size:0.75em;color:var(--text-dim);text-align:right">Percorrido: <b id="wazeDistPercorrida" style="color:var(--text)">-</b></div>
+</div>
+<div class="waze-eta" id="wazeETABox">
+<div style="font-size:0.7em;color:var(--text-dim);text-transform:uppercase">Previsão de Chegada</div>
+<b id="wazeChegadaHora">--:--</b>
+<div style="font-size:0.75em;color:var(--text-dim);margin-top:2px" id="wazeTempoTotal">Tempo total estimado: -</div>
+</div>
+<div style="display:flex;gap:6px;margin-top:10px">
+<button id="btnWazeCentralizar" class="sec" style="flex:1;font-size:0.8em;padding:8px">🎯 Centralizar Rota</button>
+<button id="btnWazeLimpar" class="sec" style="flex:1;font-size:0.8em;padding:8px;color:#ff5470;border-color:rgba(255,84,112,.3)">✖ Limpar</button>
+</div>
+</div>
 <div class="box"><div class="box-title">Histórico Completo</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">← Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;font-size:0.9em;">Aguardando...</div>
 <div class="box" style="border-color:rgba(255,255,255,.15);">
@@ -267,8 +295,170 @@ function mostrarAba(aba){document.getElementById('tabViagens').classList.toggle(
 function calcularRelatorioParadas(pontos){if(!pontos||pontos.length<2)return{paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0};var ordenados=pontos.slice().sort(function(a,b){return(getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0)});var paradas=[]; var tempoParadoTotal=0;var tempoTotal=(getTimestampDoPonto(ordenados[ordenados.length-1])-getTimestampDoPonto(ordenados[0]))||0;if(tempoTotal<0) tempoTotal=0;var emParada=false; var inicioParada=null; var pontoInicioParada=null;for(var i=1;i<ordenados.length;i++){var ant=ordenados[i-1]; var cur=ordenados[i];var tAnt=getTimestampDoPonto(ant); var tCur=getTimestampDoPonto(cur);if(!tAnt||!tCur)continue;var dt=tCur-tAnt;if(dt<0||dt>30*60*1000)continue;var parado=isParado(cur,ant);if(parado&&!emParada){emParada=true;inicioParada=tAnt;pontoInicioParada=ant;}else if(!parado&&emParada){emParada=false;var duracao=tAnt-inicioParada;if(duracao>=60*1000){tempoParadoTotal+=duracao;paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora});}} }if(emParada&&inicioParada){var ultimoT=getTimestampDoPonto(ordenados[ordenados.length-1]);var dur=ultimoT-inicioParada;if(dur>=60000){tempoParadoTotal+=dur;paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true});}}return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)};}
 function limparRotaAtual(){camadaRotaAtual.clearLayers();}
 var rotasPlanejadasAtivas={};
-function desenharRotaPlanejada(veiculo, rota){if(!rota || !rota.geometria || rota.geometria.length<2) return;if(rotasPlanejadasAtivas[veiculo]){ camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]); }var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);poly.bindPopup('<div style="font-weight:bold;">🧭 Rota - '+veiculo.replace(/_/g,' ')+'</div><div>'+(rota.destino||"")+'</div>');rotasPlanejadasAtivas[veiculo]=poly;atualizarListaRotasPlanejadas();}
-function atualizarListaRotasPlanejadas(){var lista=document.getElementById('listaRotasPlanejadas');var badge=document.getElementById('badgeRotas');var msg=document.getElementById('msgSemRotas');lista.innerHTML="";var keys=Object.keys(rotasPlanejadasAtivas);badge.textContent=keys.length+" rotas";if(keys.length===0){ msg.style.display="block"; return; }msg.style.display="none";keys.forEach(function(veic){db.ref(caminhoVeiculos()+'/'+veic+'/rotaPlanejada').once('value').then(function(snap){var rota=snap.val(); if(!rota) return;var div=document.createElement('div'); div.className='rota-item';div.innerHTML='<div style="display:flex;justify-content:space-between;"><b>🚚 '+veic.replace(/_/g,' ')+'</b><span style="color:#2dd4ff;font-weight:800;">'+(rota.distanciaMetros/1000).toFixed(1)+'km</span></div><div>📍 '+(rota.destino?rota.destino.slice(0,40):"")+'</div>';div.addEventListener('click',function(){ if(rota.geometria){ try{ map.fitBounds(L.latLngBounds(rota.geometria),{padding:[50,50]}); }catch(e){} rotasPlanejadasAtivas[veic].openPopup(); } });lista.appendChild(div);});});}
+
+var rotaAtivaDetalhada=null;
+var veiculoRotaAtiva=null;
+var marcadoresRota={inicio:null,fim:null,veiculo:null};
+var camadaRotaRestante=L.layerGroup().addTo(map);
+var camadaRotaPercorrida=L.layerGroup().addTo(map);
+
+function calcularDistanciaRestante(posAtual, geometria){
+    if(!posAtual || !geometria || geometria.length<2) return {restante:0,percorrida:0,indice:0,progresso:0};
+    var menorDist=Infinity, indiceMaisProx=0;
+    for(var i=0;i<geometria.length;i++){
+        var d=calcularDistanciaMetros(posAtual.lat||posAtual[0], posAtual.lon||posAtual[1], geometria[i][0], geometria[i][1]);
+        if(d<menorDist){menorDist=d; indiceMaisProx=i;}
+    }
+    var percorrida=0;
+    for(var j=1;j<=indiceMaisProx;j++){
+        percorrida+=calcularDistanciaMetros(geometria[j-1][0],geometria[j-1][1], geometria[j][0],geometria[j][1]);
+    }
+    var total=0;
+    for(var k=1;k<geometria.length;k++){
+        total+=calcularDistanciaMetros(geometria[k-1][0],geometria[k-1][1], geometria[k][0],geometria[k][1]);
+    }
+    var restante=Math.max(0,total-percorrida);
+    var progresso=total>0?(percorrida/total)*100:0;
+    return {restante:restante,percorrida:percorrida,total:total,indice:indiceMaisProx,progresso:progresso};
+}
+
+function formatarDistanciaWaze(metros){
+    if(metros<1000) return Math.round(metros)+" m";
+    return (metros/1000).toFixed(1)+" km";
+}
+
+function formatarTempoWaze(segundos){
+    if(!segundos||segundos<0) return "-";
+    var h=Math.floor(segundos/3600);
+    var m=Math.floor((segundos%3600)/60);
+    if(h>0) return h+"h "+m+"min";
+    return m+" min";
+}
+
+function mostrarAcompanhamentoWaze(veiculo, rota, posAtual){
+    rotaAtivaDetalhada=rota;
+    veiculoRotaAtiva=veiculo;
+    var box=document.getElementById('boxWazeAcompanhamento');
+    box.style.display='block';
+    
+    var destino=rota.destino||rota.endereco||"Destino";
+    document.getElementById('wazeDestino').textContent="📍 "+destino;
+    document.getElementById('wazeOrigem').textContent="🚚 "+veiculo.replace(/_/g,' ')+" • Origem: "+(rota.origem||"Atual");
+    
+    var totalMetros=rota.distanciaMetros||0;
+    if(!totalMetros && rota.geometria){
+        totalMetros=0;
+        for(var i=1;i<rota.geometria.length;i++){
+            totalMetros+=calcularDistanciaMetros(rota.geometria[i-1][0],rota.geometria[i-1][1], rota.geometria[i][0],rota.geometria[i][1]);
+        }
+    }
+    document.getElementById('wazeDistTotal').textContent=formatarDistanciaWaze(totalMetros);
+    
+    var tempoTotalSeg=rota.duracaoSegundos||rota.tempoSegundos||0;
+    if(!tempoTotalSeg && totalMetros>0){
+        tempoTotalSeg=Math.round((totalMetros/1000)/40*3600); // 40km/h média
+    }
+    document.getElementById('wazeTempoTotal').textContent="Tempo total estimado: "+formatarTempoWaze(tempoTotalSeg);
+    
+    // Calcula restante baseado na posição atual
+    var calc=calcularDistanciaRestante(posAtual||{lat:rota.geometria[0][0],lon:rota.geometria[0][1]}, rota.geometria);
+    document.getElementById('wazeDistRestante').textContent=formatarDistanciaWaze(calc.restante);
+    document.getElementById('wazeDistPercorrida').textContent=formatarDistanciaWaze(calc.percorrida);
+    document.getElementById('wazeProgressoTxt').textContent=Math.round(calc.progresso)+"%";
+    document.getElementById('wazeProgressoBar').style.width=calc.progresso+"%";
+    
+    // Tempo restante proporcional
+    var tempoRestanteSeg=totalMetros>0?Math.round(tempoTotalSeg*(calc.restante/totalMetros)):tempoTotalSeg;
+    document.getElementById('wazeTempoRestante').textContent=formatarTempoWaze(tempoRestanteSeg);
+    
+    // ETA
+    var agora=new Date();
+    var chegada=new Date(agora.getTime()+tempoRestanteSeg*1000);
+    document.getElementById('wazeChegadaHora').textContent=chegada.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('wazeETA').textContent=chegada.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    
+    // Velocidade atual
+    if(posAtual && posAtual.velocidade!=null){
+        document.getElementById('wazeVelocidade').textContent=posAtual.velocidade+" km/h";
+    }
+    
+    // Desenha rota com cores Waze: já percorrido cinza, restante azul
+    camadaRotaRestante.clearLayers();
+    camadaRotaPercorrida.clearLayers();
+    if(marcadoresRota.inicio) map.removeLayer(marcadoresRota.inicio);
+    if(marcadoresRota.fim) map.removeLayer(marcadoresRota.fim);
+    
+    if(rota.geometria && rota.geometria.length>1){
+        var geom=rota.geometria;
+        // Rota restante (azul Waze)
+        var restanteGeom=geom.slice(calc.indice);
+        if(restanteGeom.length>1){
+            L.polyline(restanteGeom,{color:'#2dd4ff',weight:7,opacity:0.9,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaRestante);
+            L.polyline(restanteGeom,{color:'#fff',weight:2,opacity:0.4,dashArray:'12,12',lineCap:'round'}).addTo(camadaRotaRestante);
+        }
+        // Rota percorrida (cinza)
+        var percorridaGeom=geom.slice(0,calc.indice+1);
+        if(percorridaGeom.length>1){
+            L.polyline(percorridaGeom,{color:'#74808f',weight:5,opacity:0.5,lineCap:'round'}).addTo(camadaRotaPercorrida);
+        }
+        // Marcadores início e fim estilo Waze
+        var inicioIcon=L.divIcon({className:'',html:'<div style="background:#00ffa6;color:#000;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);font-size:14px">A</div>',iconSize:[32,32],iconAnchor:[16,16]});
+        var fimIcon=L.divIcon({className:'',html:'<div style="background:#ff5470;color:#fff;width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);font-size:14px"><span style="transform:rotate(45deg)">B</span></div>',iconSize:[36,36],iconAnchor:[8,32]});
+        marcadoresRota.inicio=L.marker([geom[0][0],geom[0][1]],{icon:inicioIcon}).addTo(map).bindPopup('<b>Início</b><br>'+veiculo.replace(/_/g,' '));
+        marcadoresRota.fim=L.marker([geom[geom.length-1][0],geom[geom.length-1][1]],{icon:fimIcon}).addTo(map).bindPopup('<b>Destino</b><br>'+destino);
+    }
+    
+    // Centraliza na rota se for a primeira vez
+    if(!window.wazeJaCentralizou){
+        try{
+            map.fitBounds(L.latLngBounds(rota.geometria),{padding:[60,60],maxZoom:17});
+            window.wazeJaCentralizou=true;
+        }catch(e){}
+    }
+}
+
+function limparAcompanhamentoWaze(){
+    document.getElementById('boxWazeAcompanhamento').style.display='none';
+    camadaRotaRestante.clearLayers();
+    camadaRotaPercorrida.clearLayers();
+    if(marcadoresRota.inicio) map.removeLayer(marcadoresRota.inicio);
+    if(marcadoresRota.fim) map.removeLayer(marcadoresRota.fim);
+    marcadoresRota={inicio:null,fim:null,veiculo:null};
+    rotaAtivaDetalhada=null;
+    veiculoRotaAtiva=null;
+    window.wazeJaCentralizou=false;
+}
+
+function desenharRotaPlanejada(veiculo, rota){
+    if(!rota || !rota.geometria || rota.geometria.length<2) return;
+    if(rotasPlanejadasAtivas[veiculo]){
+        try{camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]);}catch(e){}
+    }
+    var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);
+    poly.bindPopup('<div style="font-weight:bold;">🧭 Rota - '+veiculo.replace(/_/g,' ')+'</div><div>'+(rota.destino||'')+'</div><div style="font-size:0.8em;color:#74808f;margin-top:4px">'+(rota.distanciaMetros? (rota.distanciaMetros/1000).toFixed(1)+' km':'')+'</div><div style="margin-top:6px"><button onclick="ativarWazeDetalhado(\''+veiculo+'\')" style="background:#00ffa6;color:#000;border:none;padding:4px 8px;border-radius:6px;font-weight:800;font-size:0.8em;cursor:pointer">🚗 Ver Waze</button></div>');
+    rotasPlanejadasAtivas[veiculo]=poly;
+    atualizarListaRotasPlanejadas();
+}
+
+function ativarWazeDetalhado(veiculo){
+    db.ref(caminhoVeiculos()+'/'+veiculo).once('value').then(function(snap){
+        var dados=snap.val();
+        if(!dados||!dados.rotaPlanejada) return;
+        var atual=dados.atual||null;
+        mostrarAcompanhamentoWaze(veiculo, dados.rotaPlanejada, atual);
+        // Escuta posição atual para atualizar restante em tempo real
+        if(window.wazeListener) db.ref(caminhoVeiculos()+'/'+veiculo+'/atual').off('value',window.wazeListener);
+        window.wazeListener=db.ref(caminhoVeiculos()+'/'+veiculo+'/atual').on('value',function(s){
+            if(!s.exists()) return;
+            var pos=s.val();
+            if(rotaAtivaDetalhada && veiculoRotaAtiva===veiculo){
+                mostrarAcompanhamentoWaze(veiculo, rotaAtivaDetalhada, pos);
+            }
+        });
+    });
+}
+
+function atualizarListaRotasPlanejadas(){var lista=document.getElementById('listaRotasPlanejadas');var badge=document.getElementById('badgeRotas');var msg=document.getElementById('msgSemRotas');lista.innerHTML="";var keys=Object.keys(rotasPlanejadasAtivas);badge.textContent=keys.length+" rotas";if(keys.length===0){ msg.style.display="block"; return; }msg.style.display="none";keys.forEach(function(veic){db.ref(caminhoVeiculos()+'/'+veic+'/rotaPlanejada').once('value').then(function(snap){var rota=snap.val(); if(!rota) return;var div=document.createElement('div'); div.className='rota-item';div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b>🚚 '+veic.replace(/_/g,' ').slice(0,18)+'</b><span style="color:#2dd4ff;font-weight:800;">'+(rota.distanciaMetros? (rota.distanciaMetros/1000).toFixed(1)+'km':'-')+'</span></div><div style="font-size:0.82em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 '+(rota.destino?rota.destino.slice(0,38):"")+'</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btnWaze" data-veic="'+veic+'" style="flex:1;background:#00ffa6;color:#000;border:none;padding:5px;border-radius:6px;font-weight:800;font-size:0.75em;cursor:pointer">🚗 Acompanhar</button><button class="btnRota" data-veic="'+veic+'" style="flex:1;background:#1a212b;color:#fff;border:1px solid var(--border);padding:5px;border-radius:6px;font-size:0.75em">🗺️ Ver Rota</button></div>';lista.appendChild(div); div.querySelector('.btnWaze').addEventListener('click',function(e){e.stopPropagation(); ativarWazeDetalhado(veic);}); div.querySelector('.btnRota').addEventListener('click',function(e){e.stopPropagation(); if(rota.geometria){ try{ map.fitBounds(L.latLngBounds(rota.geometria),{padding:[60,60]}); }catch(e){} if(rotasPlanejadasAtivas[veic]) rotasPlanejadasAtivas[veic].openPopup(); }});});});}
 function escutarRotasPlanejadas(){db.ref(caminhoVeiculos()).on('value', function(snap){camadaRotasPlanejadas.clearLayers(); rotasPlanejadasAtivas={};if(!snap.exists()){ atualizarListaRotasPlanejadas(); return; }snap.forEach(function(child){var veic=child.key; var dados=child.val();if(dados && dados.rotaPlanejada && dados.rotaPlanejada.geometria){ desenharRotaPlanejada(veic, dados.rotaPlanejada); }});});}
 var sosAtivos={};
 function escutarSOSFamilia(){var caminhosPossiveis=['empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/sos','empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/alertasSOS','empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/familia'];caminhosPossiveis.forEach(function(caminhoBase){db.ref(caminhoBase).on('value', function(snap){if(!snap.exists()) return;snap.forEach(function(child){var val=child.val();if(val && (val.tipo==='SOS' || val.sos===true || val.lat && val.mensagem && val.mensagem.toLowerCase().includes('socorro'))){ processarSOS(child.key, val, caminhoBase); }if(val && typeof val==='object'){ Object.keys(val).forEach(function(k){ var sub=val[k]; if(sub && (sub.tipo==='SOS' || sub.sos===true || sub.lat && sub.sosAtivo)){ processarSOS(child.key+'/'+k, sub, caminhoBase); } }); }});});});db.ref(caminhoVeiculos()).on('child_changed', function(snap){var veic=snap.key; var dados=snap.val();if(dados && (dados.sosAtivo || dados.sos || (dados.atual && dados.atual.sos))){ var sosData=dados.sosAtivo || dados.sos || dados.atual; processarSOS(veic, sosData, 'veiculo'); }});}
@@ -300,6 +490,8 @@ auth.onAuthStateChanged(async function(user){
     }
 });
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
+document.getElementById('btnWazeCentralizar')?.addEventListener('click',function(){if(rotaAtivaDetalhada && rotaAtivaDetalhada.geometria){try{map.fitBounds(L.latLngBounds(rotaAtivaDetalhada.geometria),{padding:[60,60],maxZoom:17});}catch(e){}}});
+document.getElementById('btnWazeLimpar')?.addEventListener('click',function(){limparAcompanhamentoWaze();});
 // Ver detalhes removido
 document.getElementById('btnRenovarAssinatura').addEventListener('click', function(){
     var nome=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.nome?DADOS_EMPRESA_BLOQUEADA.nome:EMPRESA_ID_ADMIN;
