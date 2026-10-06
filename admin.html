@@ -72,7 +72,7 @@ button.renew.bloqueado{background:linear-gradient(135deg,#ff4d6d,#ff7a6d);color:
 .bloqueio-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;max-width:400px;margin:auto;box-sizing:border-box}
 .bloqueio-icon{width:100px;height:100px;border-radius:24px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 0 40px rgba(255,77,109,.5);margin:0 auto 16px auto}
 .bloqueio-title{font-size:1.35em;font-weight:900;letter-spacing:3px;margin-bottom:20px;color:#fff;text-align:center;width:100%}
-.bloqueio-card{background:#15101c;border:1px solid rgba(255,77,109,.25);border-radius:20px;padding:18px 14px;width:100%;max-width:100%;box-sizing:border-box;text-align:center}
+.bloqueio-card{background:#15101c;border:1px solid rgba(255,77,109,.25);border-radius:22px;padding:22px 18px;width:100%;max-width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .bloqueio-info-grid{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;margin-top:12px;text-align:left;width:100%;box-sizing:border-box}
 .bloqueio-info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:0.82em;gap:8px}
 .bloqueio-info-row:last-child{border:none}
@@ -92,7 +92,7 @@ button.renew.bloqueado{background:linear-gradient(135deg,#ff4d6d,#ff7a6d);color:
 <div style="font-size:38px">🚫</div>
 <h3 id="bloqueioTitulo" style="color:#ff5a79;margin:8px 0 4px 0;font-size:1.2em">Acesso suspenso</h3>
 <p id="bloqueioMensagem" style="color:#7c8aa0;font-size:0.84em;line-height:1.3;margin:0">Entre em contato com o suporte para regularizar o pagamento.</p>
-<div id="bloqueioAssinaturaInfo" class="bloqueio-info-grid"></div>
+<div id="bloqueioAssinaturaInfo" style="display:none"></div>
 <div id="bloqueioDetalhes" style="margin-top:8px;font-size:0.75em;color:#4a5568"></div>
 <div class="pagamento-box">
 <div style="font-weight:800;font-size:0.82em;color:#eef2f6;margin-bottom:8px;text-align:center">💳 Renovar Assinatura</div>
@@ -122,13 +122,13 @@ button.renew.bloqueado{background:linear-gradient(135deg,#ff4d6d,#ff7a6d);color:
 <span id="badgeTipoPlano" class="badge-tipo combo">COMBO</span>
 </div>
 <div class="kpi-grid" style="margin-bottom:10px">
-<div class="kpi" style="background:rgba(0,0,0,.2)"><small>Dias Restantes</small><b id="kpiDiasRestantes" style="font-size:1.3em">-</b></div>
+<div class="kpi" style="background:rgba(0,0,0,.2)"><small>Tempo Restante</small><b id="kpiDiasRestantes" style="font-size:1.3em">-</b></div>
 <div class="kpi" style="background:rgba(0,0,0,.2)"><small>Vencimento</small><b id="kpiVencimento" style="font-size:0.9em">-</b></div>
 </div>
 <div id="listaInfoAssinatura" style="font-size:0.82em"></div>
 <div id="barraProgressoAssinatura" style="height:6px;background:rgba(255,255,255,.08);border-radius:10px;margin:10px 0;overflow:hidden;display:none"><div id="progressoAssinatura" style="height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4ff);width:50%;border-radius:10px"></div></div>
 <button id="btnRenovarAssinatura" class="renew" style="display:none">💳 Renovar Assinatura</button>
-<button id="btnVerDetalhesAssinatura" class="sec" style="font-size:0.8em;margin-top:6px">Ver detalhes</button>
+<!-- Ver detalhes removido -->
 </div>
 <div class="box"><div class="box-title">Veículo</div><select id="selectVeiculo"><option>Aguardando...</option></select><button id="btnVerTodos" class="sec">Ver todos</button></div>
 <div class="box" id="boxSOS" style="display:none"><div class="box-title">🚨 SOS FAMÍLIA <span id="badgeSOS" style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;">0</span></div><div id="listaSOS" style="max-height:140px;overflow-y:auto;"></div></div>
@@ -162,7 +162,7 @@ var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup();
 var camadaRotasPlanejadas=L.layerGroup().addTo(map);
 var camadaSOS=L.layerGroup().addTo(map);
-var DADOS_EMPRESA_BLOQUEADA=null;var EMPRESA_ID_ADMIN=null;
+var DADOS_EMPRESA_BLOQUEADA=null;var EMPRESA_ID_ADMIN=null;var EXPIRACAO_TIMESTAMP=null;var INTERVAL_CONTADOR=null;
 var PIX_PAYLOAD="00020126360014br.gov.bcb.pix0114+55519858032435204000053039865802BR5911EVERTON GPS6012SAO LEOPOLDO62070503***630405B0";
 
 function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
@@ -170,6 +170,8 @@ function parseDataHora(d,h){if(!d||!h) return null;var m1=/^(\d{2})\/(\d{2})\/(\
 function getTimestampDoPonto(p){if(p.timestamp) return p.timestamp;if(p.ts) return p.ts;var ts=parseDataHora(p.data,p.hora);if(ts) return ts;if(p.id && /^\d{13}/.test(p.id)){var m=p.id.match(/^(\d{13})/); if(m) return parseInt(m[1]);}return null;}
 function formatarDuracao(ms){if(!ms||ms<0)ms=0;var s=Math.floor(ms/1000);var h=Math.floor(s/3600);var m=Math.floor((s%3600)/60);if(h>0)return h+"h "+String(m).padStart(2,'0')+"m";return m+"min "+String(s%60).padStart(2,'0')+"s";}
 function formatarDuracaoCurta(ms){if(!ms||ms<1000)return"0s";var s=Math.floor(ms/1000);if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"min";var h=Math.floor(m/60);return h+"h "+m%60+"min";}
+function formatarTempoRestanteDetalhado(ms){if(ms<=0) return "VENCIDO";var totalSeg=Math.floor(ms/1000);var dias=Math.floor(totalSeg/86400);var horas=Math.floor((totalSeg%86400)/3600);var minutos=Math.floor((totalSeg%3600)/60);var segundos=totalSeg%60;if(dias>0){return dias+"d "+horas+"h "+minutos+"m "+segundos+"s";}if(horas>0){return horas+"h "+minutos+"m "+segundos+"s";}if(minutos>0){return minutos+"m "+segundos+"s";}return segundos+"s";}
+function atualizarContadorDetalhado(){if(!EXPIRACAO_TIMESTAMP) return;var agora=Date.now();var diff=EXPIRACAO_TIMESTAMP-agora;var kpi=document.getElementById("kpiDiasRestantes");var btn=document.getElementById("btnRenovarAssinatura");var badge=document.getElementById("badgeStatusAssinatura");var box=document.getElementById("boxAssinatura");if(diff<=0){kpi.textContent="VENCIDO";kpi.style.color="#ff5470";if(btn){btn.textContent="💳 Renovar Agora";btn.style.display="block";btn.className="renew bloqueado";}if(badge){badge.textContent="Vencido";badge.className="badge badge-status-bloqueado";}if(box) box.className="box box-assinatura bloqueada";clearInterval(INTERVAL_CONTADOR);return;}var texto=formatarTempoRestanteDetalhado(diff);kpi.textContent=texto;kpi.style.fontSize="0.78em";var dias=diff/(1000*60*60*24);if(dias<=1){kpi.style.color="#ff7a45";if(btn){btn.textContent="⚠️ Renovar - "+texto;btn.style.display="block";btn.className="renew vencendo";}if(badge){badge.textContent=texto;badge.className="badge badge-status-vencendo";}if(box) box.className="box box-assinatura vencendo";} else if(dias<=3){kpi.style.color="#ffb020";if(btn){btn.textContent="⚠️ Renovar - "+texto;btn.style.display="block";btn.className="renew vencendo";}} else {kpi.style.color="#00ffa6";if(btn) btn.style.display="none";}}
 function isParado(ponto,anterior){if(!ponto)return false;if((ponto.velocidade||0)>4)return false;if(!anterior)return(ponto.velocidade||0)<=2;var dist=calcularDistanciaMetros(anterior.lat,anterior.lon,ponto.lat,ponto.lon);var dt=getTimestampDoPonto(ponto)-getTimestampDoPonto(anterior);if(dt<0)dt=0;if(dist<20&&dt<=180000)return true;if(dist<30&&(ponto.velocidade||0)<=3)return true;return false;}
 function statusRealDoPonto(ponto,pontoAnterior){if(!pontoAnterior)return(ponto.velocidade||0)>3?"EM MOVIMENTO":"PARADO";var dist=calcularDistanciaMetros(pontoAnterior.lat,pontoAnterior.lon,ponto.lat,ponto.lon);var t1=getTimestampDoPonto(pontoAnterior),t2=getTimestampDoPonto(ponto);var dt=(t1&&t2)?(t2-t1)/1000:0;if(dt>0&&dt<180){if(dist>15)return"EM MOVIMENTO";if(dist/dt*3.6>4)return"EM MOVIMENTO";}if((ponto.velocidade||0)>4)return"EM MOVIMENTO";return"PARADO";}
 function separarViagens(pontos){if(pontos.length<2) return [pontos];var viagens=[]; var atual=[pontos[0]];for(var i=1;i<pontos.length;i++){var ant=pontos[i-1], cur=pontos[i];var tAnt=getTimestampDoPonto(ant), tCur=getTimestampDoPonto(cur);var dt=(tAnt&&tCur)?tCur-tAnt:0;var d=calcularDistanciaMetros(ant.lat,ant.lon,cur.lat,cur.lon);if(dt>120*1000 || d>250){ if(atual.length>0) viagens.push(atual); atual=[cur]; }else atual.push(cur);}if(atual.length>0) viagens.push(atual);return viagens;}
@@ -177,11 +179,8 @@ function renderizarPainelAssinatura(dados){
     DADOS_EMPRESA_BLOQUEADA=dados;
     var nomeEl=document.getElementById('nomeEmpresaAssinatura');
     var badgeTipo=document.getElementById('badgeTipoPlano');
-    var badgeStatus=document.getElementById('badgeStatusAssinatura');
-    var kpiDias=document.getElementById('kpiDiasRestantes');
     var kpiVenc=document.getElementById('kpiVencimento');
     var listaInfo=document.getElementById('listaInfoAssinatura');
-    var btnRenovar=document.getElementById('btnRenovarAssinatura');
     var barra=document.getElementById('barraProgressoAssinatura');
     var progresso=document.getElementById('progressoAssinatura');
     var nome=dados.nome||EMPRESA_ID_ADMIN.replace(/_/g,' ');
@@ -190,22 +189,28 @@ function renderizarPainelAssinatura(dados){
     badgeTipo.textContent=tipo.toUpperCase();
     badgeTipo.className='badge-tipo '+tipo;
     if(!['combo','frota','familia'].includes(tipo)) badgeTipo.className='badge-tipo combo';
-    var hoje=new Date(); hoje.setHours(0,0,0,0);
-    var dataVenc=null; if(dados.assinaturaExpiraEm) dataVenc=new Date(dados.assinaturaExpiraEm);
-    var box=document.getElementById('boxAssinatura');
-    if(dataVenc && !isNaN(dataVenc.getTime())){
-        var diff=dataVenc - hoje; var dias=Math.ceil(diff/(1000*60*60*24));
-        kpiVenc.textContent=dataVenc.toLocaleDateString('pt-BR');
-        if(dias<0){badgeStatus.textContent='Vencido';badgeStatus.className='badge badge-status-bloqueado';kpiDias.textContent=dias+' dias';kpiDias.style.color='#ff5470';box.className='box box-assinatura bloqueada';btnRenovar.style.display='block';btnRenovar.className='renew bloqueado';btnRenovar.textContent='💳 Renovar Agora';}
-        else if(dias<=5){badgeStatus.textContent=dias+' dias restantes';badgeStatus.className='badge badge-status-vencendo';kpiDias.textContent=dias+' dias';kpiDias.style.color='#ffb020';box.className='box box-assinatura vencendo';btnRenovar.style.display='block';btnRenovar.className='renew vencendo';btnRenovar.textContent='⚠️ Renovar - '+dias+' dias';barra.style.display='block';progresso.style.width=Math.max(10,Math.min(100,(dias/30)*100))+'%';}
-        else{kpiDias.textContent=dias+' dias';kpiDias.style.color='#00ffa6';box.className='box box-assinatura';btnRenovar.style.display='none';barra.style.display='block';progresso.style.width=Math.min(100,(dias/30)*100)+'%';}
+    var dataVenc=null;
+    if(dados.assinaturaExpiraEm){
+        dataVenc=new Date(dados.assinaturaExpiraEm);
+        EXPIRACAO_TIMESTAMP=dataVenc.getTime();
+        kpiVenc.textContent=dataVenc.toLocaleDateString('pt-BR')+" "+dataVenc.toLocaleTimeString('pt-BR').slice(0,5);
+    }
+    if(INTERVAL_CONTADOR) clearInterval(INTERVAL_CONTADOR);
+    atualizarContadorDetalhado();
+    INTERVAL_CONTADOR=setInterval(atualizarContadorDetalhado,1000);
+    if(barra && dataVenc){
+        barra.style.display='block';
+        var diff=EXPIRACAO_TIMESTAMP-Date.now();
+        var dias=diff/(1000*60*60*24);
+        var perc=Math.max(5,Math.min(100,(dias/30)*100));
+        progresso.style.width=perc+'%';
+        if(dias<=1) progresso.style.background='linear-gradient(90deg,#ff5470,#ffb020)';
+        else if(dias<=3) progresso.style.background='linear-gradient(90deg,#ffb020,#ff7a45)';
+        else progresso.style.background='linear-gradient(90deg,#00ffa6,#2dd4ff)';
     }
     var html='';html+='<div class="telemetry-row"><span>📦 Plano</span><b>'+tipo.toUpperCase()+'</b></div>';
     html+='<div class="telemetry-row"><span>📊 Status</span><b>'+(dados.status||'ativo')+'</b></div>';
     if(dados.telefone) html+='<div class="telemetry-row"><span>📞 Telefone</span><b>'+dados.telefone+'</b></div>';
-    if(dados.criadoEm) html+='<div class="telemetry-row"><span>📅 Criado</span><b>'+new Date(dados.criadoEm).toLocaleDateString('pt-BR')+'</b></div>';
-    if(dados.trialExpiraEm) html+='<div class="telemetry-row"><span>🆓 Trial</span><b>'+new Date(dados.trialExpiraEm).toLocaleDateString('pt-BR')+'</b></div>';
-    if(dataVenc) html+='<div class="telemetry-row"><span>💳 Vencimento</span><b>'+dataVenc.toLocaleDateString('pt-BR')+'</b></div>';
     if(dados.veiculos) html+='<div class="telemetry-row"><span>🚚 Veículos</span><b>'+Object.keys(dados.veiculos).length+'</b></div>';
     listaInfo.innerHTML=html;
 }
@@ -228,19 +233,6 @@ async function verificarBloqueioAssinatura(){
 function mostrarBloqueio(titulo, detalhes){
     document.getElementById('bloqueioTitulo').textContent=titulo||"Acesso suspenso";
     document.getElementById('bloqueioDetalhes').textContent=detalhes||"";
-    var infoDiv=document.getElementById('bloqueioAssinaturaInfo');
-    if(DADOS_EMPRESA_BLOQUEADA){
-        var d=DADOS_EMPRESA_BLOQUEADA;
-        var vencStr=d.assinaturaExpiraEm?new Date(d.assinaturaExpiraEm).toLocaleDateString('pt-BR'):'-';
-        var trialStr=d.trialExpiraEm?new Date(d.trialExpiraEm).toLocaleDateString('pt-BR'):'-';
-        var nomeCurto=(d.nome||EMPRESA_ID_ADMIN||'').toString(); if(nomeCurto.length>28) nomeCurto=nomeCurto.slice(0,28)+'…';
-        var html='<div class="bloqueio-info-row"><span>🏢 Empresa</span><b>'+nomeCurto+'</b></div>';
-        html+='<div class="bloqueio-info-row"><span>📦 Plano</span><b>'+(d.tipo||'combo').toUpperCase()+'</b></div>';
-        html+='<div class="bloqueio-info-row"><span>💳 Vencimento</span><b>'+vencStr+'</b></div>';
-        html+='<div class="bloqueio-info-row"><span>🆓 Trial</span><b>'+trialStr+'</b></div>';
-        if(d.telefone) html+='<div class="bloqueio-info-row"><span>📞 Telefone</span><b>'+d.telefone+'</b></div>';
-        infoDiv.innerHTML=html;
-    }
     document.getElementById('overlayBloqueio').style.display='flex';
 }
 function calcularHistoricoViagens(pontos){if(!pontos||pontos.length<2) return [];var viagens=separarViagens(pontos.slice().sort(function(a,b){return(getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0)}));var lista=[];viagens.forEach(function(viagem, idx){if(viagem.length<2) return;var inicio=viagem[0], fim=viagem[viagem.length-1];var tIni=getTimestampDoPonto(inicio), tFim=getTimestampDoPonto(fim);if(!tIni||!tFim) return;var duracao=tFim-tIni;if(duracao<30*1000) return;var distancia=0;var velMax=0;var velSoma=0;var velCount=0;for(var i=1;i<viagem.length;i++){distancia+=calcularDistanciaMetros(viagem[i-1].lat,viagem[i-1].lon,viagem[i].lat,viagem[i].lon);if(viagem[i].velocidade){ velMax=Math.max(velMax,viagem[i].velocidade); velSoma+=viagem[i].velocidade; velCount++; }}var velMedia=velCount>0?Math.round(velSoma/velCount):0;lista.push({id:idx+1,viagem:viagem,inicio:inicio, fim:fim,tIni:tIni, tFim:tFim,duracao:duracao,distancia:distancia,velMax:velMax,velMedia:velMedia,ruaInicio:inicio.rua||"—",ruaFim:fim.rua||"—"});});return lista;}
@@ -282,11 +274,7 @@ auth.onAuthStateChanged(async function(user){
     }
 });
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
-document.getElementById('btnVerDetalhesAssinatura').addEventListener('click', function(){
-    var lista=document.getElementById('listaInfoAssinatura');
-    if(lista.dataset.expandido==='true'){ renderizarPainelAssinatura(DADOS_EMPRESA_BLOQUEADA); lista.dataset.expandido='false'; this.textContent='Ver detalhes';}
-    else{ lista.innerHTML='<div style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,.3);padding:8px;border-radius:8px;font-family:monospace;font-size:0.7em;white-space:pre-wrap;word-break:break-all;">'+JSON.stringify(DADOS_EMPRESA_BLOQUEADA,null,2)+'</div>'; lista.dataset.expandido='true'; this.textContent='Recolher';}
-});
+// Ver detalhes removido
 document.getElementById('btnRenovarAssinatura').addEventListener('click', function(){
     var nome=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.nome?DADOS_EMPRESA_BLOQUEADA.nome:EMPRESA_ID_ADMIN;
     var tipo=DADOS_EMPRESA_BLOQUEADA&&DADOS_EMPRESA_BLOQUEADA.tipo?DADOS_EMPRESA_BLOQUEADA.tipo:'combo';
