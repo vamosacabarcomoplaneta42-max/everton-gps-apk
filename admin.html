@@ -58,26 +58,29 @@ button.sec{background:#1a212b;color:var(--text);border:1px solid var(--border)}
 .tab.ativa{background:var(--telemetry);color:#000;border-color:var(--telemetry)}
 .auth-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000}
 .auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:360px;display:flex;flex-direction:column;gap:14px}
-/* BLOQUEIO */
-.bloqueio-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0c14;z-index:20000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
-.bloqueio-icon{width:120px;height:120px;border-radius:28px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 0 40px rgba(255,77,109,.4);margin-bottom:24px}
-.bloqueio-title{font-size:1.4em;font-weight:800;letter-spacing:2px;margin-bottom:32px;color:#fff}
-.bloqueio-card{background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.25);border-radius:20px;padding:28px 24px;max-width:360px;width:100%}
+/* BLOQUEIO - CENTRALIZADO IGUAL APP */
+.bloqueio-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#080a12;z-index:20000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;overflow-y:auto}
+.bloqueio-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;width:100%;max-width:400px;margin:0 auto}
+.bloqueio-icon{width:120px;height:120px;border-radius:28px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 0 50px rgba(255,77,109,.5),0 0 0 1px rgba(255,77,109,.2);margin:0 auto 24px auto}
+.bloqueio-title{font-size:1.5em;font-weight:900;letter-spacing:3px;margin-bottom:32px;color:#fff;text-align:center;width:100%}
+.bloqueio-card{background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:24px;padding:32px 24px;max-width:380px;width:100%;margin:0 auto;text-align:center;backdrop-filter:blur(10px)}
 @media(max-width:768px){body{flex-direction:column-reverse}.sidebar{width:100%;height:64vh}#map{height:36vh}}
 </style>
 </head>
 <body>
 
 <div id="overlayBloqueio" class="bloqueio-overlay">
+<div class="bloqueio-wrapper">
 <div class="bloqueio-icon">📡</div>
 <div class="bloqueio-title">EVERTON GPS</div>
 <div class="bloqueio-card">
 <div style="font-size:48px">🚫</div>
-<h3 id="bloqueioTitulo" style="color:#ff5a79;margin:8px 0">Acesso suspenso</h3>
+<h3 id="bloqueioTitulo" style="color:#ff5a79;margin:12px 0 8px 0;font-size:1.3em">Acesso suspenso</h3>
 <p id="bloqueioMensagem" style="color:#7c8aa0;font-size:0.92em;line-height:1.5">Entre em contato com o suporte para regularizar o pagamento.</p>
 <div id="bloqueioDetalhes" style="margin-top:14px;font-size:0.8em;color:#4a5568"></div>
-<button onclick="window.open('https://wa.me/5551985803243','_blank')" style="margin-top:20px;background:#ff4d6d;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;width:100%">Falar com Suporte</button>
-<button onclick="auth.signOut()" style="margin-top:10px;background:transparent;color:#7c8aa0;border:1px solid rgba(255,255,255,.1);padding:10px;border-radius:10px;width:100%">Sair</button>
+<button id="btnWhatsappSuporte" style="margin-top:22px;background:#ff4d6d;color:#fff;border:none;padding:14px;border-radius:12px;font-weight:800;width:100%;font-size:0.95em;cursor:pointer">💬 Falar com Suporte no WhatsApp</button>
+<button onclick="auth.signOut()" style="margin-top:10px;background:transparent;color:#7c8aa0;border:1px solid rgba(255,255,255,.12);padding:10px;border-radius:10px;width:100%">Sair</button>
+</div>
 </div>
 </div>
 
@@ -207,6 +210,7 @@ async function verificarBloqueioAssinatura(){
         }
         
         if(bloqueado){
+            DADOS_EMPRESA_BLOQUEADA=dados;
             mostrarBloqueio(motivo, detalhe);
             return true;
         }
@@ -217,8 +221,13 @@ function mostrarBloqueio(titulo, detalhes){
     document.getElementById('bloqueioTitulo').textContent=titulo||"Acesso suspenso";
     document.getElementById('bloqueioDetalhes').textContent=detalhes||"";
     document.getElementById('overlayBloqueio').style.display='flex';
-    document.querySelector('.sidebar').style.display='none';
-    document.getElementById('map').style.display='none';
+    // Garante centralização total
+    document.getElementById('overlayBloqueio').style.alignItems='center';
+    document.getElementById('overlayBloqueio').style.justifyContent='center';
+    var sidebar=document.querySelector('.sidebar');
+    if(sidebar) sidebar.style.display='none';
+    var mapa=document.getElementById('map');
+    if(mapa) mapa.style.display='none';
 }
 
 function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
@@ -250,6 +259,8 @@ function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
 function caminhoVeiculos(){return'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
 document.getElementById('filtroData').value=new Date().toISOString().slice(0,10);
 document.getElementById('btnEntrarPainel').addEventListener('click',function(){var e=document.getElementById('authEmail').value.trim(),s=document.getElementById('authSenha').value;var erro=document.getElementById('erroLogin');if(!e||!s)return alert("Preencha");erro.style.display="none";auth.signInWithEmailAndPassword(e,s).catch(function(){erro.textContent="Acesso negado";erro.style.display="block";});});
+var DADOS_EMPRESA_BLOQUEADA=null;
+
 auth.onAuthStateChanged(async function(user){
     if(user){
         document.getElementById('authOverlay').style.display="none";
@@ -267,6 +278,20 @@ auth.onAuthStateChanged(async function(user){
         document.querySelector('.sidebar').style.display='flex';
         document.getElementById('map').style.display='block';
     }
+});
+
+// BOTÃO WHATSAPP COM MENSAGEM PRONTA
+document.getElementById('btnWhatsappSuporte').addEventListener('click', function(){
+    var empresa = EMPRESA_ID_ADMIN ? EMPRESA_ID_ADMIN.replace(/_/g,' ') : 'minha empresa';
+    var nomeEmpresa = DADOS_EMPRESA_BLOQUEADA && DADOS_EMPRESA_BLOQUEADA.nome ? DADOS_EMPRESA_BLOQUEADA.nome : empresa;
+    var venc = '';
+    if(DADOS_EMPRESA_BLOQUEADA){
+        if(DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm) venc = ' Venceu em ' + new Date(DADOS_EMPRESA_BLOQUEADA.assinaturaExpiraEm).toLocaleDateString('pt-BR');
+        else if(DADOS_EMPRESA_BLOQUEADA.trialExpiraEm) venc = ' Teste venceu em ' + new Date(DADOS_EMPRESA_BLOQUEADA.trialExpiraEm).toLocaleDateString('pt-BR');
+    }
+    var mensagem = `Olá, sou da empresa *${nomeEmpresa}* (${EMPRESA_ID_ADMIN}).\n\nMeu acesso ao *Admin Everton GPS* foi suspenso. 🚫${venc}\n\nPoderia verificar meu pagamento/assinatura e liberar meu acesso novamente?\n\nObrigado!`;
+    var url = 'https://wa.me/5551985803243?text=' + encodeURIComponent(mensagem);
+    window.open(url, '_blank');
 });
 document.getElementById('btnSair').addEventListener('click',function(){auth.signOut();});
 function inicializarEscutaBanco(){db.ref(caminhoVeiculos()).on('value',function(snap){var sel=document.getElementById('selectVeiculo'),ant=sel.value;sel.innerHTML='<option value="">-- Escolha --</option>';if(snap.exists()){snap.forEach(function(ch){var o=document.createElement('option');o.value=ch.key;o.textContent=ch.key.replace(/_/g,' ');sel.appendChild(o);});if(ant)sel.value=ant;}});}
