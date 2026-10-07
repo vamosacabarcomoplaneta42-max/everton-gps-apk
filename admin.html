@@ -301,6 +301,109 @@ var camadaRotaAtual=L.layerGroup().addTo(map);
 var camadaTodos=L.layerGroup();
 var camadaRotasPlanejadas=L.layerGroup().addTo(map);
 var camadaSOS=L.layerGroup().addTo(map);
+
+var sosAtivos={};
+function escutarSOSFamilia(){
+    var caminhos=[
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/sos',
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/alertasSOS',
+        'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/familia'
+    ];
+    caminhos.forEach(function(caminhoBase){
+        db.ref(caminhoBase).on('value', function(snap){
+            if(!snap.exists()) return;
+            snap.forEach(function(child){
+                var val=child.val();
+                if(val && val.lat && val.lon){
+                    if(val.tipo==='SOS' || val.sos===true || val.sosAtivo || (val.mensagem && String(val.mensagem).toLowerCase().indexOf('socorro')>=0)){
+                        processarSOS(child.key, val, caminhoBase);
+                    }
+                }
+                if(val && typeof val==='object'){
+                    Object.keys(val).forEach(function(k){
+                        var sub=val[k];
+                        if(sub && sub.lat && sub.lon && (sub.tipo==='SOS' || sub.sos===true || sub.sosAtivo)){
+                            processarSOS(child.key+'/'+k, sub, caminhoBase);
+                        }
+                    });
+                }
+            });
+        });
+    });
+    db.ref(caminhoVeiculos()).on('child_changed', function(snap){
+        var veic=snap.key; var dados=snap.val();
+        if(dados && (dados.sosAtivo || dados.sos || (dados.atual && dados.atual.sos))){
+            var sosData=dados.sosAtivo || dados.sos || dados.atual;
+            if(sosData && sosData.lat) processarSOS(veic, sosData, 'veiculo');
+        }
+    });
+    db.ref(caminhoVeiculos()).on('child_added', function(snap){
+        var veic=snap.key; var dados=snap.val();
+        if(dados && (dados.sosAtivo || dados.sos)){
+            var d=dados.sosAtivo||dados.sos;
+            if(d && d.lat) processarSOS(veic, d, 'veiculo');
+        }
+    });
+}
+function processarSOS(id, dados, origem){
+    if(!dados || !dados.lat || !dados.lon) return;
+    var ja=sosAtivos[id];
+    if(ja && ja.timestamp && dados.timestamp && ja.timestamp===dados.timestamp) return;
+    sosAtivos[id]=dados;
+    var icon=L.divIcon({className:'',html:'<div style="background:#ff5470;color:#fff;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.6);animation:piscar 0.6s infinite alternate;font-size:22px">🆘</div>',iconSize:[42,42],iconAnchor:[21,21]});
+    L.marker([dados.lat,dados.lon],{icon:icon}).addTo(camadaSOS).bindPopup('<div style="font-weight:bold;color:#ff5470;font-size:1.1em">🚨 SOS - '+(id.replace(/_/g,' ')).slice(0,25)+'</div><div style="margin-top:4px">'+(dados.mensagem||"Socorro!")+'</div><div style="font-size:0.82em;color:#74808f;margin-top:6px">📍 '+(dados.rua||dados.lat.toFixed(5))+'</div><div style="font-size:0.75em;color:#74808f">'+(dados.data||'')+' '+(dados.hora||'')+'</div>');
+    try{ document.getElementById('audioSOS').play(); }catch(e){}
+    try{ if(navigator.vibrate) navigator.vibrate([400,150,400]); }catch(e){}
+    var box=document.getElementById('boxSOS'); if(box) box.style.display='block';
+    atualizarListaSOS();
+    try{
+        if(Notification && Notification.permission==='granted'){
+            new Notification('🚨 SOS - '+id.replace(/_/g,' '), {body: dados.mensagem||'Socorro acionado!'});
+        } else if(Notification && Notification.permission!=='denied'){
+            Notification.requestPermission();
+        }
+    }catch(e){}
+}
+function atualizarListaSOS(){
+    var lista=document.getElementById('listaSOS');
+    var badge=document.getElementById('badgeSOS');
+    if(!lista || !badge) return;
+    lista.innerHTML="";
+    var keys=Object.keys(sosAtivos);
+    badge.textContent=keys.length;
+    if(keys.length===0){ var b=document.getElementById('boxSOS'); if(b) b.style.display='none'; return; }
+    var box=document.getElementById('boxSOS'); if(box) box.style.display='block';
+    keys.slice().reverse().forEach(function(id){
+        var dados=sosAtivos[id];
+        var div=document.createElement('div');
+        div.className='sos-item';
+        div.innerHTML='<div style="display:flex;justify-content:space-between"><b>🚨 '+id.replace(/_/g,' ').slice(0,20)+'</b><span style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;font-size:0.7em">AGORA</span></div><div>'+(dados.mensagem||"SOS!")+'</div><div style="color:#ff8fa3;font-size:0.82em">📍 '+(dados.rua||dados.lat.toFixed(4))+'</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btnVerSOS" data-lat="'+dados.lat+'" data-lon="'+dados.lon+'" style="flex:1;background:#ff5470;color:#fff;border:none;padding:6px;border-radius:6px;font-weight:800">📍 Ver</button><button class="btnAtenderSOS" data-id="'+id+'" style="flex:1;background:#1a212b;color:#fff;border:1px solid rgba(255,255,255,.1);padding:6px;border-radius:6px">✓ Atendido</button></div>';
+        lista.appendChild(div);
+        div.querySelector('.btnVerSOS').addEventListener('click', function(){
+            map.setView([parseFloat(this.getAttribute('data-lat')), parseFloat(this.getAttribute('data-lon'))],18);
+        });
+        div.querySelector('.btnAtenderSOS').addEventListener('click', function(){
+            var sid=this.getAttribute('data-id');
+            if(confirm('Marcar '+sid+' como atendido?')){
+                delete sosAtivos[sid];
+                camadaSOS.clearLayers();
+                Object.keys(sosAtivos).forEach(function(k){
+                    var d=sosAtivos[k];
+                    var ic=L.divIcon({className:'',html:'<div style="background:#ff5470;color:#fff;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;font-size:22px">🆘</div>',iconSize:[42,42],iconAnchor:[21,21]});
+                    L.marker([d.lat,d.lon],{icon:ic}).addTo(camadaSOS);
+                });
+                atualizarListaSOS();
+                try{
+                    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/sos/'+sid).remove();
+                    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/alertasSOS/'+sid).remove();
+                    db.ref(caminhoVeiculos()+'/'+sid+'/sosAtivo').remove();
+                    db.ref(caminhoVeiculos()+'/'+sid+'/sos').remove();
+                }catch(e){}
+            }
+        });
+    });
+}
+
 var DADOS_EMPRESA_BLOQUEADA=null;var EMPRESA_ID_ADMIN=null;var EXPIRACAO_TIMESTAMP=null;var INTERVAL_CONTADOR=null;
 var PIX_PAYLOAD="00020126360014br.gov.bcb.pix0114+55519858032435204000053039865802BR5911EVERTON GPS6012SAO LEOPOLDO62070503***630405B0";
 function calcularDistanciaMetros(lat1,lon1,lat2,lon2){var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;var a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
@@ -456,7 +559,7 @@ auth.onAuthStateChanged(async function(user){
         if(!EMPRESA_ID_ADMIN){auth.signOut();return;}
         var bloqueado=await verificarBloqueioAssinatura();
         if(bloqueado) return;
-        inicializarEscutaBanco(); escutarRotasPlanejadas(); carregarLimitesManuais();
+        inicializarEscutaBanco(); escutarRotasPlanejadas(); escutarSOSFamilia(); carregarLimitesManuais();
     }else{
         EMPRESA_ID_ADMIN=null;
         document.getElementById('authOverlay').style.display="flex";
