@@ -95,8 +95,7 @@ button.renew{background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;font-
 <div class="box" style="border:1px solid rgba(0,255,166,.3)"><div class="box-title">📍 Ponto Selecionado <span style="background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;padding:2px 6px;border-radius:6px;font-size:0.68em">CLICÁVEL + WAZE</span></div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade" style="font-size:1.1em">0 km/h</b></div><div class="telemetry-row" style="background:rgba(255,255,255,.05);border-radius:10px;padding:10px;margin:6px 0"><span>🚦 Limite da Via</span><span id="txtLimiteVia" class="limite-badge limite-ok">-- km/h</span></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div><div style="display:flex;gap:6px;margin-top:10px"><button id="btnModoWaze" style="flex:1;background:#1a212b;color:#74808f;border:1px solid rgba(255,255,255,.12);font-weight:800;padding:10px;border-radius:10px">📍 Seguir veículo</button><button id="btnMuteAlerta" class="sec" style="flex:0 0 50px;font-size:1.2em">🔊</button></div><div style="display:flex;gap:6px;margin-top:8px"><button id="btnCorrigirLimiteBox" style="flex:1;background:#1a212b;color:#00ffa6;border:1px solid rgba(0,255,166,.3);font-size:0.8em;padding:9px;border-radius:9px;font-weight:700">✏️ Corrigir limite (salva permanente)</button></div><div style="display:flex;gap:6px;margin-top:6px"><button id="btnVerLimitesSalvos" class="sec" style="font-size:0.72em;padding:7px">📋 Ver limites salvos</button></div><div style="font-size:0.68em;color:var(--text-dim);margin-top:6px;text-align:center">Linha clicável • Seta gira na direção • Limite 30/40/50/60/80/110 • Som se exceder</div></div>
 <button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div></div>
-<div id="map"></div>
-<button id="btnFullscreen" style="position:fixed;top:12px;right:12px;z-index:9999;background:#131820;color:#eef2f6;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:10px;font-weight:800;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer;width:auto;display:flex;align-items:center;gap:6px">⛶ Tela cheia</button><style>.map-fullscreen{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:99998!important;}.sidebar-hidden{display:none!important;}#btnFullscreen.fullscreen-active{top:12px!important;right:12px!important;background:linear-gradient(135deg,#00ffa6,#2dd4ff)!important;color:#000!important;}</style>
+<div id="map"></div><button id="btnFullscreen" style="position:fixed!important;top:12px;right:12px;z-index:100000!important;background:#131820;color:#eef2f6;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:10px;font-weight:800;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer;width:auto;">⛶ Tela cheia</button><style>.map-fullscreen{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:99998!important;}.sidebar-hidden{display:none!important;}#btnFullscreen.fullscreen-active{top:12px!important;right:12px!important;z-index:100001!important;background:linear-gradient(135deg,#00ffa6,#2dd4ff)!important;color:#000!important;box-shadow:0 4px 20px rgba(0,255,166,.5)!important;}</style>
 <audio id="audioSOS" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -655,6 +654,26 @@ document.getElementById('btnModoWaze').addEventListener('click',function(){
   this.textContent= modoWazeAtivo ? '🧭 Modo Waze: ON' : '🧭 Modo Waze: OFF';
   this.style.background= modoWazeAtivo ? 'linear-gradient(135deg,#00ffa6,#059669)' : 'linear-gradient(135deg,#00ffa6,#2dd4ff)';
   if(modoWazeAtivo){ initAudio(); if(ultimoPos) map.setView([ultimoPos.lat,ultimoPos.lon],18); }
+});
+document.getElementById('btnModoWaze').addEventListener('click',function(){
+  seguirVeiculoAtivo=!seguirVeiculoAtivo;
+  if(seguirVeiculoAtivo){
+    this.textContent='📍 Seguindo veículo ✓';
+    this.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';
+    this.style.color='#000';
+    this.style.border='none';
+    initAudio();
+    if(ultimoPos){
+      map.setView([ultimoPos.lat,ultimoPos.lon],18,{animate:true, duration:1});
+      primeiraCentralizacaoFeita=true;
+      posicaoSuavizada={lat:ultimoPos.lat, lon:ultimoPos.lon};
+    }
+  } else {
+    this.textContent='📍 Seguir veículo';
+    this.style.background='#1a212b';
+    this.style.color='#74808f';
+    this.style.border='1px solid rgba(255,255,255,.12)';
+  }
 });
 document.getElementById('btnMuteAlerta').addEventListener('click',function(){
   muteAlerta=!muteAlerta;
