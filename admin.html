@@ -1,9 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
+<head><style>
+@font-face {
+  font-family: "Optimistic";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/OptimisticAI_VF_Optimized.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Optimistic Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/OptimisticMono_W_TextRegular.woff2") format("woff2");
+}
+:where(html) {
+  font-family: "Optimistic", system-ui, sans-serif;
+}
+:where(code, pre, kbd, samp) {
+  font-family: "Optimistic Mono", ui-monospace, monospace;
+}
+</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Everton GPS - Final</title>
+<title>Admin Everton GPS - Final FIX</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <style>
 :root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--signal-on:#00ffa6;--signal-off:#ffb020;--danger:#ff5470;--telemetry:#2dd4ff;--text:#eef2f6;--text-dim:#74808f;color-scheme:dark}
@@ -211,12 +232,20 @@ function salvarLimiteManual(rua,lat,lon,limite){
     try{
       var upd={}; upd[chaveRua]=limite; upd[chaveLoc]=limite; upd[chaveLoc2]=limite;
       db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/limitesManuais').update(upd)
-        .catch(function(e){ console.error(e); alert('Salvo só neste navegador. Erro ao gravar na empresa: '+e.message); });
+        .catch(function(e){ console.error(e); });
     }catch(e){ console.error(e); }
   }
   limiteAtual=limite;
   atualizarLimiteUI(limite);
-  alert('✅ Salvo!\nRua: '+rua+'\nLimite: '+limite+' km/h');
+  // fecha modal e mostra feedback
+  var m=document.getElementById('modalLimite'); if(m) m.remove();
+  map.closePopup();
+  // toast simples
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;padding:12px 18px;border-radius:10px;font-weight:900;z-index:40000;box-shadow:0 4px 20px rgba(0,255,166,.5)';
+  t.textContent='✅ Limite salvo: '+limite+' km/h - '+rua.slice(0,30);
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); },3000);
 }
 function buscarLimiteManual(rua,lat,lon){
   try{
@@ -234,7 +263,7 @@ function buscarLimiteManual(rua,lat,lon){
   return null;
 }
 
-// Modal com botões no lugar de prompt() (prompt é bloqueado no WebView do Capacitor)
+// MODAL CORRIGIDO - SEM onclick inline, funciona no WebView
 function abrirEditorLimiteManual(rua,lat,lon,atual){
   try{
     if((!rua || rua==='-') && ultimoPos && ultimoPos.rua) rua=ultimoPos.rua;
@@ -247,28 +276,37 @@ function abrirEditorLimiteManual(rua,lat,lon,atual){
     var antigo=document.getElementById('modalLimite'); if(antigo) antigo.remove();
     var m=document.createElement('div');
     m.id='modalLimite';
-    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:30000';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:30000;padding:12px;';
     var opcoes=[30,40,50,60,70,80,90,110];
-    m.innerHTML='<div style="background:#131820;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:20px;width:90%;max-width:340px;color:#eef2f6">'+
-      '<h3 style="margin:0 0 6px">✏️ Corrigir limite</h3>'+
-      '<div style="font-size:.85em;color:#74808f;margin-bottom:12px">'+disp+'<br>Atual: '+(atual||'--')+' km/h</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'+
+    var htmlInner='<div id="modalBox" style="background:#131820;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:360px;color:#eef2f6;box-shadow:0 10px 40px rgba(0,0,0,.6)">'+
+      '<h3 style="margin:0 0 6px;font-size:1.1em">✏️ Corrigir limite</h3>'+
+      '<div style="font-size:.85em;color:#74808f;margin-bottom:14px;line-height:1.3"><b style="color:#eef2f6">'+disp+'</b><br>Atual: '+(atual||'--')+' km/h • Lat: '+lat.toFixed(5)+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px" id="gridBotoes">'+
       opcoes.map(function(v){
-        return '<button data-v="'+v+'" style="margin:0;background:#1a212b;color:#eef2f6;border:1px solid rgba(255,255,255,.12)">'+v+'</button>';
+        return '<button class="btnOpcaoLimite" data-v="'+v+'" style="margin:0;background:#1a212b;color:#eef2f6;border:1px solid rgba(255,255,255,.15);padding:14px 4px;border-radius:10px;font-weight:900;font-size:1.05em">'+v+'</button>';
       }).join('')+
-      '</div><button id="modalCancelar" class="sec" style="margin-top:12px">Cancelar</button></div>';
+      '</div><button id="modalCancelar" class="sec" style="margin-top:14px;padding:12px">Cancelar</button></div>';
+    m.innerHTML=htmlInner;
     document.body.appendChild(m);
 
+    // clique no fundo fecha
     m.addEventListener('click',function(e){
-      if(e.target===m || e.target.id==='modalCancelar'){ m.remove(); return; }
-      var v=e.target.getAttribute && e.target.getAttribute('data-v');
-      if(v){
-        m.remove();
-        salvarLimiteManual(rua,lat,lon,parseInt(v,10));
-      }
+      if(e.target===m) m.remove();
+    });
+    document.getElementById('modalCancelar').addEventListener('click',function(){ m.remove(); });
+    // botoes de velocidade - listener direto
+    var botoes=document.querySelectorAll('.btnOpcaoLimite');
+    botoes.forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var v=this.getAttribute('data-v');
+        if(v){
+          salvarLimiteManual(rua,lat,lon,parseInt(v,10));
+        }
+      });
     });
   }catch(err){ alert('Erro: '+err.message); console.error(err); }
 }
+window.abrirEditorLimiteManual = abrirEditorLimiteManual; // expõe global pro popup
 
 async function buscarLimiteViaForcado(lat,lon,callback,silencioso){
   try{
@@ -645,7 +683,8 @@ function mostrarAcompanhamentoWaze(veiculo,rota,posAtual){
   if(rota.geometria && rota.geometria.length>1){
     var geom=rota.geometria;
     var restanteGeom=geom.slice(calc.indice);
-    if(restanteGeom.length>1) L.polyline(restanteGeom,{color:'#2dd4ff',weight:7,opacity:0.9,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaRestante);
+    // LINHA CONTÍNUA NO WAZE TAMBÉM
+    if(restanteGeom.length>1) L.polyline(restanteGeom,{color:'#2dd4ff',weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaRestante);
     var percorridaGeom=geom.slice(0,calc.indice+1);
     if(percorridaGeom.length>1) L.polyline(percorridaGeom,{color:'#74808f',weight:5,opacity:0.5,lineCap:'round'}).addTo(camadaRotaPercorrida);
     var inicioIcon=L.divIcon({className:'',html:'<div style="background:#00ffa6;color:#000;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff">A</div>',iconSize:[32,32],iconAnchor:[16,16]});
@@ -668,8 +707,17 @@ function limparAcompanhamentoWaze(){
 function desenharRotaPlanejada(veiculo,rota){
   if(!rota||!rota.geometria||rota.geometria.length<2) return;
   if(rotasPlanejadasAtivas[veiculo]){ try{ camadaRotasPlanejadas.removeLayer(rotasPlanejadasAtivas[veiculo]); }catch(e){} }
-  var poly=L.polyline(rota.geometria.map(function(p){return [p[0],p[1]]}),{color:'#2dd4ff',weight:5,opacity:0.85,dashArray:'10,12',lineCap:'round'}).addTo(camadaRotasPlanejadas);
-  rotasPlanejadasAtivas[veiculo]=poly;
+  // *** CORREÇÃO PRINCIPAL: LINHA 100% CONTÍNUA, SEM TRACEJADO ***
+  var pontos = rota.geometria.map(function(p){return [p[0],p[1]]});
+  // borda branca para destacar
+  var borda = L.polyline(pontos,{color:'#ffffff',weight:10,opacity:0.9,lineCap:'round',lineJoin:'round'}).addTo(camadaRotasPlanejadas);
+  var linha = L.polyline(pontos,{color:'#2dd4ff',weight:6,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotasPlanejadas);
+  var grupo = L.layerGroup([borda,linha]);
+  // remove borda/linha antigas e add grupo
+  camadaRotasPlanejadas.removeLayer(borda);
+  camadaRotasPlanejadas.removeLayer(linha);
+  grupo.addTo(camadaRotasPlanejadas);
+  rotasPlanejadasAtivas[veiculo]=grupo;
   atualizarListaRotasPlanejadas();
 }
 function atualizarListaRotasPlanejadas(){
@@ -804,7 +852,7 @@ function atualizarListaSOS(){
   });
 }
 
-// ===== LINHA CLICÁVEL =====
+// ===== LINHA CLICÁVEL - CONTÍNUA TAMBÉM =====
 function desenharRotaClicavel(pontos,opcoes){
   opcoes=opcoes||{};
   limparRotaAtual();
@@ -813,9 +861,10 @@ function desenharRotaClicavel(pontos,opcoes){
   if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
   validos.sort(function(a,b){ return (getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0); });
   var viagens=separarViagens(validos);
+  // base cinza contínua
   viagens.forEach(function(vg){
     if(vg.length>1) L.polyline(vg.map(function(q){return [q.lat,q.lon];}),
-      {color:'#74808f',weight:4,opacity:0.7,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+      {color:'#74808f',weight:6,opacity:0.9,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
   });
   if(!opcoes.manterEnquadramento){
     try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){}
@@ -843,7 +892,6 @@ function desenharRotaClicavel(pontos,opcoes){
       var p1=filtrada[i2], p2=filtrada[i2+1];
       var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
 
-      // toque invisível para clicar no trecho e abrir o popup
       (function(pp,anteriorPt,cc){
         var fn=function(e){
           if(e && e.originalEvent) L.DomEvent.stop(e.originalEvent);
@@ -853,10 +901,8 @@ function desenharRotaClicavel(pontos,opcoes){
       })(p2,p1,coords);
 
       if(calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon)>250){
-        // salto grande de GPS: quebra a linha de propósito
         fecharTrecho(); corAtual=null; continue;
       }
-
       var cor=statusRealDoPonto(p2,p1)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
       if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
 
@@ -903,38 +949,51 @@ function mostrarInfoDoPontoRapido(ponto,anterior){
   var limiteParaMostrar=null;
   try{ limiteParaMostrar=buscarLimiteManual(ponto.rua,ponto.lat,ponto.lon)||limiteAtual; }catch(e){ limiteParaMostrar=limiteAtual; }
 
-  buscarLimiteViaForcado(ponto.lat,ponto.lon,function(limEncontrado){
-    limiteAtual=limEncontrado;
-    atualizarLimiteUI(limEncontrado);
-    var popupEl=document.querySelector('.leaflet-popup-content');
-    if(popupEl){
-      var acima=vel>limEncontrado;
-      var cor=acima?'#ff5470':'#00ffa6';
-      var bg=acima?'rgba(255,84,112,.15)':'rgba(0,255,166,.12)';
-      var borda=acima?'rgba(255,84,112,.4)':'rgba(0,255,166,.25)';
-      var htmlUp='<div style="font-weight:bold;font-size:1em">'+(ponto.rua||"Rua")+'</div>'+
-        '<div style="color:#2dd4ff;font-weight:bold;margin-top:4px">'+vel+' km/h - '+sitReal+'</div>'+
-        '<div style="margin-top:8px;background:'+bg+';border:1px solid '+borda+';border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.82em;color:#74808f">🚦 Limite da via</span><span style="font-weight:900;color:'+cor+';font-size:1.2em">'+limEncontrado+' km/h</span></div>'+
-        (acima?'<div style="margin-top:8px;background:#ff5470;color:#fff;padding:8px;border-radius:8px;font-weight:900;text-align:center">⚠️ '+(vel-limEncontrado)+' km/h ACIMA<br><span style="font-size:0.8em">Real: '+limEncontrado+' km/h • Você: '+vel+' km/h</span></div>':'<div style="margin-top:6px;color:#00ffa6;font-size:0.82em;text-align:center">✅ Dentro do limite ('+limEncontrado+' km/h)</div>')+
-        '<div style="font-size:0.82em;color:#74808f;margin-top:8px;">'+(ponto.bairro||"")+'</div>'+
-        '<div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div>'+
-        '<div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div>'+
-        '<div style="margin-top:12px;display:flex;gap:6px"><button onclick="abrirEditorLimiteManual(\''+(ponto.rua||'').replace(/'/g,"\\'")+'\','+ponto.lat+','+ponto.lon+','+limEncontrado+')" style="flex:1;background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;border:none;padding:10px;border-radius:9px;font-weight:900;font-size:0.82em;cursor:pointer">✏️ Corrigir e SALVAR</button></div>';
-      popupEl.innerHTML=htmlUp;
-      verificarExcesso(vel);
-    }
-  });
+  // cria popup com DOM, sem onclick inline
+  var container = document.createElement('div');
+  container.style.minWidth='220px';
+  var ruaSafe = (ponto.rua||"Rua").replace(/</g,'&lt;');
+  container.innerHTML='<div style="font-weight:bold;font-size:1em">'+ruaSafe+'</div><div style="color:#2dd4ff;font-weight:bold;margin-top:4px">'+vel+' km/h - '+sitReal+'</div><div id="limiteAreaPopup"></div><div style="font-size:0.82em;color:#74808f;margin-top:8px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div><div style="margin-top:12px"><button id="btnCorrigirPopup" style="width:100%;background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;border:none;padding:10px;border-radius:9px;font-weight:900;font-size:0.82em;cursor:pointer">✏️ Corrigir limite (salva permanente)</button></div>';
 
   var limiteHtml='';
   if(limiteParaMostrar){
     var acima0=vel>limiteParaMostrar;
     limiteHtml='<div style="margin-top:8px;background:'+(acima0?'rgba(255,84,112,.15)':'rgba(0,255,166,.12)')+';border:1px solid '+(acima0?'rgba(255,84,112,.4)':'rgba(0,255,166,.25)')+';border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.82em;color:#74808f">🚦 Limite da via</span><span style="font-weight:900;color:'+(acima0?'#ff5470':'#00ffa6')+';font-size:1.2em">'+limiteParaMostrar+' km/h</span></div>';
-    if(acima0) limiteHtml+='<div style="margin-top:6px;color:#ff5470;font-weight:800;font-size:0.85em">⚠️ '+(vel-limiteParaMostrar)+' km/h acima • Limite real: '+limiteParaMostrar+' km/h</div>';
   } else {
-    limiteHtml='<div style="margin-top:8px;background:rgba(52,179,255,.1);border:1px solid rgba(52,179,255,.2);border-radius:10px;padding:10px;text-align:center"><span style="font-size:0.82em;color:#2dd4ff">🔍 Buscando limite real (30/40/50/60/80/110)...</span></div>';
+    limiteHtml='<div style="margin-top:8px;background:rgba(52,179,255,.1);border:1px solid rgba(52,179,255,.2);border-radius:10px;padding:10px;text-align:center"><span style="font-size:0.82em;color:#2dd4ff">🔍 Buscando limite real...</span></div>';
   }
-  var htmlPop='<div style="font-weight:bold;font-size:1em">'+(ponto.rua||"Rua")+'</div><div style="color:#2dd4ff;font-weight:bold;margin-top:4px">'+vel+' km/h - '+sitReal+'</div>'+limiteHtml+'<div style="font-size:0.82em;color:#74808f;margin-top:8px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div><div style="margin-top:12px"><button onclick="abrirEditorLimiteManual(\''+(ponto.rua||'').replace(/'/g,"\\'")+'\','+ponto.lat+','+ponto.lon+','+(limiteParaMostrar||50)+')" style="width:100%;background:#1a212b;color:#00ffa6;border:1px solid rgba(0,255,166,.3);padding:10px;border-radius:9px;font-weight:800;font-size:0.82em;cursor:pointer">✏️ Corrigir limite (salva permanente)</button></div>';
-  L.popup({maxWidth:350}).setLatLng([ponto.lat,ponto.lon]).setContent(htmlPop).openOn(map);
+  // injeta limite inicial
+  setTimeout(function(){
+    var area = container.querySelector('#limiteAreaPopup');
+    if(area) area.innerHTML = limiteHtml;
+  },0);
+
+  // botão corrigir
+  setTimeout(function(){
+    var btn = container.querySelector('#btnCorrigirPopup');
+    if(btn){
+      btn.addEventListener('click',function(){
+        abrirEditorLimiteManual(ponto.rua,ponto.lat,ponto.lon,limiteParaMostrar||50);
+      });
+    }
+  },0);
+
+  L.popup({maxWidth:350}).setLatLng([ponto.lat,ponto.lon]).setContent(container).openOn(map);
+
+  // busca limite real e atualiza
+  buscarLimiteViaForcado(ponto.lat,ponto.lon,function(limEncontrado){
+    limiteAtual=limEncontrado;
+    atualizarLimiteUI(limEncontrado);
+    var area = container.querySelector('#limiteAreaPopup');
+    if(!area) return;
+    var acima=vel>limEncontrado;
+    var cor=acima?'#ff5470':'#00ffa6';
+    var bg=acima?'rgba(255,84,112,.15)':'rgba(0,255,166,.12)';
+    var borda=acima?'rgba(255,84,112,.4)':'rgba(0,255,166,.25)';
+    area.innerHTML='<div style="background:'+bg+';border:1px solid '+borda+';border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.82em;color:#74808f">🚦 Limite da via</span><span style="font-weight:900;color:'+cor+';font-size:1.2em">'+limEncontrado+' km/h</span></div>'+
+      (acima?'<div style="margin-top:8px;background:#ff5470;color:#fff;padding:8px;border-radius:8px;font-weight:900;text-align:center">⚠️ '+(vel-limEncontrado)+' km/h ACIMA</div>':'<div style="margin-top:6px;color:#00ffa6;font-size:0.82em;text-align:center">✅ Dentro do limite</div>');
+    verificarExcesso(vel);
+  });
 }
 
 // ===== TEMPO REAL / VEÍCULOS =====
@@ -1209,5 +1268,5 @@ document.addEventListener('keydown',function(e){
 });
 document.addEventListener('click',function(){ initAudio(); },{once:true});
 </script>
-</body>
+<script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
