@@ -813,6 +813,10 @@ function desenharRotaClicavel(pontos,opcoes){
   if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
   validos.sort(function(a,b){ return (getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0); });
   var viagens=separarViagens(validos);
+  viagens.forEach(function(vg){
+    if(vg.length>1) L.polyline(vg.map(function(q){return [q.lat,q.lon];}),
+      {color:'#74808f',weight:4,opacity:0.7,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+  });
   if(!opcoes.manterEnquadramento){
     try{ map.fitBounds(L.polyline(validos.map(function(p){return [p.lat,p.lon]})).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){}
   }
@@ -827,25 +831,43 @@ function desenharRotaClicavel(pontos,opcoes){
       if(ultimo && calcularDistanciaMetros(ultimo.lat,ultimo.lon,p.lat,p.lon)<3) continue;
       filtrada.push(p); ultimo=p;
     }
+    var pontosLinha=[], corAtual=null;
+    function fecharTrecho(){
+      if(pontosLinha.length>1 && corAtual){
+        L.polyline(pontosLinha.map(function(q){return [q.lat,q.lon];}),
+          {color:corAtual,weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
+      }
+      pontosLinha=[];
+    }
     for(var i2=0;i2<filtrada.length-1;i2++){
-      var p1=filtrada[i2],p2=filtrada[i2+1];
-      var d=calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
-      if(d>250) continue;
-      if(statusRealDoPonto(p1,i2>0?filtrada[i2-1]:null)==="PARADO" && statusRealDoPonto(p2,p1)==="PARADO") continue;
-      var cor=statusRealDoPonto(p2,p1)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
-      if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
+      var p1=filtrada[i2], p2=filtrada[i2+1];
       var coords=[[p1.lat,p1.lon],[p2.lat,p2.lon]];
-      var toque=L.polyline(coords,{color:'#000',opacity:0,weight:40}).addTo(camadaRotaAtual);
-      var vis=L.polyline(coords,{color:cor,weight:8,opacity:1,lineCap:'round',lineJoin:'round'}).addTo(camadaRotaAtual);
-      (function(pp,anteriorPt){
+
+      // toque invisível para clicar no trecho e abrir o popup
+      (function(pp,anteriorPt,cc){
         var fn=function(e){
           if(e && e.originalEvent) L.DomEvent.stop(e.originalEvent);
           mostrarInfoDoPontoRapido(pp,anteriorPt);
         };
-        toque.on('click',fn);
-        vis.on('click',fn);
-      })(p2,p1);
+        L.polyline(cc,{color:'#000',opacity:0,weight:40}).addTo(camadaRotaAtual).on('click',fn);
+      })(p2,p1,coords);
+
+      if(calcularDistanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon)>250){
+        // salto grande de GPS: quebra a linha de propósito
+        fecharTrecho(); corAtual=null; continue;
+      }
+
+      var cor=statusRealDoPonto(p2,p1)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
+      if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
+
+      if(cor!==corAtual){
+        fecharTrecho();
+        corAtual=cor;
+        pontosLinha=[p1];
+      }
+      pontosLinha.push(p2);
     }
+    fecharTrecho();
   }
   document.getElementById('statusModo').textContent=viagens.length+" viagem(ns) • "+validos.length+" pontos • CLIQUE NA LINHA";
   renderizarHistoricoCompleto(pontos);
