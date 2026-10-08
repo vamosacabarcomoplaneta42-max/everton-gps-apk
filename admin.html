@@ -92,10 +92,11 @@ button.renew{background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;font-
 <div class="box"><div class="box-title">Histórico Completo</div><input type="date" id="filtroData"><div style="display:flex;gap:6px;margin-top:6px;"><input type="time" id="filtroHoraInicio" value="00:00"><input type="time" id="filtroHoraFim" value="23:59"></div><button id="btnBuscarHistorico">Buscar Histórico</button><button id="btnVoltarTempoReal" style="background:#00ffa6;display:none;">← Tempo Real</button></div>
 <div id="statusModo" class="box" style="text-align:center;font-weight:800;font-size:0.9em;">Aguardando...</div>
 <div class="box" style="border-color:rgba(255,255,255,.15);"><div class="tabs"><div class="tab ativa" id="tabViagens" onclick="mostrarAba('viagens')">🚚 VIAGENS <span id="badgeTabViagens">(0)</span></div><div class="tab" id="tabParadas" onclick="mostrarAba('paradas')">🅿️ PARADAS <span id="badgeTabParadas">(0)</span></div></div><div id="painelViagens"><div class="kpi-grid"><div class="kpi"><small>Viagens</small><b id="kpiTotalViagens">0</b></div><div class="kpi"><small>Distância</small><b id="kpiDistanciaTotal" style="color:#00ffa6">0 km</b></div><div class="kpi"><small>Tempo Mov</small><b id="kpiTempoMovViagens" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Vel Média</small><b id="kpiVelMedia">0 km/h</b></div></div><div id="listaViagens" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div></div><div id="painelParadas" style="display:none;"><div class="kpi-grid"><div class="kpi"><small>Parado</small><b id="kpiTotalParado" style="color:#ffb020">00h 00m</b></div><div class="kpi"><small>Movimento</small><b id="kpiTotalMovimento" style="color:#00ffa6">00h 00m</b></div><div class="kpi"><small>Total</small><b id="kpiTempoTotal">00h 00m</b></div><div class="kpi"><small>Eficiência</small><b id="kpiEficiencia">-</b></div></div><div id="listaParadas" style="max-height:260px;overflow-y:auto;margin-top:8px;"></div></div></div>
-<div class="box" style="border:1px solid rgba(0,255,166,.3)"><div class="box-title">📍 Ponto Selecionado <span style="background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;padding:2px 6px;border-radius:6px;font-size:0.68em">CLICÁVEL + WAZE</span></div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade" style="font-size:1.1em">0 km/h</b></div><div class="telemetry-row" style="background:rgba(255,255,255,.05);border-radius:10px;padding:10px;margin:6px 0"><span>🚦 Limite da Via</span><span id="txtLimiteVia" class="limite-badge limite-ok">-- km/h</span></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div><div style="display:flex;gap:6px;margin-top:10px"><button id="btnModoWaze" style="flex:1;background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;font-weight:900;padding:10px;border-radius:10px">🧭 Modo Waze: OFF</button><button id="btnMuteAlerta" class="sec" style="flex:0 0 50px;font-size:1.2em">🔊</button></div><div style="display:flex;gap:6px;margin-top:8px"><button id="btnCorrigirLimiteBox" style="flex:1;background:#1a212b;color:#00ffa6;border:1px solid rgba(0,255,166,.3);font-size:0.8em;padding:9px;border-radius:9px;font-weight:700">✏️ Corrigir limite (salva permanente)</button></div><div style="display:flex;gap:6px;margin-top:6px"><button id="btnVerLimitesSalvos" class="sec" style="font-size:0.72em;padding:7px">📋 Ver limites salvos</button></div><div style="font-size:0.68em;color:var(--text-dim);margin-top:6px;text-align:center">Linha clicável • Seta gira na direção • Limite 30/40/50/60/80/110 • Som se exceder</div></div>
+<div class="box" style="border:1px solid rgba(0,255,166,.3)"><div class="box-title">📍 Ponto Selecionado <span style="background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;padding:2px 6px;border-radius:6px;font-size:0.68em">CLICÁVEL + WAZE</span></div><div class="telemetry-row"><span>Situação</span><span id="txtStatus" class="badge badge-parado">-</span></div><div class="telemetry-row"><span>Velocidade</span><b id="txtVelocidade" style="font-size:1.1em">0 km/h</b></div><div class="telemetry-row" style="background:rgba(255,255,255,.05);border-radius:10px;padding:10px;margin:6px 0"><span>🚦 Limite da Via</span><span id="txtLimiteVia" class="limite-badge limite-ok">-- km/h</span></div><div class="telemetry-row"><span>Rua</span><b id="txtRua">-</b></div><div class="telemetry-row"><span>Cidade/UF</span><b id="txtCidadeEstado">-</b></div><div class="telemetry-row"><span>Data/Hora</span><b id="txtDataHora">-</b></div><div style="display:flex;gap:6px;margin-top:10px"><button id="btnModoWaze" style="flex:1;background:#1a212b;color:#74808f;border:1px solid rgba(255,255,255,.12);font-weight:800;padding:10px;border-radius:10px">📍 Seguir veículo</button><button id="btnMuteAlerta" class="sec" style="flex:0 0 50px;font-size:1.2em">🔊</button></div><div style="display:flex;gap:6px;margin-top:8px"><button id="btnCorrigirLimiteBox" style="flex:1;background:#1a212b;color:#00ffa6;border:1px solid rgba(0,255,166,.3);font-size:0.8em;padding:9px;border-radius:9px;font-weight:700">✏️ Corrigir limite (salva permanente)</button></div><div style="display:flex;gap:6px;margin-top:6px"><button id="btnVerLimitesSalvos" class="sec" style="font-size:0.72em;padding:7px">📋 Ver limites salvos</button></div><div style="font-size:0.68em;color:var(--text-dim);margin-top:6px;text-align:center">Linha clicável • Seta gira na direção • Limite 30/40/50/60/80/110 • Som se exceder</div></div>
 <button id="btnSair" style="background:#1a212b;color:#ff5470;border:1px solid rgba(255,255,255,.08);">Sair</button>
 </div></div>
 <div id="map"></div>
+<button id="btnFullscreen" style="position:fixed;top:12px;right:12px;z-index:9999;background:#131820;color:#eef2f6;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:10px;font-weight:800;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer;width:auto;display:flex;align-items:center;gap:6px">⛶ Tela cheia</button><style>.map-fullscreen{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:99998!important;}.sidebar-hidden{display:none!important;}#btnFullscreen.fullscreen-active{top:12px!important;right:12px!important;background:linear-gradient(135deg,#00ffa6,#2dd4ff)!important;color:#000!important;}</style>
 <audio id="audioSOS" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -582,6 +583,11 @@ document.getElementById('btnVerTodos').addEventListener('click',function(){if(!E
 function buscarHistoricoComFiltro(cb){var dataF=document.getElementById('filtroData').value;var hI=document.getElementById('filtroHoraInicio').value;var hF=document.getElementById('filtroHoraFim').value;if(!dataF){alert("Selecione data");return;}if(!veiculoSelecionado){alert("Selecione veículo");return;}var partes=dataF.split('-');var ano=+partes[0], mes=+partes[1]-1, dia=+partes[2];var hIpartes=hI.split(':'), hFpartes=hF.split(':');var tsInicio=new Date(ano,mes,dia,+hIpartes[0],+hIpartes[1],0).getTime();var tsFim=new Date(ano,mes,dia,+hFpartes[0],+hFpartes[1],59).getTime();db.ref(caminhoVeiculos()+'/'+veiculoSelecionado+'/historico').once('value',function(snap){var res=[];snap.forEach(function(ch){var p=ch.val();if(!p||p.lat==null) return;var ts=getTimestampDoPonto(p);if(ts && ts>=tsInicio && ts<=tsFim){ res.push(p); }});cb(res);});}
 document.getElementById('btnBuscarHistorico').addEventListener('click',function(){if(!veiculoSelecionado)return alert("Selecione veículo");if(listenerTempoReal&&veiculoComListenerAtivo)db.ref(caminhoVeiculos()+'/'+veiculoComListenerAtivo+'/atual').off('value',listenerTempoReal);listenerTempoReal=null;camadaTodos.clearLayers();document.getElementById('statusModo').innerHTML='🔍 BUSCANDO HISTÓRICO... CLIQUE NA LINHA PARA VER LIMITE';document.getElementById('btnVoltarTempoReal').style.display="block";buscarHistoricoComFiltro(function(res){if(res.length===0){alert("Nenhum registro");return;}atualizarPainelEletrico(res[res.length-1],res.length>1?res[res.length-2]:null);desenharRotaClicavel(res);});});
 document.getElementById('btnVoltarTempoReal').addEventListener('click',function(){ verificarEAtivarTempoReal(); });
+
+var seguirVeiculoAtivo=false; // controla se deve seguir
+var ultimoPanTS=0;
+var posicaoSuavizada=null;
+
 function atualizarPainelEletrico(dados,pontoAnterior,opcoes){
   if(!dados||!dados.lat||!dados.lon)return;
   opcoes=opcoes||{};
@@ -592,11 +598,47 @@ function atualizarPainelEletrico(dados,pontoAnterior,opcoes){
     var dist=calcularDistanciaMetros(ref.lat,ref.lon,dados.lat,dados.lon);
     if(dist>5){ bearing=calcularBearing(ref.lat,ref.lon,dados.lat,dados.lon); ultimoBearing=bearing; }
   }
-  try{ marcadorVeiculo.setIcon(criarIconeVeiculo(bearing, dados.velocidade||0)); marcadorVeiculo.setLatLng(latlng); }catch(e){}
+  try{ 
+    marcadorVeiculo.setIcon(criarIconeVeiculo(bearing, dados.velocidade||0)); 
+    marcadorVeiculo.setLatLng(latlng); 
+  }catch(e){}
+  
+  // LÓGICA SUAVIZADA SEM PULOS
   if(opcoes.seguindoAoVivo){
-    if(!primeiraCentralizacaoFeita){ map.setView(latlng,18,{animate:true}); primeiraCentralizacaoFeita=true; }
-    else { if(!map.getBounds().pad(-0.2).contains(latlng)){ map.panTo(latlng,{animate:true,duration:0.8}); } }
-  } else map.setView(latlng,17);
+    var agora=Date.now();
+    // Só centraliza na primeira vez que seleciona o veículo
+    if(!primeiraCentralizacaoFeita){
+      map.setView(latlng,18,{animate:true, duration:1.2});
+      primeiraCentralizacaoFeita=true;
+      ultimoPanTS=agora;
+      posicaoSuavizada={lat:dados.lat, lon:dados.lon};
+    } else if(seguirVeiculoAtivo){
+      // Só faz pan se o veículo saiu 35% da tela E se passou 1.5s do último pan
+      // Isso evita soluços
+      if(agora - ultimoPanTS > 1500){
+        var bounds=map.getBounds();
+        var centro=bounds.getCenter();
+        var distCentro=calcularDistanciaMetros(centro.lat, centro.lng, dados.lat, dados.lon);
+        // Só move se estiver a mais de 40 metros do centro (evita micro pulos)
+        if(distCentro > 40){
+          // Suaviza a posição para não pular
+          if(!posicaoSuavizada) posicaoSuavizada={lat:dados.lat, lon:dados.lon};
+          // interpolação suave 30%
+          posicaoSuavizada.lat = posicaoSuavizada.lat*0.7 + dados.lat*0.3;
+          posicaoSuavizada.lon = posicaoSuavizada.lon*0.7 + dados.lon*0.3;
+          map.panTo([posicaoSuavizada.lat, posicaoSuavizada.lon],{animate:true, duration:1.0, easeLinearity:0.25});
+          ultimoPanTS=agora;
+        }
+      }
+    }
+    // Se seguir está desligado, não mexe no mapa após primeira centralização
+  } else {
+    // Histórico: centraliza uma vez só
+    if(!map.getBounds().contains(latlng)){
+      map.setView(latlng,17,{animate:true, duration:0.8});
+    }
+  }
+  
   buscarLimiteVia(dados.lat,dados.lon);
   verificarExcesso(dados.velocidade||0);
   var real=statusRealDoPonto(dados,pontoAnterior||ultimoPos);
@@ -607,6 +649,7 @@ function atualizarPainelEletrico(dados,pontoAnterior,opcoes){
   var elS=document.getElementById('txtStatus'); if(elS){ elS.textContent=real; elS.className=real==="EM MOVIMENTO"?"badge badge-movimento":"badge badge-parado"; }
   ultimoPos=dados;
 }
+
 document.getElementById('btnModoWaze').addEventListener('click',function(){
   modoWazeAtivo=!modoWazeAtivo;
   this.textContent= modoWazeAtivo ? '🧭 Modo Waze: ON' : '🧭 Modo Waze: OFF';
@@ -630,6 +673,41 @@ document.getElementById('btnVerLimitesSalvos')?.addEventListener('click',functio
   keys.slice(0,40).forEach(function(k){ txt+=k+': '+limitesManuaisCache[k]+' km/h\n'; });
   txt+='\nSalvos no navegador E no Firebase da empresa.';
   alert(txt);
+});
+var mapaFullscreenAtivo=false;
+document.getElementById('btnFullscreen')?.addEventListener('click', function(){
+  var mapEl=document.getElementById('map');
+  var sidebar=document.querySelector('.sidebar');
+  mapaFullscreenAtivo=!mapaFullscreenAtivo;
+  if(mapaFullscreenAtivo){
+    mapEl.classList.add('map-fullscreen');
+    if(sidebar) sidebar.classList.add('sidebar-hidden');
+    this.innerHTML='⛶ Sair tela cheia';
+    this.classList.add('fullscreen-active');
+    this.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';
+    this.style.color='#000';
+  } else {
+    mapEl.classList.remove('map-fullscreen');
+    if(sidebar) sidebar.classList.remove('sidebar-hidden');
+    this.innerHTML='⛶ Tela cheia';
+    this.classList.remove('fullscreen-active');
+    this.style.background='#131820';
+    this.style.color='#eef2f6';
+  }
+  setTimeout(function(){ map.invalidateSize(); },200);
+  setTimeout(function(){ map.invalidateSize(); },600);
+});
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && mapaFullscreenAtivo){
+    var mapEl=document.getElementById('map');
+    var sidebar=document.querySelector('.sidebar');
+    var btn=document.getElementById('btnFullscreen');
+    mapEl.classList.remove('map-fullscreen');
+    if(sidebar) sidebar.classList.remove('sidebar-hidden');
+    if(btn){ btn.innerHTML='⛶ Tela cheia'; btn.classList.remove('fullscreen-active'); btn.style.background='#131820'; btn.style.color='#eef2f6'; }
+    mapaFullscreenAtivo=false;
+    setTimeout(function(){ map.invalidateSize(); },200);
+  }
 });
 document.addEventListener('click',function(){ initAudio(); },{once:true});
 </script>
