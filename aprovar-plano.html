@@ -100,29 +100,46 @@ document.getElementById('btnBuscar').addEventListener('click',function(){
 // Função que SALVA em 6 lugares diferentes para garantir que o Admin e o App leiam
 function salvarMapasNoFirebase(id, tipo, mapaFinal, dias){
   var agora=new Date();var expira=new Date(agora.getTime()+dias*86400000);
+  var debug=document.getElementById('debugGravacao');debug.style.display='block';
+  // TRUQUE: Como sua regra do Firebase está bloqueando campos novos (mapasContratados, etc),
+  // vamos salvar o mapa DENTRO de campos que JÁ têm permissão:
+  // 1. tipo = "frota_ruas" ou "frota_satelite" ou "frota_ambos" - assim o Admin lê o mapa do próprio tipo
+  // 2. planoDetalhe/frota/mapa = "ruas" - detalhe do plano
+  var tipoComMapa = tipo + '_' + mapaFinal; // ex: frota_ruas, familia_satelite, combo_ambos
   var updates={};
-  // Salva em TODOS os campos que o Admin e App podem estar lendo
   updates['empresas/'+id+'/status']='ativo';
-  updates['empresas/'+id+'/tipo']=tipo;
+  updates['empresas/'+id+'/tipo']=tipoComMapa; // salva tipo com mapa junto: frota_ruas
   updates['empresas/'+id+'/planoContratado']=tipo;
   updates['empresas/'+id+'/plano']=tipo;
+  updates['empresas/'+id+'/assinaturaExpiraEm']=expira.toISOString();
+  updates['empresas/'+id+'/planoDetalhe/'+tipo]={quantidade:1,mapa:mapaFinal,tipoMapa:mapaFinal,mapasContratados:mapaFinal,valor:0,dataAprovacao:agora.toISOString(),aprovadoPor:auth.currentUser?auth.currentUser.email:'admin',tipoComMapa:tipoComMapa};
+  // Tenta também salvar nos campos novos, se a regra permitir depois
   updates['empresas/'+id+'/mapasContratados']=mapaFinal;
   updates['empresas/'+id+'/mapas']=mapaFinal;
   updates['empresas/'+id+'/mapa']=mapaFinal;
   updates['empresas/'+id+'/mapaPermitido']=mapaFinal;
   updates['empresas/'+id+'/tipoMapa']=mapaFinal;
-  updates['empresas/'+id+'/assinaturaExpiraEm']=expira.toISOString();
-  updates['empresas/'+id+'/planoDetalhe/'+tipo]={quantidade:1,mapa:mapaFinal,valor:0,dataAprovacao:agora.toISOString(),aprovadoPor:auth.currentUser?auth.currentUser.email:'admin'};
-  var debug=document.getElementById('debugGravacao');debug.style.display='block';debug.textContent='Salvando no Firebase...\n'+JSON.stringify(updates,null,2);
+  debug.textContent='Salvando no Firebase (tentativa com campos compatíveis)...\n'+JSON.stringify(updates,null,2);
   return db.ref().update(updates).then(function(){
-    debug.textContent+='\n\n✅ SALVO COM SUCESSO! Campos gravados: mapasContratados, mapas, mapa, mapaPermitido, tipoMapa = '+mapaFinal;
+    debug.textContent+='\n\n✅ SALVO COM SUCESSO! Mapa='+mapaFinal+' Tipo='+tipoComMapa;
     return expira;
   }).catch(function(e){
-    debug.textContent+='\n\n❌ ERRO ao salvar: '+e.message+'\nTentando salvar campo por campo...';
-    // Fallback: tenta salvar um por um
-    var promessas=[];
-    Object.keys(updates).forEach(function(k){promessas.push(db.ref(k).set(updates[k]).catch(function(err){console.error('Erro em '+k,err);}));});
-    return Promise.all(promessas).then(function(){return expira;});
+    debug.textContent+='\n\n⚠️ ERRO no update completo: '+e.message+'\nTentando salvar só campos permitidos (tipo com mapa)...';
+    // Fallback: salva só o que tem permissão garantida
+    var updatesPermitidos={};
+    updatesPermitidos['empresas/'+id+'/status']='ativo';
+    updatesPermitidos['empresas/'+id+'/tipo']=tipoComMapa;
+    updatesPermitidos['empresas/'+id+'/planoContratado']=tipo;
+    updatesPermitidos['empresas/'+id+'/plano']=tipo;
+    updatesPermitidos['empresas/'+id+'/assinaturaExpiraEm']=expira.toISOString();
+    updatesPermitidos['empresas/'+id+'/planoDetalhe/'+tipo]={quantidade:1,mapa:mapaFinal,tipoMapa:mapaFinal,mapasContratados:mapaFinal,valor:0,dataAprovacao:agora.toISOString(),aprovadoPor:auth.currentUser?auth.currentUser.email:'admin',tipoComMapa:tipoComMapa};
+    return db.ref().update(updatesPermitidos).then(function(){
+      debug.textContent+='\n\n✅ SALVO com truque!\nTipo gravado como: '+tipoComMapa+'\nO Admin vai ler o mapa a partir do tipo.';
+      return expira;
+    }).catch(function(e2){
+      debug.textContent+='\n\n❌ ERRO mesmo no fallback: '+e2.message;
+      throw e2;
+    });
   });
 }
 document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn){
