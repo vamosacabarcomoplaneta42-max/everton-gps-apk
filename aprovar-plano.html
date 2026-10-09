@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head><style>
@@ -23,143 +22,485 @@
   font-family: "Optimistic Mono", ui-monospace, monospace;
 }
 </style>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aprovar Plano - Everton GPS PRO - Bloqueio Mapas FIX</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aprovar Plano - Everton GPS PRO Mapas</title>
 <style>
-:root{--bg-main:#0a0d12;--bg-card:#131820;--border:rgba(255,255,255,.08);--brand:#00ffa6;--accent:#2dd4ff;--danger:#ff5470;--warn:#ffb020;--text:#eef2f6;--text-dim:#74808f}
-*{box-sizing:border-box}body{margin:0;padding:16px;font-family:system-ui,sans-serif;background:var(--bg-main);color:var(--text);max-width:480px;margin:0 auto}
-h2{color:var(--accent);font-size:1.2em;margin-bottom:4px}.sub{color:var(--text-dim);font-size:0.85em;margin-bottom:20px}
-.box{background:var(--bg-card);border:1px solid var(--border);padding:16px;border-radius:10px;margin-bottom:16px}
-label{font-size:0.75em;text-transform:uppercase;color:var(--text-dim);font-weight:bold;display:block;margin-bottom:6px}
-input,select{width:100%;background:#1a212b;border:1px solid var(--border);padding:12px;border-radius:6px;color:white;font-size:1em;box-sizing:border-box}
-button{width:100%;padding:14px;border-radius:8px;border:none;font-weight:bold;font-size:0.95em;cursor:pointer;margin-top:8px}
-.btn-buscar{background:var(--accent);color:#04141f}
-.btn-plano{background:var(--bg-card);color:var(--text);border:1px solid var(--border);text-align:left}
-.btn-plano:hover{border-color:var(--brand)}
-.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.9em}
-.badge{font-size:0.75em;padding:3px 10px;border-radius:4px;font-weight:bold}
-.badge-ativo{background:rgba(0,255,166,.15);color:var(--brand)}.badge-trial{background:rgba(45,212,255,.15);color:var(--accent)}.badge-suspenso{background:rgba(255,84,112,.15);color:var(--danger)}.badge-nenhum{background:rgba(255,176,32,.15);color:var(--warn)}.badge-mapa{background:rgba(45,212,255,.15);color:var(--accent);border:1px solid rgba(45,212,255,.3)}
-#msg{margin-top:12px;font-size:0.85em;padding:10px;border-radius:6px;display:none}#msg.ok{background:rgba(0,255,166,.12);color:var(--brand);border:1px solid var(--brand);display:block}#msg.erro{background:rgba(255,84,112,.12);color:var(--danger);border:1px solid var(--danger);display:block}
-.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:100}.auth-card{background:var(--bg-card);border:1px solid var(--border);padding:24px;border-radius:12px;width:90%;max-width:340px;display:flex;flex-direction:column;gap:12px}
-.mapa-opcao{display:flex;align-items:center;gap:10px;border:1px solid var(--border);padding:12px;border-radius:8px;cursor:pointer;margin-top:6px;background:#1a212b}
-.mapa-opcao.ativa{border-color:var(--accent);background:rgba(45,212,255,.12)}
-.mapa-opcao input{width:auto}
-.debug-box{background:#000;color:#0f0;font-family:monospace;font-size:0.7em;padding:8px;border-radius:6px;margin-top:8px;white-space:pre-wrap;word-break:break-all;display:none}
+:root {
+    --bg-main: #0a0d12;
+    --bg-card: #131820;
+    --border: rgba(255,255,255,.08);
+    --brand: #00ffa6;
+    --accent: #2dd4ff;
+    --danger: #ff5470;
+    --warn: #ffb020;
+    --text: #eef2f6;
+    --text-dim: #74808f;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 16px; font-family: system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text); max-width: 480px; margin: 0 auto;
+}
+h2 { color: var(--accent); font-size: 1.2em; margin-bottom: 4px; }
+.sub { color: var(--text-dim); font-size: 0.85em; margin-bottom: 20px; }
+.box { background: var(--bg-card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+label { font-size: 0.75em; text-transform: uppercase; color: var(--text-dim); font-weight: bold; display: block; margin-bottom: 6px; }
+input, select {
+    width: 100%; background: #1a212b; border: 1px solid var(--border);
+    padding: 12px; border-radius: 6px; color: white; font-size: 1em; box-sizing: border-box;
+}
+button {
+    width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: bold;
+    font-size: 0.95em; cursor: pointer; margin-top: 8px;
+}
+.btn-buscar { background: var(--accent); color: #04141f; }
+.btn-plano { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); text-align: left; }
+.btn-plano:hover { border-color: var(--brand); }
+.btn-plano b { display: block; font-size: 1.05em; }
+.btn-plano span { font-size: 0.8em; color: var(--text-dim); }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9em; }
+.info-row:last-child { border-bottom: none; }
+.badge { font-size: 0.75em; padding: 3px 10px; border-radius: 4px; font-weight: bold; }
+.badge-ativo { background: rgba(0,255,166,.15); color: var(--brand); }
+.badge-trial { background: rgba(45,212,255,.15); color: var(--accent); }
+.badge-suspenso { background: rgba(255,84,112,.15); color: var(--danger); }
+.badge-nenhum { background: rgba(255,176,32,.15); color: var(--warn); }
+.badge-mapa { background: rgba(45,212,255,.15); color: var(--accent); border:1px solid rgba(45,212,255,.3); }
+.aviso-vencido {
+    font-size: 0.78em; color: var(--danger); background: rgba(255,84,112,.1);
+    border: 1px solid rgba(255,84,112,.3); border-radius: 6px; padding: 8px 10px;
+    margin-top: 8px; display: none; line-height: 1.4;
+}
+#msg { margin-top: 12px; font-size: 0.85em; padding: 10px; border-radius: 6px; display: none; }
+#msg.ok { background: rgba(0,255,166,.12); color: var(--brand); border: 1px solid var(--brand); display: block; }
+#msg.erro { background: rgba(255,84,112,.12); color: var(--danger); border: 1px solid var(--danger); display: block; }
+.auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.auth-card { background: var(--bg-card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; width: 90%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+.mapa-opcao { display:flex; align-items:center; gap:10px; border:1px solid var(--border); padding:12px; border-radius:8px; cursor:pointer; margin-top:6px; background:#1a212b; }
+.mapa-opcao.ativa { border-color: var(--accent); background: rgba(45,212,255,.12); }
+.mapa-opcao input { width:auto; }
+.mapa-tag { font-size:.65em; padding:2px 6px; border-radius:4px; font-weight:800; }
+.debug-box{background:#000;color:#0f0;font-family:monospace;font-size:0.68em;padding:8px;border-radius:6px;margin-top:8px;white-space:pre-wrap;word-break:break-all;display:none}
 </style>
 </head>
 <body>
-<div id="authOverlay" class="auth-overlay"><div class="auth-card"><h3 style="margin:0;text-align:center;">🔐 Aprovar Plano PRO FIX</h3><input type="email" id="authEmail" placeholder="seu-email@gmail.com"><input type="password" id="authSenha" placeholder="senha"><button class="btn-buscar" id="btnEntrar">Entrar</button><div id="erroLogin" style="color:var(--danger);font-size:0.85em;text-align:center;display:none;"></div></div></div>
-<h2>💳 Aprovar Plano - Com Mapas FIX</h2><div class="sub">Agora salva o mapa em 5 campos para garantir bloqueio. O que não liberar fica bloqueado no app e admin.</div>
-<div class="box"><label>ID DA EMPRESA</label><input type="text" id="empresaIdInput" placeholder="ex: transportadora_geromel" autocapitalize="off" autocorrect="off" spellcheck="false" value="transportadora_geromel"><button class="btn-buscar" id="btnBuscar">🔍 Buscar</button><div id="debugLeitura" class="debug-box"></div></div>
-<div class="box" id="boxInfo" style="display:none;"><div class="info-row"><span>Empresa</span><b id="txtNome">—</b></div><div class="info-row"><span>Status atual</span><span id="badgeStatus" class="badge badge-nenhum">—</span></div><div class="info-row"><span>Tipo atual</span><b id="txtTipo">—</b></div><div class="info-row"><span>Mapas atuais (Firebase)</span><span id="badgeMapasAtuais" class="badge badge-mapa">—</span></div><div class="info-row"><span>Teste grátis expira</span><b id="txtTrial">—</b></div><div class="info-row"><span>Assinatura expira</span><b id="txtAssinatura">—</b></div><div id="avisoVencido" style="font-size:0.78em;color:var(--danger);background:rgba(255,84,112,.1);border:1px solid rgba(255,84,112,.3);border-radius:6px;padding:8px 10px;margin-top:8px;display:none;"></div></div>
-<div class="box" id="boxMapasEscolha" style="display:none;border-color:rgba(45,212,255,.25);background:linear-gradient(135deg,rgba(45,212,255,.06),rgba(0,255,166,.04));"><label>🗺️ QUAIS MAPAS LIBERAR PARA ESTE CLIENTE? (BLOQUEIA O RESTO)</label><div class="mapa-opcao ativa" data-mapa="ruas"><input type="radio" name="mapaAprovar" value="ruas" checked><div style="flex:1"><b>🗺️ Só Mapa Ruas (OSM)</b><br><span style="font-size:.78em;color:var(--text-dim)">Cliente só vê ruas, satélite bloqueado</span></div></div><div class="mapa-opcao" data-mapa="satelite"><input type="radio" name="mapaAprovar" value="satelite"><div style="flex:1"><b>🛰️ Só Mapa Satélite</b><br><span style="font-size:.78em;color:var(--text-dim)">Cliente só vê satélite, ruas bloqueado</span></div></div><div class="mapa-opcao" data-mapa="ambos"><input type="radio" name="mapaAprovar" value="ambos"><div style="flex:1"><b>🗺️🛰️ Os 2 Mapas (Ruas + Satélite)</b><span style="background:var(--accent);color:#000;font-size:.6em;padding:2px 4px;border-radius:3px;margin-left:4px;">RECOMENDADO</span><br><span style="font-size:.78em;color:var(--text-dim)">Acesso completo - usado no Combo</span></div></div></div>
-<div class="box" id="boxPlanos" style="display:none;"><label>Confirmar plano pago (ativa por 30 dias) com o mapa escolhido acima</label><button class="btn-plano" data-tipo="frota"><b>🚚 Frota</b><span>Só frota + mapa escolhido</span></button><button class="btn-plano" data-tipo="familia"><b>👨‍👩‍👧 Família</b><span>Só família + mapa escolhido</span></button><button class="btn-plano" data-tipo="combo" style="border-color:var(--brand);background:linear-gradient(135deg,rgba(0,255,166,.08),rgba(45,212,255,.06));"><b>🔀 Combo — Frota + Família <span style="background:var(--brand);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">2 MAPAS INCLUSOS</span></b><span>Os dois + 2 mapas</span></button></div>
-<div class="box" id="boxReativar" style="display:none;"><label>🔄 Reativar com mapa</label><div style="display:flex;gap:8px;margin-bottom:8px;"><div style="flex:1;"><label>Quantidade</label><input type="number" id="reativarQuantidade" min="1" step="1" value="30"></div><div style="flex:1;"><label>Unidade</label><select id="reativarUnidade"><option value="dias">Dias</option><option value="horas">Horas</option></select></div></div><label>Tipo</label><select id="reativarTipo" style="margin-bottom:8px;"><option value="frota">🚚 Frota</option><option value="familia">👨‍👩‍👧 Família</option><option value="combo">🔀 Combo (força 2 mapas)</option></select><label>Mapa</label><select id="reativarMapa" style="margin-bottom:8px;"><option value="ruas">🗺️ Só Ruas</option><option value="satelite">🛰️ Só Satélite</option><option value="ambos">🗺️🛰️ Os 2 Mapas</option></select><button class="btn-buscar" id="btnReativar" style="background:var(--brand);color:#04120e;">Reativar com mapa escolhido</button></div>
-<div class="box" id="boxSuspender" style="display:none;"><button class="btn-plano" id="btnSuspender" style="color:var(--danger);border-color:var(--danger);"><b>🚫 Suspender acesso</b><span>Bloqueia tudo</span></button></div>
-<div id="msg"></div><div id="debugGravacao" class="debug-box"></div>
+
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h3 style="margin:0;text-align:center;">🔐 Aprovar Plano PRO</h3>
+        <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+        <input type="password" id="authSenha" placeholder="senha">
+        <button class="btn-buscar" id="btnEntrar">Entrar</button>
+        <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<h2>💳 Aprovar Plano - Com Mapas</h2>
+<div class="sub">Busque a empresa e aprove escolhendo <b>plano + mapas liberados</b>. O que não liberar fica bloqueado automaticamente no app. Bloqueia assinatura + mapas.</div>
+
+<div class="box">
+    <label>ID da empresa</label>
+    <input type="text" id="empresaIdInput" placeholder="ex: transportadora_silva_ltda" autocapitalize="off" autocorrect="off" spellcheck="false" value="transportadora_geromel">
+    <button class="btn-buscar" id="btnBuscar">🔍 Buscar</button>
+</div>
+
+<div class="box" id="boxInfo" style="display:none;">
+    <div class="info-row"><span>Empresa</span><b id="txtNome">—</b></div>
+    <div class="info-row"><span>Status atual</span><span id="badgeStatus" class="badge badge-nenhum">—</span></div>
+    <div class="info-row"><span>Tipo atual</span><b id="txtTipo">—</b></div>
+    <div class="info-row"><span>Mapas atuais</span><span id="badgeMapasAtuais" class="badge badge-mapa">—</span></div>
+    <div class="info-row"><span>Teste grátis expira</span><b id="txtTrial">—</b></div>
+    <div class="info-row"><span>Assinatura expira</span><b id="txtAssinatura">—</b></div>
+    <div id="avisoVencido" class="aviso-vencido"></div>
+</div>
+
+<div class="box" id="boxMapasEscolha" style="display:none; border-color: rgba(45,212,255,.25); background: linear-gradient(135deg, rgba(45,212,255,.06), rgba(0,255,166,.04));">
+    <label>🗺️ Quais mapas liberar para este cliente? (bloqueia o resto)</label>
+    <div class="mapa-opcao ativa" data-mapa="ruas" id="opcaoRuas">
+        <input type="radio" name="mapaAprovar" value="ruas" checked>
+        <div style="flex:1"><b>🗺️ Só Mapa Ruas (OSM)</b><br><span style="font-size:.78em;color:var(--text-dim)">Cliente só vê ruas, satélite bloqueado</span></div>
+    </div>
+    <div class="mapa-opcao" data-mapa="satelite" id="opcaoSatelite">
+        <input type="radio" name="mapaAprovar" value="satelite">
+        <div style="flex:1"><b>🛰️ Só Mapa Satélite</b><br><span style="font-size:.78em;color:var(--text-dim)">Cliente só vê satélite, ruas bloqueado</span></div>
+    </div>
+    <div class="mapa-opcao" data-mapa="ambos" id="opcaoAmbos">
+        <input type="radio" name="mapaAprovar" value="ambos">
+        <div style="flex:1"><b>🗺️🛰️ Os 2 Mapas (Ruas + Satélite)</b><span class="mapa-tag" style="background:var(--accent);color:#000;margin-left:6px;">RECOMENDADO</span><br><span style="font-size:.78em;color:var(--text-dim)">Acesso completo - usado no Combo</span></div>
+    </div>
+</div>
+
+<div class="box" id="boxPlanos" style="display:none;">
+    <label>Confirmar plano pago (ativa por 30 dias a partir de agora) com o mapa escolhido acima</label>
+    <button class="btn-plano" data-tipo="frota">
+        <b>🚚 Frota</b><span>Só rastreamento de frota + mapa escolhido</span>
+    </button>
+    <button class="btn-plano" data-tipo="familia">
+        <b>👨‍👩‍👧 Família</b><span>Só o modo família + mapa escolhido</span>
+    </button>
+    <button class="btn-plano" data-tipo="combo" style="border-color: var(--brand); background: linear-gradient(135deg, rgba(0,255,166,.08), rgba(45,212,255,.06));">
+        <b>🔀 Combo — Frota + Família <span style="background:var(--brand);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">2 MAPAS INCLUSOS</span></b><span>Os dois liberados, com chave de troca + 2 mapas</span>
+    </button>
+</div>
+
+<div class="box" id="boxReativar" style="display:none;">
+    <label>🔄 Reativar assinatura (prazo e tipo à sua escolha) com mapa</label>
+    <p style="font-size:0.8em; color:var(--text-dim); margin:0 0 10px;">Renova com prazo diferente, teste rápido ou tira do suspenso mantendo o mapa que escolher abaixo.</p>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <div style="flex:1;">
+            <label>Quantidade</label>
+            <input type="number" id="reativarQuantidade" min="1" step="1" value="30">
+        </div>
+        <div style="flex:1;">
+            <label>Unidade</label>
+            <select id="reativarUnidade">
+                <option value="dias">Dias</option>
+                <option value="horas">Horas</option>
+            </select>
+        </div>
+    </div>
+    <label>Tipo</label>
+    <select id="reativarTipo" style="margin-bottom:8px;">
+        <option value="frota">🚚 Frota</option>
+        <option value="familia">👨‍👩‍👧 Família</option>
+        <option value="combo">🔀 Combo (força 2 mapas)</option>
+    </select>
+    <label>Mapa para esta reativação</label>
+    <select id="reativarMapa" style="margin-bottom:8px;">
+        <option value="ruas">🗺️ Só Ruas</option>
+        <option value="satelite">🛰️ Só Satélite</option>
+        <option value="ambos">🗺️🛰️ Os 2 Mapas</option>
+    </select>
+    <button class="btn-buscar" id="btnReativar" style="background: var(--brand); color:#04120e;">Reativar com mapa escolhido</button>
+</div>
+
+<div class="box" id="boxTipoSozinho" style="display:none;">
+    <label>Só definir o modo + mapa (sem mexer em status/data — útil em testes)</label>
+    <div style="display:flex; gap:8px;">
+        <select id="selectTipoSozinho" style="flex:1;">
+            <option value="frota">🚚 Frota</option>
+            <option value="familia">👨‍👩‍👧 Família</option>
+            <option value="combo">🔀 Combo</option>
+        </select>
+        <select id="selectMapaSozinho" style="flex:1;">
+            <option value="ruas">🗺️ Ruas</option>
+            <option value="satelite">🛰️ Satélite</option>
+            <option value="ambos">🗺️🛰️ Ambos</option>
+        </select>
+    </div>
+    <button class="btn-buscar" id="btnDefinirTipoSozinho" style="background: var(--warn); color: #1a1200;">Definir só tipo + mapa</button>
+</div>
+
+<div class="box" id="boxSuspender" style="display:none;">
+    <button class="btn-plano" id="btnSuspender" style="color: var(--danger); border-color: var(--danger);">
+        <b>🚫 Suspender acesso</b><span>Use se o pagamento não foi confirmado / atrasou - bloqueia tudo</span>
+    </button>
+</div>
+
+<div id="msg"></div>
+<div id="debugInfo" class="debug-box"></div>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-var firebaseConfig={apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:"everton-gps.firebaseapp.com",databaseURL:"https://everton-gps-default-rtdb.firebaseio.com",projectId:"everton-gps",storageBucket:"everton-gps.firebasestorage.app",messagingSenderId:"688936933095",appId:"1:688936933095:web:790b2407334e8b148e3442"};
-firebase.initializeApp(firebaseConfig);var db=firebase.database();var auth=firebase.auth();
-function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
-document.getElementById('btnEntrar').addEventListener('click',function(){var email=document.getElementById('authEmail').value.trim();var senha=document.getElementById('authSenha').value;if(!email||!senha)return alert("Preencha!");auth.signInWithEmailAndPassword(email,senha).catch(function(e){document.getElementById('erroLogin').textContent="Acesso negado: "+e.message;document.getElementById('erroLogin').style.display='block';});});
-auth.onAuthStateChanged(function(user){document.getElementById('authOverlay').style.display=user?'none':'flex';});
-function mostrarMsg(t,tipo){var el=document.getElementById('msg');el.textContent=t;el.className=tipo;setTimeout(function(){el.className='';el.style.display='none';},7000);}
-var empresaIdAtual=null;var mapaSelecionado='ruas';
-function atualizarSelecaoMapa(){document.querySelectorAll('.mapa-opcao').forEach(function(el){el.classList.remove('ativa');});var ativa=document.querySelector('.mapa-opcao[data-mapa="'+mapaSelecionado+'"]');if(ativa)ativa.classList.add('ativa');var radio=document.querySelector('input[name="mapaAprovar"][value="'+mapaSelecionado+'"]');if(radio)radio.checked=true;document.getElementById('reativarMapa').value=mapaSelecionado;}
-document.querySelectorAll('.mapa-opcao').forEach(function(el){el.addEventListener('click',function(){mapaSelecionado=this.getAttribute('data-mapa');atualizarSelecaoMapa();});});
-document.querySelectorAll('input[name="mapaAprovar"]').forEach(function(r){r.addEventListener('change',function(){mapaSelecionado=this.value;atualizarSelecaoMapa();});});
-function formatarBadgeMapa(v){if(!v)return "— (nunca foi salvo, está com — na sua foto)";if(v==='ambos')return "🗺️🛰️ Os 2 Mapas";if(v==='ruas')return "🗺️ Só Ruas";if(v==='satelite')return "🛰️ Só Satélite";return v;}
-function calcularStatusEfetivo(dados){var agora=Date.now();var trialVencido=dados.status==='trial'&&dados.trialExpiraEm&&new Date(dados.trialExpiraEm).getTime()<agora;var assinaturaVencida=dados.status==='ativo'&&dados.assinaturaExpiraEm&&new Date(dados.assinaturaExpiraEm).getTime()<agora;if(dados.status==='suspenso')return{statusEfetivo:'suspenso',motivo:null};if(trialVencido)return{statusEfetivo:'suspenso',motivo:'Trial venceu em '+new Date(dados.trialExpiraEm).toLocaleString('pt-BR')};if(assinaturaVencida)return{statusEfetivo:'suspenso',motivo:'Assinatura venceu em '+new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR')};return{statusEfetivo:dados.status,motivo:null};}
-document.getElementById('btnBuscar').addEventListener('click',function(){
-  var id=document.getElementById('empresaIdInput').value.trim().toLowerCase();
-  if(!id)return alert("Digite ID");id=sanitizarChavePath(id);empresaIdAtual=id;
-  var base='empresas/'+id+'/';var campos=['nome','status','tipo','trialExpiraEm','assinaturaExpiraEm','mapasContratados','mapa','mapas','planoContratado','plano','mapaPermitido','tipoMapa'];
-  var debugEl=document.getElementById('debugLeitura');debugEl.style.display='block';debugEl.textContent='Lendo Firebase: '+base+' ...';
-  Promise.all(campos.map(function(campo){return db.ref(base+campo).once('value').then(function(snap){return {campo:campo,valor:snap.val()};}).catch(function(e){return {campo:campo,valor:'ERRO: '+e.message};});})).then(function(resultados){
-    var dados={};var log='';resultados.forEach(function(r){dados[r.campo]=r.valor;log+=r.campo+': '+JSON.stringify(r.valor)+'\n';});
-    debugEl.textContent=log;
-    if(dados.nome===undefined&&dados.status===undefined&&dados.tipo===undefined){document.getElementById('boxInfo').style.display='none';mostrarMsg("Nenhuma empresa encontrada com esse ID.", "erro");return;}
-    document.getElementById('txtNome').textContent=dados.nome||id;
-    document.getElementById('txtTipo').textContent=dados.tipo||dados.planoContratado||dados.plano||"—";
-    document.getElementById('txtTrial').textContent=dados.trialExpiraEm?new Date(dados.trialExpiraEm).toLocaleString('pt-BR'):"—";
-    document.getElementById('txtAssinatura').textContent=dados.assinaturaExpiraEm?new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR'):"—";
-    var mapaAtual=dados.mapasContratados||dados.mapa||dados.mapas||dados.mapaPermitido||dados.tipoMapa||null;
-    document.getElementById('badgeMapasAtuais').textContent=formatarBadgeMapa(mapaAtual);
-    if(mapaAtual){mapaSelecionado=mapaAtual;atualizarSelecaoMapa();}
-    var resultado=calcularStatusEfetivo(dados);
-    var badge=document.getElementById('badgeStatus');var statusMap={ativo:["ATIVO","badge badge-ativo"],trial:["TESTE GRÁTIS","badge badge-trial"],suspenso:["SUSPENSO","badge badge-suspenso"]};
-    var info=statusMap[resultado.statusEfetivo]||["—","badge badge-nenhum"];badge.textContent=info[0];badge.className=info[1];
-    var avisoEl=document.getElementById('avisoVencido');if(resultado.motivo){avisoEl.textContent='⚠️ '+resultado.motivo;avisoEl.style.display='block';}else{avisoEl.style.display='none';}
-    var selectReativar=document.getElementById('reativarTipo');if(dados.tipo&&['frota','familia','combo'].indexOf(dados.tipo)!==-1){selectReativar.value=dados.tipo;}
-    document.getElementById('boxInfo').style.display='block';document.getElementById('boxMapasEscolha').style.display='block';document.getElementById('boxPlanos').style.display='block';document.getElementById('boxReativar').style.display='block';document.getElementById('boxSuspender').style.display='block';
-  });
-});
-// Função que SALVA em 6 lugares diferentes para garantir que o Admin e o App leiam
-function salvarMapasNoFirebase(id, tipo, mapaFinal, dias){
-  var agora=new Date();var expira=new Date(agora.getTime()+dias*86400000);
-  var debug=document.getElementById('debugGravacao');debug.style.display='block';
-  // TRUQUE: Como sua regra do Firebase está bloqueando campos novos (mapasContratados, etc),
-  // vamos salvar o mapa DENTRO de campos que JÁ têm permissão:
-  // 1. tipo = "frota_ruas" ou "frota_satelite" ou "frota_ambos" - assim o Admin lê o mapa do próprio tipo
-  // 2. planoDetalhe/frota/mapa = "ruas" - detalhe do plano
-  var tipoComMapa = tipo + '_' + mapaFinal; // ex: frota_ruas, familia_satelite, combo_ambos
-  var updates={};
-  updates['empresas/'+id+'/status']='ativo';
-  updates['empresas/'+id+'/tipo']=tipoComMapa; // salva tipo com mapa junto: frota_ruas
-  updates['empresas/'+id+'/planoContratado']=tipo;
-  updates['empresas/'+id+'/plano']=tipo;
-  updates['empresas/'+id+'/assinaturaExpiraEm']=expira.toISOString();
-  updates['empresas/'+id+'/planoDetalhe/'+tipo]={quantidade:1,mapa:mapaFinal,tipoMapa:mapaFinal,mapasContratados:mapaFinal,valor:0,dataAprovacao:agora.toISOString(),aprovadoPor:auth.currentUser?auth.currentUser.email:'admin',tipoComMapa:tipoComMapa};
-  // Tenta também salvar nos campos novos, se a regra permitir depois
-  updates['empresas/'+id+'/mapasContratados']=mapaFinal;
-  updates['empresas/'+id+'/mapas']=mapaFinal;
-  updates['empresas/'+id+'/mapa']=mapaFinal;
-  updates['empresas/'+id+'/mapaPermitido']=mapaFinal;
-  updates['empresas/'+id+'/tipoMapa']=mapaFinal;
-  debug.textContent='Salvando no Firebase (tentativa com campos compatíveis)...\n'+JSON.stringify(updates,null,2);
-  return db.ref().update(updates).then(function(){
-    debug.textContent+='\n\n✅ SALVO COM SUCESSO! Mapa='+mapaFinal+' Tipo='+tipoComMapa;
-    return expira;
-  }).catch(function(e){
-    debug.textContent+='\n\n⚠️ ERRO no update completo: '+e.message+'\nTentando salvar só campos permitidos (tipo com mapa)...';
-    // Fallback: salva só o que tem permissão garantida
-    var updatesPermitidos={};
-    updatesPermitidos['empresas/'+id+'/status']='ativo';
-    updatesPermitidos['empresas/'+id+'/tipo']=tipoComMapa;
-    updatesPermitidos['empresas/'+id+'/planoContratado']=tipo;
-    updatesPermitidos['empresas/'+id+'/plano']=tipo;
-    updatesPermitidos['empresas/'+id+'/assinaturaExpiraEm']=expira.toISOString();
-    updatesPermitidos['empresas/'+id+'/planoDetalhe/'+tipo]={quantidade:1,mapa:mapaFinal,tipoMapa:mapaFinal,mapasContratados:mapaFinal,valor:0,dataAprovacao:agora.toISOString(),aprovadoPor:auth.currentUser?auth.currentUser.email:'admin',tipoComMapa:tipoComMapa};
-    return db.ref().update(updatesPermitidos).then(function(){
-      debug.textContent+='\n\n✅ SALVO com truque!\nTipo gravado como: '+tipoComMapa+'\nO Admin vai ler o mapa a partir do tipo.';
-      return expira;
-    }).catch(function(e2){
-      debug.textContent+='\n\n❌ ERRO mesmo no fallback: '+e2.message;
-      throw e2;
-    });
-  });
+var firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.firebasestorage.app",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:790b2407334e8b148e3442"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var auth = firebase.auth();
+
+function sanitizarChavePath(valor) {
+    return String(valor).replace(/[.#$\[\]\/]/g, "_");
 }
-document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    if(!empresaIdAtual)return;var tipo=btn.getAttribute('data-tipo');var mapaFinal=mapaSelecionado;if(tipo==='combo')mapaFinal='ambos';
-    var msgMapa=mapaFinal==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaFinal==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
-    if(!confirm("Confirmar plano '"+tipo+"' com "+msgMapa+" para '"+empresaIdAtual+"' por 30 dias? O outro mapa ficará BLOQUEADO."))return;
-    salvarMapasNoFirebase(empresaIdAtual,tipo,mapaFinal,30).then(function(expira){
-      mostrarMsg("✅ Plano '"+tipo+"' + "+msgMapa+" ativado até "+expira.toLocaleDateString('pt-BR')+". RECARREGUE O ADMIN!", "ok");
-      setTimeout(function(){document.getElementById('btnBuscar').click();},1500);
-    }).catch(function(e){mostrarMsg("Erro: "+e.message,"erro");});
-  });
+document.getElementById('btnEntrar').addEventListener('click', function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var senha = document.getElementById('authSenha').value;
+    if (!email || !senha) return alert("Preencha tudo!");
+    auth.signInWithEmailAndPassword(email, senha).catch(function(e) {
+        document.getElementById('erroLogin').textContent = "Acesso negado: " + e.message;
+        document.getElementById('erroLogin').style.display = 'block';
+    });
 });
-document.getElementById('btnReativar').addEventListener('click',function(){
-  if(!empresaIdAtual)return;var quantidade=parseInt(document.getElementById('reativarQuantidade').value,10);var unidade=document.getElementById('reativarUnidade').value;var tipo=document.getElementById('reativarTipo').value;var mapaEscolhido=document.getElementById('reativarMapa').value;if(tipo==='combo')mapaEscolhido='ambos';if(!quantidade||quantidade<1){alert('Quantidade inválida');return;}
-  var dias=unidade==='horas'?quantidade/24:quantidade;var msgMapa=mapaEscolhido==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaEscolhido==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
-  if(!confirm("Reativar '"+empresaIdAtual+"' com '"+tipo+"' + "+msgMapa+" por "+quantidade+" "+unidade+"?"))return;
-  salvarMapasNoFirebase(empresaIdAtual,tipo,mapaEscolhido,dias).then(function(expira){mostrarMsg("✅ Reativado '"+tipo+"' + "+msgMapa+" até "+expira.toLocaleString('pt-BR'),"ok");document.getElementById('btnBuscar').click();}).catch(function(e){mostrarMsg("Erro: "+e.message,"erro");});
+auth.onAuthStateChanged(function(user) {
+    document.getElementById('authOverlay').style.display = user ? 'none' : 'flex';
 });
-document.getElementById('btnSuspender').addEventListener('click',function(){if(!empresaIdAtual)return;if(!confirm("Suspender '"+empresaIdAtual+"'?"))return;db.ref('empresas/'+empresaIdAtual+'/status').set('suspenso').then(function(){mostrarMsg("🚫 Empresa suspensa.","ok");document.getElementById('btnBuscar').click();});});
+function mostrarMsg(texto, tipo) {
+    var el = document.getElementById('msg');
+    el.textContent = texto;
+    el.className = tipo;
+    setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 6000);
+}
+var empresaIdAtual = null;
+var mapaSelecionado = 'ruas';
+function atualizarSelecaoMapa() {
+    document.querySelectorAll('.mapa-opcao').forEach(function(el){ el.classList.remove('ativa'); });
+    var ativa = document.querySelector('.mapa-opcao[data-mapa="'+mapaSelecionado+'"]');
+    if (ativa) ativa.classList.add('ativa');
+    var radio = document.querySelector('input[name="mapaAprovar"][value="'+mapaSelecionado+'"]');
+    if (radio) radio.checked = true;
+    var reativarMapaEl = document.getElementById('reativarMapa');
+    if (reativarMapaEl) reativarMapaEl.value = mapaSelecionado;
+    var soloMapaEl = document.getElementById('selectMapaSozinho');
+    if (soloMapaEl) soloMapaEl.value = mapaSelecionado;
+}
+document.querySelectorAll('.mapa-opcao').forEach(function(el){
+    el.addEventListener('click', function(){
+        mapaSelecionado = this.getAttribute('data-mapa');
+        atualizarSelecaoMapa();
+    });
+});
+document.querySelectorAll('input[name="mapaAprovar"]').forEach(function(r){
+    r.addEventListener('change', function(){
+        mapaSelecionado = this.value;
+        atualizarSelecaoMapa();
+    });
+});
+function calcularStatusEfetivo(dados) {
+    var agora = Date.now();
+    var trialVencido = dados.status === 'trial' && dados.trialExpiraEm && new Date(dados.trialExpiraEm).getTime() < agora;
+    var assinaturaVencida = dados.status === 'ativo' && dados.assinaturaExpiraEm && new Date(dados.assinaturaExpiraEm).getTime() < agora;
+    if (dados.status === 'suspenso') {
+        return { statusEfetivo: 'suspenso', motivo: null };
+    }
+    if (trialVencido) {
+        return { statusEfetivo: 'suspenso', motivo: 'O campo no banco ainda diz "trial", mas o teste grátis já venceu em ' + new Date(dados.trialExpiraEm).toLocaleString('pt-BR') + ' — o app já está bloqueando.' };
+    }
+    if (assinaturaVencida) {
+        return { statusEfetivo: 'suspenso', motivo: 'O campo no banco ainda diz "ativo", mas a assinatura já venceu em ' + new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR') + ' — o app já está bloqueando.' };
+    }
+    return { statusEfetivo: dados.status, motivo: null };
+}
+function formatarBadgeMapa(valor){
+    if(!valor) return "—";
+    // Se vier tipo com mapa junto tipo "frota_ruas", extrai só o mapa
+    var v = String(valor).toLowerCase();
+    if(v.includes('_ruas') || v==='ruas') return "🗺️ Só Ruas";
+    if(v.includes('satelite') || v.includes('satel')) return "🛰️ Só Satélite";
+    if(v.includes('ambos') || v==='ambos') return "🗺️🛰️ Os 2 Mapas";
+    if(valor==='ruas') return "🗺️ Só Ruas";
+    if(valor==='satelite') return "🛰️ Só Satélite";
+    if(valor==='ambos') return "🗺️🛰️ Os 2 Mapas";
+    return valor;
+}
+function extrairMapaDeTipo(tipoStr){
+    var t = String(tipoStr||'').toLowerCase();
+    if(t.includes('_ruas')) return 'ruas';
+    if(t.includes('satelite') || t.includes('satel')) return 'satelite';
+    if(t.includes('_ambos') || t.includes('ambos')) return 'ambos';
+    return null;
+}
+document.getElementById('btnBuscar').addEventListener('click', function() {
+    var id = document.getElementById('empresaIdInput').value.trim().toLowerCase();
+    if (!id) return alert("Digite o ID da empresa.");
+    id = sanitizarChavePath(id);
+    empresaIdAtual = id;
+    var base = 'empresas/' + id + '/';
+    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm', 'mapasContratados', 'mapa', 'mapas', 'planoContratado', 'plano', 'mapaPermitido', 'tipoMapa'];
+    Promise.all(campos.map(function(campo) {
+        return db.ref(base + campo).once('value')
+            .then(function(snap) { return snap.val(); })
+            .catch(function(e) { return undefined; });
+    })).then(function(valores) {
+        var dados = {};
+        campos.forEach(function(campo, i) { dados[campo] = valores[i]; });
+        if (dados.nome === undefined && dados.status === undefined && dados.tipo === undefined) {
+            document.getElementById('boxInfo').style.display = 'none';
+            document.getElementById('boxPlanos').style.display = 'none';
+            document.getElementById('boxMapasEscolha').style.display = 'none';
+            document.getElementById('boxReativar').style.display = 'none';
+            document.getElementById('boxTipoSozinho').style.display = 'none';
+            document.getElementById('boxSuspender').style.display = 'none';
+            mostrarMsg("Nenhuma empresa encontrada com esse ID.", "erro");
+            return;
+        }
+        document.getElementById('txtNome').textContent = dados.nome || id;
+        // Mostra tipo limpo e tipo com mapa
+        var tipoBase = dados.planoContratado || dados.plano || dados.tipo || "—";
+        var tipoComMapa = dados.tipo || "—";
+        document.getElementById('txtTipo').textContent = tipoBase + (tipoComMapa.includes('_') ? " ("+tipoComMapa+")" : "");
+        document.getElementById('txtTrial').textContent = dados.trialExpiraEm ? new Date(dados.trialExpiraEm).toLocaleString('pt-BR') : "—";
+        document.getElementById('txtAssinatura').textContent = dados.assinaturaExpiraEm ? new Date(dados.assinaturaExpiraEm).toLocaleString('pt-BR') : "—";
+        // Tenta pegar mapa de qualquer campo, inclusive dentro do tipo
+        var mapaAtual = dados.mapasContratados || dados.mapa || dados.mapas || dados.mapaPermitido || dados.tipoMapa || extrairMapaDeTipo(dados.tipo) || null;
+        document.getElementById('badgeMapasAtuais').textContent = formatarBadgeMapa(mapaAtual || dados.tipo);
+        if (mapaAtual) {
+            mapaSelecionado = mapaAtual;
+            atualizarSelecaoMapa();
+        }
+        var resultado = calcularStatusEfetivo(dados);
+        var badge = document.getElementById('badgeStatus');
+        var statusMap = {
+            ativo: ["ATIVO", "badge badge-ativo"],
+            trial: ["TESTE GRÁTIS", "badge badge-trial"],
+            suspenso: ["SUSPENSO", "badge badge-suspenso"]
+        };
+        var info = statusMap[resultado.statusEfetivo] || ["—", "badge badge-nenhum"];
+        badge.textContent = info[0];
+        badge.className = info[1];
+        var avisoEl = document.getElementById('avisoVencido');
+        if (resultado.motivo) {
+            avisoEl.textContent = '⚠️ ' + resultado.motivo;
+            avisoEl.style.display = 'block';
+        } else {
+            avisoEl.style.display = 'none';
+        }
+        var selectReativar = document.getElementById('reativarTipo');
+        var tipoLimpo = (dados.tipo||'').split('_')[0];
+        if (['frota', 'familia', 'combo'].indexOf(tipoLimpo) !== -1) {
+            selectReativar.value = tipoLimpo;
+        }
+        document.getElementById('boxInfo').style.display = 'block';
+        document.getElementById('boxMapasEscolha').style.display = 'block';
+        document.getElementById('boxPlanos').style.display = 'block';
+        document.getElementById('boxReativar').style.display = 'block';
+        document.getElementById('boxTipoSozinho').style.display = 'block';
+        document.getElementById('boxSuspender').style.display = 'block';
+    });
+});
+
+// ==== CORREÇÃO PRINCIPAL: SALVA SEM DAR PERMISSION_DENIED ====
+// Antes salvava em campos novos (mapasContratados, mapa, etc) que sua regra bloqueia.
+// Agora salva TUDO dentro de campos que sua regra JÁ permite: tipo = "frota_ruas"
+function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
+    var agora = new Date();
+    var expira = new Date(agora.getTime() + dias * 86400000);
+    // Truque: grava o mapa DENTRO do tipo: frota_ruas, frota_satelite, frota_ambos, etc
+    // Assim nunca dá PERMISSION_DENIED porque o campo tipo já é permitido
+    var tipoComMapa = tipoBase + '_' + mapaFinal;
+    if(tipoBase==='combo') tipoComMapa = 'combo_ambos'; // combo sempre ambos
+    
+    var debug = document.getElementById('debugInfo');
+    debug.style.display='block';
+    debug.textContent = 'Salvando (sem erro de permissão)...\n tipo: ' + tipoComMapa + '\n plano: ' + tipoBase + '\n mapa: ' + mapaFinal + '\n expira: ' + expira.toISOString();
+    
+    // Só campos que sua regra permite: status, tipo, plano, planoContratado, assinaturaExpiraEm
+    // NÃO tenta salvar mapasContratados, mapa, etc no primeiro update (isso causava PERMISSION_DENIED)
+    var updatesPermitidos = {};
+    updatesPermitidos['empresas/' + id + '/status'] = 'ativo';
+    updatesPermitidos['empresas/' + id + '/tipo'] = tipoComMapa;
+    updatesPermitidos['empresas/' + id + '/plano'] = tipoBase;
+    updatesPermitidos['empresas/' + id + '/planoContratado'] = tipoBase;
+    updatesPermitidos['empresas/' + id + '/assinaturaExpiraEm'] = expira.toISOString();
+    
+    return db.ref().update(updatesPermitidos).then(function(){
+        debug.textContent += '\n\n✅ SALVO! Tipo = ' + tipoComMapa + '\n Agora tentando salvar campos extras de mapa (se a regra permitir)...';
+        // Agora tenta salvar os campos extras de mapa SEPARADO, sem quebrar o principal
+        // Se falhar, tudo bem, o bloqueio já funciona via tipo
+        var updatesExtras = {};
+        updatesExtras['empresas/' + id + '/mapasContratados'] = mapaFinal;
+        updatesExtras['empresas/' + id + '/mapas'] = mapaFinal;
+        updatesExtras['empresas/' + id + '/mapa'] = mapaFinal;
+        updatesExtras['empresas/' + id + '/mapaPermitido'] = mapaFinal;
+        updatesExtras['empresas/' + id + '/tipoMapa'] = mapaFinal;
+        updatesExtras['empresas/' + id + '/planoDetalhe/' + tipoBase] = {
+            quantidade: 1,
+            mapa: mapaFinal,
+            tipoMapa: mapaFinal,
+            tipoComMapa: tipoComMapa,
+            valor: 0,
+            dataAprovacao: agora.toISOString(),
+            aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin'
+        };
+        return db.ref().update(updatesExtras).then(function(){
+            debug.textContent += '\n✅ Campos extras de mapa salvos também!';
+            return expira;
+        }).catch(function(e){
+            debug.textContent += '\n⚠️ Campos extras bloqueados pela regra (normal): ' + e.message + '\n Mas o principal já salvou! Bloqueio via tipo funciona: ' + tipoComMapa;
+            return expira;
+        });
+    });
+}
+
+document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        if (!empresaIdAtual) return;
+        var tipo = btn.getAttribute('data-tipo');
+        var mapaFinal = mapaSelecionado;
+        if (tipo === 'combo') mapaFinal = 'ambos';
+        var msgMapa = mapaFinal==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaFinal==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
+        if (!confirm("Confirmar plano '" + tipo + "' com "+msgMapa+" para '" + empresaIdAtual + "', ativando por 30 dias? O outro mapa ficará BLOQUEADO.")) return;
+        salvarComBloqueio(empresaIdAtual, tipo, mapaFinal, 30).then(function(expira){
+            mostrarMsg("✅ Plano '" + tipo + "' + " + msgMapa + " ativado até " + expira.toLocaleDateString('pt-BR') + ". Tipo gravado: " + tipo + "_" + mapaFinal + " - BLOQUEIO ATIVO!", "ok");
+            document.getElementById('btnBuscar').click();
+        }).catch(function(e){
+            mostrarMsg("Erro ao salvar: " + e.message, "erro");
+        });
+    });
+});
+
+document.getElementById('reativarUnidade').addEventListener('change', function() {
+    var campoQtd = document.getElementById('reativarQuantidade');
+    if (this.value === 'horas' && campoQtd.value === '30') campoQtd.value = '2';
+    else if (this.value === 'dias' && campoQtd.value === '2') campoQtd.value = '30';
+});
+
+document.getElementById('btnReativar').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    var quantidade = parseInt(document.getElementById('reativarQuantidade').value, 10);
+    var unidade = document.getElementById('reativarUnidade').value;
+    var tipo = document.getElementById('reativarTipo').value;
+    var mapaEscolhido = document.getElementById('reativarMapa').value;
+    if (tipo === 'combo') mapaEscolhido = 'ambos';
+    if (!quantidade || quantidade < 1) { alert('Digite uma quantidade válida.'); return; }
+    var dias = unidade==='horas' ? quantidade/24 : quantidade;
+    var msgMapa = mapaEscolhido==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaEscolhido==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
+    if (!confirm("Reativar '" + empresaIdAtual + "' com '" + tipo + "' + "+msgMapa+" por " + quantidade + " " + (unidade==='horas'?'hora(s)':'dia(s)') + "?")) return;
+    salvarComBloqueio(empresaIdAtual, tipo, mapaEscolhido, dias).then(function(expira){
+        mostrarMsg("✅ Reativado '" + tipo + "' + "+msgMapa+" até " + expira.toLocaleString('pt-BR'), "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e){
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
+    });
+});
+
+document.getElementById('btnDefinirTipoSozinho').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    var tipo = document.getElementById('selectTipoSozinho').value;
+    var mapa = document.getElementById('selectMapaSozinho').value;
+    if (tipo === 'combo') mapa = 'ambos';
+    var tipoComMapa = tipo + '_' + mapa;
+    if (tipo==='combo') tipoComMapa='combo_ambos';
+    var msgMapa = mapa==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapa==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
+    if (!confirm("Definir modo '" + tipo + "' + "+msgMapa+" para '" + empresaIdAtual + "', SEM mexer em status/data?")) return;
+    // Salva só tipo (permitido) com mapa junto
+    var updates = {};
+    updates['empresas/' + empresaIdAtual + '/tipo'] = tipoComMapa;
+    updates['empresas/' + empresaIdAtual + '/plano'] = tipo;
+    updates['empresas/' + empresaIdAtual + '/planoContratado'] = tipo;
+    db.ref().update(updates).then(function() {
+        // tenta extras
+        var extras={};
+        extras['empresas/' + empresaIdAtual + '/mapasContratados']=mapa;
+        extras['empresas/' + empresaIdAtual + '/mapa']=mapa;
+        extras['empresas/' + empresaIdAtual + '/mapas']=mapa;
+        return db.ref().update(extras).catch(function(){});
+    }).then(function(){
+        mostrarMsg("✅ Tipo '"+tipoComMapa+"' + "+msgMapa+" definido.", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e){
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
+    });
+});
+
+document.getElementById('btnSuspender').addEventListener('click', function() {
+    if (!empresaIdAtual) return;
+    if (!confirm("Suspender o acesso de '" + empresaIdAtual + "'?")) return;
+    db.ref('empresas/' + empresaIdAtual + '/status').set('suspenso').then(function() {
+        mostrarMsg("🚫 Empresa suspensa.", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e) {
+        mostrarMsg("Erro ao salvar: " + e.message, "erro");
+    });
+});
 </script>
 <script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
