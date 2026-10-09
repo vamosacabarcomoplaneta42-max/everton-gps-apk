@@ -110,14 +110,34 @@ setTimeout(function(){
 var btnRuas=document.getElementById('btnMapaRuas');
 var btnSat=document.getElementById('btnMapaSat');
 function aplicarBloqueioMapas(){
-  if(!window.mapasPermitidos) return;
-  var raw = String(window.mapasPermitidos).toLowerCase().trim();
+  if(!window.mapasPermitidos && !window.dadosEmpresaRaw) return;
+  // Tenta pegar mapa de vários lugares, inclusive do tipo "frota_ruas"
+  var raw = String(window.mapasPermitidos || '').toLowerCase().trim();
+  var dados = window.dadosEmpresaRaw || {};
+  // Se raw vazio, tenta extrair do tipo
+  if(!raw || raw==='ambos' || raw===''){
+    var tipoRaw = String(dados.tipo || '').toLowerCase();
+    if(tipoRaw.includes('_ruas')) raw='ruas';
+    else if(tipoRaw.includes('_satelite') || tipoRaw.includes('_satel')) raw='satelite';
+    else if(tipoRaw.includes('_ambos')) raw='ambos';
+    // tenta planoDetalhe
+    if(!raw || raw==='ambos'){
+      try{
+        var pd = dados.planoDetalhe;
+        if(pd){
+          var chave = Object.keys(pd)[0];
+          if(pd[chave] && pd[chave].mapa) raw=pd[chave].mapa;
+          else if(pd[chave] && pd[chave].mapasContratados) raw=pd[chave].mapasContratados;
+        }
+      }catch(e){}
+    }
+  }
   var permitidos='ambos';
   if(raw==='ruas' || raw==='rua') permitidos='ruas';
   else if(raw.includes('satel')) permitidos='satelite';
   else permitidos='ambos';
   window.mapasPermitidos = permitidos;
-  console.log('🔒 BLOQUEIO MAPAS:', permitidos, 'Empresa:', EMPRESA_ID_ADMIN);
+  console.log('🔒 ADMIN BLOQUEIO:', permitidos, 'raw:', raw, 'Empresa:', EMPRESA_ID_ADMIN, 'dados:', dados);
   var btnR = document.getElementById('btnMapaRuas');
   var btnS = document.getElementById('btnMapaSat');
   var aviso = document.getElementById('avisoBloqueioMapa');
@@ -143,6 +163,7 @@ function aplicarBloqueioMapas(){
     aviso.style.display='none';
   }
 }
+
 
 window.aplicarBloqueioMapas=aplicarBloqueioMapas;
 if(btnRuas) btnRuas.addEventListener('click',function(){
