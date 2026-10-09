@@ -11,15 +11,18 @@
    - cartão "Família agora": quem está ao vivo, parado, em movimento, endereço
    - marcadores da família no mapa
    - botão SOS e aviso de SOS para todos que estão com o app aberto
-   - tipo de conta escolhido no cadastro: Frota, Família ou Combo (frota + família)
+   - ACESSO POR PLANO (vem do planos-acesso.js, que deve ser carregado DEPOIS
+     deste arquivo):
+        teste grátis -> frota + família liberados (pode alternar)
+        combo        -> frota + família liberados (pode alternar)
+        só frota     -> só modo Frota, sem Família e sem chave de troca
+        só família   -> só modo Família, sem Frota e sem chave de troca
    - checagem de remoção remota: se um super admin remover esta pessoa da
      família pelo painel (empresas/{id}/removidos/{chave} = true), este
      aparelho se retira sozinho da lista, mesmo que já estivesse aberto.
    - botão de solicitar ajuste (redução/aumento) de pessoas no plano Família
-   - troca de modo (Frota ⇄ Família, só disponível em contas Combo) protegida
-     por senha: como o aparelho normalmente já fica logado o tempo todo, sem
-     essa trava qualquer pessoa segurando o celular poderia trocar de modo
-     livremente. Agora é preciso reautenticar com a senha da conta.
+   - troca de modo (Frota ⇄ Família, só disponível quando o plano libera os
+     dois) protegida por senha: é preciso reautenticar com a senha da conta.
 
    Modelo de conta: a família cria UMA conta (e-mail e senha) e cada celular
    entra com ela, igual ao que a empresa já faz com os motoristas. Cada pessoa
@@ -142,10 +145,6 @@
     '.ev-modal-card label input{width:22px;height:22px;flex:none;margin-top:2px}' +
     '.ev-modal-card .ev-btn{width:100%;margin-top:8px;padding:14px}' +
     '.ev-modal-card input[type=password]{width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:1em;margin-top:6px}' +
-    '.ev-tipo{margin:4px 0 14px;font-size:.85em}' +
-    '.ev-tipo .ev-lbl{font-size:.72em;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-weight:600;font-family:var(--font-display);margin-bottom:6px}' +
-    '.ev-tipo label{display:flex;align-items:center;gap:8px;padding:8px 0}' +
-    '.ev-tipo input{flex:none;width:20px;height:20px}' +
     '.ev-pino{width:36px;height:36px;border-radius:50%;background:var(--brand);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#04120e;font:700 .8em var(--font-display)}' +
     '.ev-pino.parado{background:var(--warn)}.ev-pino.sem{background:#7c8aa0;color:#fff}.ev-pino.sos{background:var(--danger);color:#fff}';
 
@@ -206,38 +205,8 @@
     modal.id = 'evModal'; modal.className = 'ev-modal'; modal.hidden = true;
     document.body.appendChild(modal);
 
-    /* tipo de conta no cadastro: é preciso escolher Frota, Família ou Combo */
-    var painel = $('painelCadastro'), btnCad = $('btnConfirmarCadastro');
-    if (painel && btnCad) {
-      var tipo = document.createElement('div');
-      tipo.className = 'ev-tipo';
-      tipo.innerHTML =
-        '<div class="ev-lbl">Escolha o tipo de conta</div>' +
-        '<label><input type="radio" name="evTipo" value="frota"> Frota: empresa com veículos</label>' +
-        '<label><input type="radio" name="evTipo" value="familia"> Família: pessoas que compartilham a localização</label>' +
-        '<label><input type="radio" name="evTipo" value="combo"> Combo: frota e família juntas</label>';
-      btnCad.parentNode.insertBefore(tipo, btnCad);
-      tipo.addEventListener('change', function () {
-        var m = tipo.querySelector('input:checked');
-        var v = m ? m.value : 'frota';
-        var rotulo = painel.querySelector('label');
-        var campo = $('cadNomeEmpresa');
-        if (rotulo) rotulo.textContent = v === 'familia' ? 'Nome da família' : (v === 'combo' ? 'Nome da empresa ou família' : 'Nome da empresa');
-        if (campo) campo.placeholder = v === 'familia' ? 'Ex: Família Souza' : (v === 'combo' ? 'Ex: Silva Transportes' : 'Ex: Transportes Silva Ltda');
-      });
-      /* captura no painel: roda ANTES do clique do botão original e pode barrar o cadastro */
-      painel.addEventListener('click', function (e) {
-        var alvo = e.target && e.target.closest ? e.target.closest('#btnConfirmarCadastro') : null;
-        if (!alvo) return;
-        var marcado = tipo.querySelector('input:checked');
-        if (!marcado) {
-          e.stopPropagation(); e.preventDefault();
-          if (typeof mostrarErroAuth === 'function') mostrarErroAuth('Escolha o tipo de conta: Frota, Família ou Combo.');
-          return;
-        }
-        LS.set(K_TIPO_PEND, marcado.value + '|' + Date.now() + '|' + (typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : ''));
-      }, true);
-    }
+    /* O tipo de conta NÃO é mais escolhido no cadastro: durante o teste grátis
+       tudo fica liberado, e depois quem define o plano é a aprovação do admin. */
 
     $('evVerTodos').addEventListener('click', verTodos);
     $('evReduzir').addEventListener('click', abrirModalAjuste);
@@ -247,14 +216,7 @@
     });
   }
 
-  /* ---------- troca de modo protegida por senha ----------
-     O aparelho normalmente fica logado o tempo todo (login é feito uma vez
-     só), então sem esta trava qualquer pessoa com o celular na mão poderia
-     trocar entre Frota e Família livremente, mesmo sem saber a senha da
-     conta. Antes de aplicar a troca, pede a senha e reautentica com o
-     Firebase (confirma de verdade, não é só uma checagem visual). Uma vez
-     digitada certo, fica destravado até o app ser fechado/recarregado —
-     não precisa redigitar a cada troca dentro da mesma sessão. */
+  /* ---------- troca de modo protegida por senha ---------- */
   var modoDesbloqueadoNestaSessao = false;
 
   function pedirSenhaEDefinirModo(alvo) {
@@ -559,14 +521,7 @@
     });
   }
 
-  /* ---------- ajustar quantidade de pessoas (autoatendimento) ----------
-     O cliente pode marcar quem sai E/OU dizer quantas pessoas novas vão
-     entrar, tudo no mesmo modal, com o valor final recalculado na hora. O
-     pedido vai pro WhatsApp — nada muda de verdade no banco sozinho: quem
-     sai só é removido depois que o suporte confirmar (pelo painel de
-     gerenciamento), e quem entra é adicionada normalmente pelo próprio
-     aparelho dela (em "Pessoas neste aparelho"), depois de o pagamento
-     ser confirmado. */
+  /* ---------- ajustar quantidade de pessoas (autoatendimento) ---------- */
   var PRECO_POR_PESSOA_FAMILIA = 4.90;  // manter igual ao valor em index.html (PLANOS_ASSINATURA)
 
   function formatarPrecoReaisFam(v) {
@@ -665,10 +620,20 @@
     });
   }
 
-  /* ---------- tipo de conta: Frota, Família ou Combo ---------- */
+  /* ---------- tipo de conta: Frota, Família ou Combo ----------
+     Fonte principal: window.EVERTON_ACESSO, calculado pelo planos-acesso.js
+     (teste grátis = tudo liberado; plano ativo = só o que foi contratado).
+     Se esse arquivo não estiver carregado, vale o comportamento antigo. */
   var tipoRemoto = null, refTipo = null, empresaTipo = null, verificandoPend = false;
 
   function tipoEfetivo() {
+    var a = window.EVERTON_ACESSO;
+    if (a && a.modo !== 'carregando') {
+      if (a.frota && a.familia) return 'combo';
+      if (a.familia) return 'familia';
+      if (a.frota) return 'frota';
+      return 'combo';   /* bloqueado/sem plano: a tela de conta suspensa já cobre o app */
+    }
     if (tipoRemoto) return tipoRemoto;
     var local = LS.get(K_TIPO_CONTA);
     if (local && LS.get(K_TIPO_EMP) === EMPRESA_ID && TIPOS.indexOf(local) !== -1) return local;
@@ -678,19 +643,9 @@
   function aplicarTipoConta() {
     var t = tipoEfetivo();
     var cfg = document.querySelector('.ev-cfg');
-    if (cfg) cfg.hidden = (t !== 'combo');   /* só o Combo pode alternar entre Frota e Família */
+    if (cfg) cfg.hidden = (t !== 'combo');   /* só quem tem frota E família pode alternar */
     if (t === 'frota' && modo !== 'frota') definirModo('frota');
     else if (t === 'familia' && modo !== 'familia') definirModo('familia');
-  }
-
-  function definirTipoConta(t) {
-    if (TIPOS.indexOf(t) === -1) return;
-    LS.set(K_TIPO_CONTA, t); LS.set(K_TIPO_EMP, EMPRESA_ID);
-    db.ref('empresas/' + san(EMPRESA_ID) + '/tipo').set(t).catch(function (e) {
-      console.warn('modo-familia: não foi possível gravar o tipo da conta no banco (fica salvo só neste aparelho).', e && e.message);
-    });
-    definirModo(t === 'familia' ? 'familia' : 'frota');
-    aplicarTipoConta();
   }
 
   function observarTipo() {
@@ -705,11 +660,7 @@
     }, function () { /* sem permissão para ler: vale o que está salvo neste aparelho */ });
   }
 
-  /* ---------- remoção remota: um super admin pode remover esta pessoa da
-     família pelo painel de gerenciamento. Quando isso acontece, o app grava
-     empresas/{id}/removidos/{chave} = true — aqui a gente checa isso pra
-     este aparelho se retirar sozinho da lista, mesmo que já estivesse aberto
-     e tentando recriar o registro. ---------- */
+  /* ---------- remoção remota ---------- */
   var removidosChecando = {};
 
   function verificarRemocaoRemota() {
@@ -733,32 +684,16 @@
         alert('Você foi removido(a) desta família por um administrador. Seu nome foi retirado deste aparelho.');
       }).catch(function () {
         delete removidosChecando[idChecagem];
-        /* sem permissão de ler 'removidos' (ex.: conta antiga nas regras) — ignora silenciosamente */
       });
     });
   }
 
-  /* ---------- verificação periódica: cadastro novo, tipo da conta, empresa trocada ---------- */
+  /* ---------- verificação periódica ---------- */
   function verificar() {
     if (!auth.currentUser || !EMPRESA_ID) return;
-
-    /* tipo escolhido no cadastro: só vale para a empresa recém-criada (criada há menos de 5 min) */
-    var pend = LS.get(K_TIPO_PEND);
-    if (pend && !verificandoPend) {
-      var partes = pend.split('|');
-      if (Date.now() - Number(partes[1]) >= 120000) {
-        LS.del(K_TIPO_PEND);
-      } else if (EMPRESA_ID !== (partes[2] || '')) {
-        verificandoPend = true;
-        db.ref('empresas/' + san(EMPRESA_ID) + '/criadoEm').once('value').then(function (s) {
-          var criado = Date.parse(s.val());
-          LS.del(K_TIPO_PEND);
-          if (criado && Date.now() - criado < 300000) definirTipoConta(partes[0]);
-        }).catch(function () { LS.del(K_TIPO_PEND); }).then(function () { verificandoPend = false; });
-      }
-    }
-
+    LS.del(K_TIPO_PEND);   /* o tipo não é mais escolhido no cadastro */
     observarTipo();
+    aplicarTipoConta();
     if (modo === 'familia') {
       garantirFamilia();
       atualizarSOS();
@@ -772,6 +707,7 @@
   aplicarModo();
   aplicarTipoConta();
   if (modo === 'familia' && !consentido() && $('evModal').hidden) mostrarConsentimento();
+  window.addEventListener('everton-acesso', function () { aplicarTipoConta(); });   /* plano mudou: reaplica */
   setInterval(verificar, 3000);
   setInterval(renderFamilia, 10000);
   auth.onAuthStateChanged(function (u) {
