@@ -294,31 +294,27 @@ var esriLayer=L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
 var esriLabels=L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{maxZoom:20,maxNativeZoom:20});
 var sateliteGrupo=L.layerGroup([esriLayer,esriLabels]);
 osmLayer.addTo(map);
-var mapasPermitidosCliente = (localStorage.getItem('empresa_mapa_escolhido')||localStorage.getItem('empresa_mapa')||localStorage.getItem('empresa_mapas')||'ambos').toLowerCase().trim();
-function normalizarMapa(v){ if(!v) return 'ambos'; v=String(v).toLowerCase().trim(); if(v.includes('rua') && v.includes('satel') || v==='ambos' || v==='ambos os mapas' || v==='2' ) return 'ambos'; if(v.includes('rua')) return 'ruas'; if(v.includes('satel')) return 'satelite'; return 'ambos'; }
+var mapasPermitidosCliente = (localStorage.getItem('empresa_mapa_escolhido')||'ambos').toLowerCase();
 function aplicarBloqueioMapasCliente(){
-  mapasPermitidosCliente = normalizarMapa(mapasPermitidosCliente);
   var btnR=document.getElementById('btnMapaClienteRuas');
   var btnS=document.getElementById('btnMapaClienteSat');
   var info=document.getElementById('infoMapaBloqueado');
-  console.log('🔒 [APP CLIENTE] Aplicando bloqueio:',mapasPermitidosCliente,' EMPRESA:',EMPRESA_ID);
   if(mapasPermitidosCliente==='ruas'){
-    if(typeof sateliteGrupo!=='undefined' && map.hasLayer(sateliteGrupo)){ map.removeLayer(sateliteGrupo); if(!map.hasLayer(osmLayer)) osmLayer.addTo(map); }
-    if(btnS){ btnS.disabled=true; btnS.style.opacity='.25'; btnS.style.pointerEvents='none'; btnS.title='BLOQUEADO - Seu plano só libera Mapa Ruas'; btnS.style.background='#2a1a1a'; btnS.style.color='#ff8a8a'; btnS.innerHTML='🛰️ Satélite 🔒'; }
-    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto'; btnR.title='Liberado'; btnR.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnR.style.color='#04120e'; btnR.innerHTML='🗺️ Ruas ✓'; }
-    if(info){ info.style.display='block'; info.innerHTML='🔒 <b>PLANO ATIVO:</b> 🗺️ Só Mapa Ruas - Mapa Satélite BLOQUEADO (faça upgrade para liberar)'; }
+    if(map.hasLayer(sateliteGrupo)){ map.removeLayer(sateliteGrupo); if(!map.hasLayer(osmLayer)) osmLayer.addTo(map); }
+    if(btnS){ btnS.disabled=true; btnS.style.opacity='.35'; btnS.title='Seu plano só libera Mapa Ruas - faça upgrade para liberar Satélite'; }
+    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; }
+    if(info){ info.style.display='block'; info.textContent='🔒 Seu plano atual: 🗺️ Só Ruas - Satélite bloqueado'; }
   } else if(mapasPermitidosCliente==='satelite'){
-    if(typeof osmLayer!=='undefined' && map.hasLayer(osmLayer)){ map.removeLayer(osmLayer); if(!map.hasLayer(sateliteGrupo)) sateliteGrupo.addTo(map); }
-    if(btnR){ btnR.disabled=true; btnR.style.opacity='.25'; btnR.style.pointerEvents='none'; btnR.title='BLOQUEADO - Seu plano só libera Satélite'; btnR.style.background='#2a1a1a'; btnR.style.color='#ff8a8a'; btnR.innerHTML='🗺️ Ruas 🔒'; }
-    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto'; btnS.title='Liberado'; btnS.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnS.style.color='#04120e'; btnS.innerHTML='🛰️ Satélite ✓'; }
-    if(info){ info.style.display='block'; info.innerHTML='🔒 <b>PLANO ATIVO:</b> 🛰️ Só Mapa Satélite - Mapa Ruas BLOQUEADO (faça upgrade para liberar)'; }
+    if(map.hasLayer(osmLayer)){ map.removeLayer(osmLayer); if(!map.hasLayer(sateliteGrupo)) sateliteGrupo.addTo(map); }
+    if(btnR){ btnR.disabled=true; btnR.style.opacity='.35'; btnR.title='Seu plano só libera Satélite - faça upgrade'; }
+    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; }
+    if(info){ info.style.display='block'; info.textContent='🔒 Seu plano atual: 🛰️ Só Satélite - Ruas bloqueado'; }
   } else {
-    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto'; btnR.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnR.style.color='#04120e'; btnR.innerHTML='🗺️ Ruas'; }
-    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto'; btnS.style.background='#182131'; btnS.style.color='#7c8aa0'; btnS.innerHTML='🛰️ Satélite'; }
-    if(info){ info.style.display='block'; info.style.background='rgba(0,224,168,.12)'; info.style.borderColor='rgba(0,224,168,.3)'; info.style.color='#00e0a8'; info.innerHTML='✅ <b>PLANO ATIVO:</b> 🗺️🛰️ Os 2 Mapas Liberados'; setTimeout(function(){ if(info) info.style.display='none'; },4000); }
+    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; }
+    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; }
+    if(info){ info.style.display='none'; }
   }
 }
-
 // Controle de mapas no cliente
 var controleMapaClienteDiv=L.control({position:'topleft'});
 controleMapaClienteDiv.onAdd=function(){
