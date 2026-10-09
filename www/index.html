@@ -99,7 +99,7 @@ button:active{transform:scale(.97)}button:hover{filter:brightness(1.08)}
 <div style="width:88px;height:88px;border-radius:22px;background:linear-gradient(145deg,var(--danger),#a91c3e);display:flex;align-items:center;justify-content:center;font-size:2.4em;margin-bottom:22px;">📡</div><div style="font-family:var(--font-display);font-size:1.05em;font-weight:700;color:var(--text);letter-spacing:.8px;margin-bottom:26px;">EVERTON GPS</div><div style="border:1px solid rgba(255,77,109,.35);background:rgba(255,77,109,.08);border-radius:16px;padding:24px 20px;max-width:340px;"><div style="font-size:1.8em;margin-bottom:10px;">🚫</div><div style="color:var(--danger);font-weight:700;font-size:1.05em;font-family:var(--font-display);">Acesso suspenso</div><div style="color:var(--text-dim);font-size:.88em;margin-top:8px;">Entre em contato com o suporte para regularizar.</div></div>
 </div>
 
-<div id="map"></div>
+<div id="map"></div><div id="infoMapaBloqueado" style="display:none;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.35);color:#ffb020;padding:8px 12px;font-size:.8em;text-align:center;font-weight:700;">🔒 Mapa bloqueado</div>
 <div class="container">
 <div id="avisoGps" class="gps-warning"></div>
 <div id="ultimoErroSync" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.35);color:var(--danger);padding:11px 13px;border-radius:8px;font-size:.78em;white-space:pre-wrap;word-break:break-word;"></div>
@@ -289,7 +289,78 @@ function mostrarErroSyncPersistente(msg){var box=document.getElementById('ultimo
 document.getElementById('ultimoErroSync').addEventListener('click',function(){this.style.display="none";});
 
 var map=L.map('map',{zoomControl:false}).setView([-29.6133,-52.1919],13);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+var osmLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+var esriLayer=L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{maxZoom:20,maxNativeZoom:20});
+var esriLabels=L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{maxZoom:20,maxNativeZoom:20});
+var sateliteGrupo=L.layerGroup([esriLayer,esriLabels]);
+osmLayer.addTo(map);
+var mapasPermitidosCliente = (localStorage.getItem('empresa_mapa_escolhido')||localStorage.getItem('empresa_mapa')||localStorage.getItem('empresa_mapas')||'ambos').toLowerCase().trim();
+function normalizarMapa(v){ if(!v) return 'ambos'; v=String(v).toLowerCase().trim(); if(v.includes('rua') && v.includes('satel') || v==='ambos' || v==='ambos os mapas' || v==='2' ) return 'ambos'; if(v.includes('rua')) return 'ruas'; if(v.includes('satel')) return 'satelite'; return 'ambos'; }
+function aplicarBloqueioMapasCliente(){
+  mapasPermitidosCliente = normalizarMapa(mapasPermitidosCliente);
+  var btnR=document.getElementById('btnMapaClienteRuas');
+  var btnS=document.getElementById('btnMapaClienteSat');
+  var info=document.getElementById('infoMapaBloqueado');
+  console.log('🔒 [APP CLIENTE] Aplicando bloqueio:',mapasPermitidosCliente,' EMPRESA:',EMPRESA_ID);
+  if(mapasPermitidosCliente==='ruas'){
+    if(typeof sateliteGrupo!=='undefined' && map.hasLayer(sateliteGrupo)){ map.removeLayer(sateliteGrupo); if(!map.hasLayer(osmLayer)) osmLayer.addTo(map); }
+    if(btnS){ btnS.disabled=true; btnS.style.opacity='.25'; btnS.style.pointerEvents='none'; btnS.title='BLOQUEADO - Seu plano só libera Mapa Ruas'; btnS.style.background='#2a1a1a'; btnS.style.color='#ff8a8a'; btnS.innerHTML='🛰️ Satélite 🔒'; }
+    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto'; btnR.title='Liberado'; btnR.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnR.style.color='#04120e'; btnR.innerHTML='🗺️ Ruas ✓'; }
+    if(info){ info.style.display='block'; info.innerHTML='🔒 <b>PLANO ATIVO:</b> 🗺️ Só Mapa Ruas - Mapa Satélite BLOQUEADO (faça upgrade para liberar)'; }
+  } else if(mapasPermitidosCliente==='satelite'){
+    if(typeof osmLayer!=='undefined' && map.hasLayer(osmLayer)){ map.removeLayer(osmLayer); if(!map.hasLayer(sateliteGrupo)) sateliteGrupo.addTo(map); }
+    if(btnR){ btnR.disabled=true; btnR.style.opacity='.25'; btnR.style.pointerEvents='none'; btnR.title='BLOQUEADO - Seu plano só libera Satélite'; btnR.style.background='#2a1a1a'; btnR.style.color='#ff8a8a'; btnR.innerHTML='🗺️ Ruas 🔒'; }
+    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto'; btnS.title='Liberado'; btnS.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnS.style.color='#04120e'; btnS.innerHTML='🛰️ Satélite ✓'; }
+    if(info){ info.style.display='block'; info.innerHTML='🔒 <b>PLANO ATIVO:</b> 🛰️ Só Mapa Satélite - Mapa Ruas BLOQUEADO (faça upgrade para liberar)'; }
+  } else {
+    if(btnR){ btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto'; btnR.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; btnR.style.color='#04120e'; btnR.innerHTML='🗺️ Ruas'; }
+    if(btnS){ btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto'; btnS.style.background='#182131'; btnS.style.color='#7c8aa0'; btnS.innerHTML='🛰️ Satélite'; }
+    if(info){ info.style.display='block'; info.style.background='rgba(0,224,168,.12)'; info.style.borderColor='rgba(0,224,168,.3)'; info.style.color='#00e0a8'; info.innerHTML='✅ <b>PLANO ATIVO:</b> 🗺️🛰️ Os 2 Mapas Liberados'; setTimeout(function(){ if(info) info.style.display='none'; },4000); }
+  }
+}
+
+// Controle de mapas no cliente
+var controleMapaClienteDiv=L.control({position:'topleft'});
+controleMapaClienteDiv.onAdd=function(){
+  var div=L.DomUtil.create('div','leaflet-bar leaflet-control');
+  div.style.background='rgba(14,20,32,.92)';div.style.padding='4px';div.style.borderRadius='10px';div.style.display='flex';div.style.gap='4px';div.style.border='1px solid rgba(255,255,255,.08)';
+  div.innerHTML='<button id="btnMapaClienteRuas" style="width:auto;padding:7px 10px;font-size:0.78em;background:linear-gradient(135deg,#00e0a8,#0091c8);color:#04120e;border:none;border-radius:8px;font-weight:800;cursor:pointer">🗺️ Ruas</button><button id="btnMapaClienteSat" style="width:auto;padding:7px 10px;font-size:0.78em;background:#182131;color:#7c8aa0;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-weight:800;cursor:pointer">🛰️ Satélite</button>';
+  L.DomEvent.disableClickPropagation(div);return div;
+};
+controleMapaClienteDiv.addTo(map);
+setTimeout(function(){
+  var btnR=document.getElementById('btnMapaClienteRuas');
+  var btnS=document.getElementById('btnMapaClienteSat');
+  if(btnR) btnR.addEventListener('click',function(){
+    if(mapasPermitidosCliente==='satelite'){ alert('🔒 Seu plano só libera Mapa Satélite.\n\nEntre em contato com o suporte para liberar o Mapa Ruas ou os 2 mapas.'); return; }
+    if(map.hasLayer(sateliteGrupo)) map.removeLayer(sateliteGrupo);
+    if(!map.hasLayer(osmLayer)) osmLayer.addTo(map);
+    this.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; this.style.color='#04120e'; this.style.border='none';
+    if(btnS){ btnS.style.background='#182131'; btnS.style.color='#7c8aa0'; btnS.style.border='1px solid rgba(255,255,255,.12)'; }
+  });
+  if(btnS) btnS.addEventListener('click',function(){
+    if(mapasPermitidosCliente==='ruas'){ alert('🔒 Seu plano só libera Mapa Ruas.\n\nEntre em contato com o suporte para liberar o Mapa Satélite ou os 2 mapas.'); return; }
+    if(map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+    if(!map.hasLayer(sateliteGrupo)) sateliteGrupo.addTo(map);
+    this.style.background='linear-gradient(135deg,#00e0a8,#0091c8)'; this.style.color='#04120e'; this.style.border='none';
+    if(btnR){ btnR.style.background='#182131'; btnR.style.color='#7c8aa0'; btnR.style.border='1px solid rgba(255,255,255,.12)'; }
+  });
+  aplicarBloqueioMapasCliente();
+},800);
+// Ouvir Firebase pra atualizar mapas permitidos em tempo real
+function observarMapasPermitidosCliente(){
+  if(!EMPRESA_ID || !auth.currentUser) return;
+  try{
+    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/mapasContratados').on('value',function(s){
+      var v=s.val(); if(v){ mapasPermitidosCliente=v; localStorage.setItem('empresa_mapa_escolhido',v); aplicarBloqueioMapasCliente(); }
+    });
+    db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/mapas').on('value',function(s){
+      var v=s.val(); if(v){ mapasPermitidosCliente=v; localStorage.setItem('empresa_mapa_escolhido',v); aplicarBloqueioMapasCliente(); }
+    });
+  }catch(e){}
+}
+setTimeout(function(){ observarMapasPermitidosCliente(); },2000);
+
 function criarIconeVeiculo(angulo,cor){var cf=cor||'#00e0a8';return L.divIcon({className:'icone-veiculo-rastreador',html:'<div style="width:30px;height:30px;transform:rotate('+angulo+'deg);transform-origin:50% 50%;filter:drop-shadow(0 2px 5px rgba(0,0,0,.5));"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 1.5 L21 21 L12 16.5 L3 21 Z" fill="'+cf+'" stroke="#04120e" stroke-width="1.2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]});}
 var anguloAtualVeiculo=0,INVERTER_ANGULO_VEICULO=false,ultimaPosicaoParaRumo=null;
 function calcularRumoGraus(lat1,lon1,lat2,lon2){var toRad=function(g){return g*Math.PI/180;};var toDeg=function(r){return r*180/Math.PI;};var dLon=toRad(lon2-lon1);var y=Math.sin(dLon)*Math.cos(toRad(lat2));var x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLon);var rumo=toDeg(Math.atan2(y,x));return(rumo+360)%360;}
