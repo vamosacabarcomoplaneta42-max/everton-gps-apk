@@ -222,8 +222,8 @@ badgeTipo.textContent=tipo.toUpperCase();
 badgeTipo.className='badge-tipo '+tipo;
 if(!['combo','frota','familia'].includes(tipo)) badgeTipo.className='badge-tipo combo';
 // mapas
-var mapas=dados.mapasContratados||dados.mapa||dados.mapas||'ambos';
-window.mapasPermitidos=mapas;
+var mapas=dados.mapasContratados||dados.mapa||dados.mapas||dados.mapaPermitido||dados.tipoMapa||'ambos';
+window.mapasPermitidos=mapas; console.log('🔒 Mapa lido do Firebase para', EMPRESA_ID_ADMIN, ':', mapas, 'dados completos:', dados);
 if(mapas==='ambos'){badgeMapa.textContent='🗺️🛰️ 2 MAPAS';badgeMapa.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';badgeMapa.style.color='#000';}
 else if(mapas==='ruas'){badgeMapa.textContent='🗺️ SÓ RUAS';badgeMapa.style.background='rgba(255,176,32,.15)';badgeMapa.style.color='#ffb020';}
 else if(mapas==='satelite'){badgeMapa.textContent='🛰️ SÓ SATÉLITE';badgeMapa.style.background='rgba(45,212,255,.15)';badgeMapa.style.color='#2dd4ff';}
