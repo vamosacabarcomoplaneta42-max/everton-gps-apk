@@ -109,38 +109,17 @@ controleMapaDiv.addTo(map);
 setTimeout(function(){
 var btnRuas=document.getElementById('btnMapaRuas');
 var btnSat=document.getElementById('btnMapaSat');
-function normalizarMapaAdmin(v){ if(!v) return 'ambos'; v=String(v).toLowerCase().trim(); if(v.includes('rua') && v.includes('satel') || v==='ambos') return 'ambos'; if(v.includes('rua')) return 'ruas'; if(v.includes('satel')) return 'satelite'; return 'ambos'; }
 function aplicarBloqueioMapas(){
 if(!window.mapasPermitidos) return;
-window.mapasPermitidos = normalizarMapaAdmin(window.mapasPermitidos);
 var permitidos=window.mapasPermitidos;
-console.log('🔒 [ADMIN] Aplicando bloqueio:',permitidos,'Empresa:',EMPRESA_ID_ADMIN);
+console.log('🔒 Aplicando bloqueio de mapas:',permitidos);
 var avisoBloqueio = document.getElementById('avisoBloqueioMapa');
 if(!avisoBloqueio){
   avisoBloqueio = document.createElement('div');
   avisoBloqueio.id='avisoBloqueioMapa';
-  avisoBloqueio.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,176,32,.95);color:#000;padding:12px 18px;border-radius:10px;font-weight:800;font-size:.85em;z-index:99999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);text-align:center;max-width:90%';
+  avisoBloqueio.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,176,32,.95);color:#000;padding:10px 16px;border-radius:10px;font-weight:800;font-size:.85em;z-index:99999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4)';
   document.body.appendChild(avisoBloqueio);
 }
-if(permitidos==='ruas'){
-  if(btnSat){btnSat.disabled=true;btnSat.title='BLOQUEADO - Plano: Só Ruas';btnSat.style.opacity='.25';btnSat.style.pointerEvents='none';btnSat.style.background='#2a1a1a';btnSat.style.color='#ff8a8a';}
-  if(btnRuas){btnRuas.disabled=false;btnRuas.style.opacity='1';btnRuas.style.pointerEvents='auto';btnRuas.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';btnRuas.style.color='#000';}
-  if(map.hasLayer(sateliteGrupo)){map.removeLayer(sateliteGrupo);if(!map.hasLayer(osmLayer)) osmLayer.addTo(map);}
-  avisoBloqueio.innerHTML='🔒 <b>CLIENTE:</b> Só Mapa Ruas liberado<br><small>Satélite BLOQUEADO</small>'; avisoBloqueio.style.display='block';
-}
-else if(permitidos==='satelite'){
-  if(btnRuas){btnRuas.disabled=true;btnRuas.title='BLOQUEADO - Plano: Só Satélite';btnRuas.style.opacity='.25';btnRuas.style.pointerEvents='none';btnRuas.style.background='#2a1a1a';btnRuas.style.color='#ff8a8a';}
-  if(btnSat){btnSat.disabled=false;btnSat.style.opacity='1';btnSat.style.pointerEvents='auto';btnSat.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';btnSat.style.color='#000';}
-  if(map.hasLayer(osmLayer)){map.removeLayer(osmLayer);if(!map.hasLayer(sateliteGrupo)) sateliteGrupo.addTo(map);}
-  avisoBloqueio.innerHTML='🔒 <b>CLIENTE:</b> Só Satélite liberado<br><small>Ruas BLOQUEADO</small>'; avisoBloqueio.style.display='block';
-}
-else {
-  if(btnRuas) {btnRuas.disabled=false;btnRuas.style.opacity='1';btnRuas.style.pointerEvents='auto';btnRuas.style.background='linear-gradient(135deg,#00ffa6,#2dd4ff)';btnRuas.style.color='#000';}
-  if(btnSat){btnSat.disabled=false;btnSat.style.opacity='1';btnSat.style.pointerEvents='auto';btnSat.style.background='#1a212b';btnSat.style.color='#74808f';}
-  avisoBloqueio.style.display='none';
-}
-}
-
 if(permitidos==='ruas'){
   if(btnSat){btnSat.disabled=true;btnSat.title='Plano: Só Ruas - Satélite bloqueado';btnSat.style.opacity='.35';btnSat.style.pointerEvents='none';}
   if(btnRuas){btnRuas.disabled=false;btnRuas.style.opacity='1';btnRuas.style.pointerEvents='auto';}
@@ -245,6 +224,7 @@ else if(mapas==='satelite'){badgeMapa.textContent='🛰️ SÓ SATÉLITE';badgeM
 if(window.aplicarBloqueioMapas) window.aplicarBloqueioMapas();
 setTimeout(function(){ if(window.aplicarBloqueioMapas) window.aplicarBloqueioMapas(); },500);
 setTimeout(function(){ if(window.aplicarBloqueioMapas) window.aplicarBloqueioMapas(); },1500);
+setTimeout(function(){ if(window.aplicarBloqueioMapas) window.aplicarBloqueioMapas(); },3000);
 var dataVenc=null;
 if(dados.assinaturaExpiraEm){ dataVenc=new Date(dados.assinaturaExpiraEm); EXPIRACAO_TIMESTAMP=dataVenc.getTime(); kpiVenc.textContent=dataVenc.toLocaleDateString('pt-BR')+" "+dataVenc.toLocaleTimeString('pt-BR').slice(0,5); }
 if(EXPIRACAO_TIMESTAMP && EXPIRACAO_TIMESTAMP<=Date.now()){ var badgeStatus=document.getElementById('badgeStatusAssinatura'); if(badgeStatus){ badgeStatus.textContent='SUSPENSO'; badgeStatus.className='badge badge-status-bloqueado'; } }
@@ -314,5 +294,23 @@ document.getElementById('btnFullscreen').addEventListener('click',function(){ va
 document.addEventListener('keydown',function(e){ if(e.key==='Escape' && mapaFullscreenAtivo){ document.getElementById('btnFullscreen').click(); } });
 document.addEventListener('click',function(){ initAudio(); },{once:true});
 </script>
+
+<script>
+function normalizarMapaAdmin(v){ if(!v) return 'ambos'; v=String(v).toLowerCase().trim(); if(v.includes('rua') && v.includes('satel')) return 'ambos'; if(v==='ruas' || v==='rua') return 'ruas'; if(v.includes('satel')) return 'satelite'; return 'ambos'; }
+var _aplicarOriginal = window.aplicarBloqueioMapas;
+window.aplicarBloqueioMapas = function(){
+  if(window.mapasPermitidos) window.mapasPermitidos = normalizarMapaAdmin(window.mapasPermitidos);
+  if(typeof _aplicarOriginal==='function') return _aplicarOriginal();
+  // fallback simples
+  var permitidos=window.mapasPermitidos;
+  if(!permitidos) return;
+  var btnR=document.getElementById('btnMapaRuas');
+  var btnS=document.getElementById('btnMapaSat');
+  if(permitidos==='ruas'){ if(btnS){btnS.disabled=true; btnS.style.opacity='.3'; btnS.style.pointerEvents='none';} if(btnR){btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto';} }
+  else if(permitidos==='satelite'){ if(btnR){btnR.disabled=true; btnR.style.opacity='.3'; btnR.style.pointerEvents='none';} if(btnS){btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto';} }
+  else { if(btnR){btnR.disabled=false; btnR.style.opacity='1'; btnR.style.pointerEvents='auto';} if(btnS){btnS.disabled=false; btnS.style.opacity='1'; btnS.style.pointerEvents='auto';} }
+};
+</script>
+
 <script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
