@@ -31,7 +31,13 @@ jobs:
           cp modo-familia.js www/modo-familia.js
           cp planos-acesso.js www/planos-acesso.js
           cp segundo-plano.js www/segundo-plano.js
-          if [ -f trajeto-background.js ]; then cp trajeto-background.js www/trajeto-background.js; fi
+          # aceita qualquer grafia do arquivo: trajeto-background.js, Trajeto background.js, "Trajeto background"...
+          for f in ./*; do
+            n=$(basename "$f" | tr 'A-Z' 'a-z')
+            case "$n" in
+              trajeto*) cp "$f" www/trajeto-background.js; echo "trajeto ligado a partir de: $f"; break;;
+            esac
+          done
           if ! grep -q 'modo-familia.js' www/index.html; then
             sed -i 's#</body>#<script src="modo-familia.js"></script>\n</body>#' www/index.html
           fi
@@ -41,7 +47,7 @@ jobs:
           if ! grep -q 'segundo-plano.js' www/index.html; then
             sed -i 's#</body>#<script src="segundo-plano.js"></script>\n</body>#' www/index.html
           fi
-          if [ -f trajeto-background.js ] && ! grep -q 'trajeto-background.js' www/index.html; then
+          if [ -f www/trajeto-background.js ] && ! grep -q 'trajeto-background.js' www/index.html; then
             sed -i 's#</body>#<script src="trajeto-background.js"></script>\n</body>#' www/index.html
           fi
           if ! grep -q 'modo-familia.js' www/index.html; then
