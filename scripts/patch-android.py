@@ -72,4 +72,80 @@ if "everton-debug.keystore" not in g:
     g = re.sub(r"^android\s*\{", lambda m: bloco, g, count=1, flags=re.M)
 gradle.write_text(g, encoding="utf-8")
 
+
+# ---------- plugin nativo: isenção da otimização de bateria ----------
+import glob
+pasta_java = pathlib.Path("android/app/src/main/java/com/evertongps/app")
+pasta_java.mkdir(parents=True, exist_ok=True)
+(pasta_java / "EvertonBateriaPlugin.java").write_text("""package com.evertongps.app;
+
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
+
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+@CapacitorPlugin(name = "EvertonBateria")
+public class EvertonBateriaPlugin extends Plugin {
+
+    @PluginMethod
+    public void status(PluginCall call) {
+        JSObject r = new JSObject();
+        boolean ok = true;
+        if (Build.VERSION.SDK_INT >= 23) {
+            PowerManager pm = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
+            ok = pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+        }
+        r.put("ignorando", ok);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void pedir(PluginCall call) {
+        try {
+            Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            i.setData(Uri.parse("package:" + getContext().getPackageName()));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void abrirConfig(PluginCall call) {
+        try {
+            Intent i = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+}
+""", encoding="utf-8")
+
+for mf in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
+    m = pathlib.Path(mf)
+    j = m.read_text(encoding="utf-8")
+    if "EvertonBateriaPlugin" not in j:
+        j = j.replace("import com.getcapacitor.BridgeActivity;",
+                      "import android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;")
+        j = re.sub(r"public class MainActivity extends BridgeActivity\s*\{\s*\}",
+                   "public class MainActivity extends BridgeActivity {\n"
+                   "    @Override\n"
+                   "    public void onCreate(Bundle savedInstanceState) {\n"
+                   "        registerPlugin(com.evertongps.app.EvertonBateriaPlugin.class);\n"
+                   "        super.onCreate(savedInstanceState);\n"
+                   "    }\n}", j)
+        m.write_text(j, encoding="utf-8")
+
 print("Projeto Android ajustado (versão 1.0.%s)" % numero)
