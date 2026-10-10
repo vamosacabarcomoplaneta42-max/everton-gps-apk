@@ -40,8 +40,13 @@
     }
     if (trialOk) return { modo: 'trial', frota: true, familia: true, mapas: 'ambos', tipo: 'combo' };
     if (ativoOk) {
-      var tipo = String(estado.tipo || estado.planoContratado || '').toLowerCase();
-      var mapas = normalizarMapas(estado.mapasContratados || estado.mapas || estado.mapa) || 'ruas';
+      // a página de aprovação grava tipo = "familia_ruas", "frota_ambos", "combo_ambos"...
+      function limpa(v){ return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
+      var tipoBruto = limpa(estado.tipo);
+      var tipo = limpa(estado.planoContratado || estado.plano).split('_')[0];
+      if (['combo', 'familia', 'frota'].indexOf(tipo) === -1) tipo = tipoBruto.split('_')[0];
+      var mapas = normalizarMapas(estado.mapasContratados || estado.mapas || estado.mapa || estado.mapaPermitido || estado.tipoMapa)
+        || normalizarMapas(tipoBruto.split('_')[1]) || 'ruas';
       if (tipo === 'combo') return { modo: 'ativo', frota: true, familia: true, mapas: 'ambos', tipo: 'combo' };
       if (tipo === 'familia') return { modo: 'ativo', frota: false, familia: true, mapas: mapas, tipo: 'familia' };
       if (tipo === 'frota') return { modo: 'ativo', frota: true, familia: false, mapas: mapas, tipo: 'frota' };
