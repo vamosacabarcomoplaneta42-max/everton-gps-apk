@@ -637,39 +637,21 @@
     if (tipoRemoto) return tipoRemoto;
     var local = LS.get(K_TIPO_CONTA);
     if (local && LS.get(K_TIPO_EMP) === EMPRESA_ID && TIPOS.indexOf(local) !== -1) return local;
-    // CORREÇÃO: verifica plano salvo antes de assumir combo para contas antigas
-    try {
-      var pl = (localStorage.getItem('empresa_plano_escolhido') || '').toLowerCase();
-      if (pl && pl.indexOf('combo')===-1) {
-        if (pl.indexOf('frota')>=0) return 'frota';
-        if (pl.indexOf('familia')>=0) return 'familia';
-      }
-    } catch(e){}
     return 'combo';
   }
 
   function aplicarTipoConta() {
+    var a = window.EVERTON_ACESSO;
     var t = tipoEfetivo();
-    // CORREÇÃO NOVA: verifica também plano salvo no localStorage
-    try {
-      var planoLocal = (localStorage.getItem('empresa_plano_escolhido') || localStorage.getItem('planoContratado') || '').toLowerCase();
-      if (planoLocal && planoLocal.indexOf('combo') === -1) {
-        if (planoLocal.indexOf('frota') >=0 || planoLocal.indexOf('familia') >=0) {
-          t = planoLocal.indexOf('frota')>=0 ? 'frota' : 'familia';
-        }
-      }
-    } catch(e){}
+    /* A engrenagem só aparece com certeza de que o plano libera frota E família:
+       teste grátis vigente ou plano ativo Combo. Qualquer outra situação
+       (só Frota, só Família, sem plano, vencido, ainda carregando) esconde. */
+    var mostrar;
+    if (a) mostrar = (a.modo === 'trial') || (a.modo === 'ativo' && a.frota && a.familia);
+    else mostrar = (t === 'combo');
     var cfg = document.querySelector('.ev-cfg');
-    if (cfg) {
-      var deveMostrar = (t === 'combo');
-      try {
-        var pl = (localStorage.getItem('empresa_plano_escolhido') || '').toLowerCase();
-        if (pl && pl.indexOf('combo')===-1) deveMostrar = false;
-      } catch(e){}
-      cfg.hidden = !deveMostrar;
-      cfg.style.display = deveMostrar ? 'block' : 'none';
-      console.log('[EVERTON GPS] Plano:', t, 'planoLocal:', localStorage.getItem('empresa_plano_escolhido'), '-> engrenagem:', deveMostrar ? 'MOSTRAR' : 'ESCONDER');
-    }
+    if (cfg) { cfg.hidden = !mostrar; cfg.style.display = mostrar ? '' : 'none'; }
+    try { console.log('[EVERTON GPS] acesso:', JSON.stringify(a), '-> engrenagem:', mostrar ? 'MOSTRAR' : 'ESCONDER'); } catch (e) {}
     if (t === 'frota' && modo !== 'frota') definirModo('frota');
     else if (t === 'familia' && modo !== 'familia') definirModo('familia');
   }
