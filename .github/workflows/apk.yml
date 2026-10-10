@@ -30,11 +30,15 @@ jobs:
           fi
           cp modo-familia.js www/modo-familia.js
           cp planos-acesso.js www/planos-acesso.js
+          cp segundo-plano.js www/segundo-plano.js
           if ! grep -q 'modo-familia.js' www/index.html; then
             sed -i 's#</body>#<script src="modo-familia.js"></script>\n</body>#' www/index.html
           fi
           if ! grep -q 'planos-acesso.js' www/index.html; then
             sed -i 's#</body>#<script src="planos-acesso.js"></script>\n</body>#' www/index.html
+          fi
+          if ! grep -q 'segundo-plano.js' www/index.html; then
+            sed -i 's#</body>#<script src="segundo-plano.js"></script>\n</body>#' www/index.html
           fi
           if ! grep -q 'modo-familia.js' www/index.html; then
             echo "ERRO: não encontrei </body> no index.html para ligar o modo Família."
