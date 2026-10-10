@@ -632,18 +632,44 @@
       if (a.frota && a.familia) return 'combo';
       if (a.familia) return 'familia';
       if (a.frota) return 'frota';
-      return 'combo';   /* bloqueado/sem plano: a tela de conta suspensa já cobre o app */
+      return 'combo';
     }
     if (tipoRemoto) return tipoRemoto;
     var local = LS.get(K_TIPO_CONTA);
     if (local && LS.get(K_TIPO_EMP) === EMPRESA_ID && TIPOS.indexOf(local) !== -1) return local;
-    return 'combo';   /* contas antigas, sem tipo definido, continuam com tudo liberado */
+    // CORREÇÃO: verifica plano salvo antes de assumir combo para contas antigas
+    try {
+      var pl = (localStorage.getItem('empresa_plano_escolhido') || '').toLowerCase();
+      if (pl && pl.indexOf('combo')===-1) {
+        if (pl.indexOf('frota')>=0) return 'frota';
+        if (pl.indexOf('familia')>=0) return 'familia';
+      }
+    } catch(e){}
+    return 'combo';
   }
 
   function aplicarTipoConta() {
     var t = tipoEfetivo();
+    // CORREÇÃO NOVA: verifica também plano salvo no localStorage
+    try {
+      var planoLocal = (localStorage.getItem('empresa_plano_escolhido') || localStorage.getItem('planoContratado') || '').toLowerCase();
+      if (planoLocal && planoLocal.indexOf('combo') === -1) {
+        if (planoLocal.indexOf('frota') >=0 || planoLocal.indexOf('familia') >=0) {
+          t = planoLocal.indexOf('frota')>=0 ? 'frota' : 'familia';
+        }
+      }
+    } catch(e){}
     var cfg = document.querySelector('.ev-cfg');
-    if (cfg) cfg.hidden = (t !== 'combo');   /* só quem tem frota E família pode alternar */
+    if (cfg) {
+      var deveMostrar = (t === 'combo');
+      try {
+        var pl = (localStorage.getItem('empresa_plano_escolhido') || '').toLowerCase();
+        if (pl && pl.indexOf('combo')===-1) deveMostrar = false;
+      } catch(e){}
+      cfg.hidden = !deveMostrar;
+      cfg.style.display = deveMostrar ? 'block' : 'none';
+      console.log('[EVERTON GPS] Plano:', t, 'planoLocal:', localStorage.getItem('empresa_plano_escolhido'), '-> engrenagem:', deveMostrar ? 'MOSTRAR' : 'ESCONDER');
+    }
     if (t === 'frota' && modo !== 'frota') definirModo('frota');
     else if (t === 'familia' && modo !== 'familia') definirModo('familia');
   }
