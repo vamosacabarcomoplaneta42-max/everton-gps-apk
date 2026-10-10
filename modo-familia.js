@@ -654,7 +654,7 @@
     empresaTipo = EMPRESA_ID; tipoRemoto = null;
     refTipo = db.ref('empresas/' + san(EMPRESA_ID) + '/tipo');
     refTipo.on('value', function (s) {
-      var v = s.val();
+      var v = String(s.val() || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split('_')[0];
       tipoRemoto = (TIPOS.indexOf(v) !== -1) ? v : null;
       aplicarTipoConta();
     }, function () { /* sem permissão para ler: vale o que está salvo neste aparelho */ });
