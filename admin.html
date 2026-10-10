@@ -125,23 +125,26 @@ function sumirElementoComFade(id, delayMs){
   }, delayMs);
 }
 function sumirBotaoMapaDaFoto(){
-  var barra = document.getElementById('controleFlutuanteMapa');
-  if(barra){
-    setTimeout(function(){
-      barra.style.opacity='0';
-      barra.style.transform='translateY(-10px)';
-      setTimeout(function(){ barra.style.display='none'; }, 600);
-    }, 4000);
-  }
-  // esconde também o controle antigo do leaflet se existir
+  // AGORA O SELETOR NÃO SOME MAIS - fica fixo alinhado com Tela cheia
+  // Só esconde o controle antigo do leaflet se existir
   var camadaControle = document.querySelector('.leaflet-control-layers');
   if(camadaControle){
     camadaControle.style.display='none';
   }
 }
+function sumirAvisoBloqueado(){
+  var aviso = document.getElementById('avisoBloqueioMapa');
+  if(aviso){
+    setTimeout(function(){
+      aviso.style.opacity='0';
+      aviso.style.transform='translateY(-10px)';
+      setTimeout(function(){ aviso.style.display='none'; }, 600);
+    }, 4000);
+  }
+}
 function sumirControlesMapaApos4s(){
   sumirBotaoMapaDaFoto();
-  sumirElementoComFade('avisoBloqueioMapa', 4000);
+  sumirAvisoBloqueado();
 }
 
 setTimeout(function(){
@@ -191,7 +194,7 @@ function aplicarBloqueioMapas(){
     sumirBotaoMapaDaFoto();
     return;
   }
-  // === CORRIGIDO: aviso + botao DA FOTO somem em 4s ===
+  // === CORRIGIDO: só o aviso some em 4s, o seletor fica ===
   setTimeout(function(){
     if(aviso){
       aviso.style.opacity='0';
@@ -199,8 +202,7 @@ function aplicarBloqueioMapas(){
       setTimeout(function(){ aviso.style.display='none'; }, 600);
     }
   }, 4000);
-  // some o controle da foto (leaflet-control-layers)
-  sumirBotaoMapaDaFoto();
+  // seletor fica visivel
 }
 
 window.aplicarBloqueioMapas=aplicarBloqueioMapas;
