@@ -65,7 +65,7 @@
 
   function bloco(titulo, s) {
     if (!s) return titulo + ': (sem dados)\n';
-    var oc = s.tempoOculto + (s.ocultoDesde ? Date.now() - s.ocultoDesde : 0);
+    var oc = s.tempoOculto + ((s === S && s.ocultoDesde) ? Date.now() - s.ocultoDesde : 0);
     return titulo + '  (aberto às ' + hora(s.inicio) + ')\n' +
       '  tempo com tela apagada/app em 2º plano: ' + dur(oc) + '\n' +
       '  batimentos do app em 2º plano: ' + s.hbOculto + '  (maior pausa: ' + dur(s.maiorGapOculto) + ')\n' +
@@ -81,7 +81,7 @@
     txt += 'Plugin bateria: ' + (pl('EvertonBateria') ? 'SIM' : 'NÃO') + '\n';
     txt += 'Rodando como app Android: ' + ((window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? 'SIM' : 'NÃO') + '\n';
     try { txt += 'Pontos na fila para enviar: ' + (typeof filaPendentes !== 'undefined' ? filaPendentes.length : '?') + '\n'; } catch (e) {}
-    txt += 'Scripts: modo-familia ' + (typeof aplicarTipoConta !== 'undefined' ? 'ok' : '?') + ', trajeto ' + (window.processarNovaPosicao && String(window.processarNovaPosicao).indexOf('trajeto') >= 0 ? 'ok' : 'verificar') + '\n\n';
+    txt += 'Scripts: modo-familia ' + (typeof aplicarTipoConta !== 'undefined' ? 'ok' : '?') + ', trajeto ' + (window.__trajetoAtivo ? 'ok' : 'NÃO CARREGOU') + '\n\n';
     txt += bloco('SESSÃO ATUAL', S) + '\n' + bloco('SESSÃO ANTERIOR', anterior) + '\n';
     txt += 'Como ler: se "batimentos em 2º plano" for 0 ou a maior pausa for grande, o Android congelou o app.\n' +
            'Se o GPS em 2º plano for 0, o serviço de localização foi encerrado.\n' +
