@@ -11,7 +11,7 @@
   if (typeof original !== 'function') { console.warn('[trajeto] processarNovaPosicao não encontrada'); return; }
 
   window.__trajetoAtivo = true;
-  var ultimoTs = 0, ultimoLat = null, ultimoLon = null;
+  var ultimoTs = 0, ultimoLat = null, ultimoLon = null, ultimoRT = 0;
   /* Em segundo plano os temporizadores do app ficam congelados, então a busca normal de endereço
      não anda. Aqui o endereço é buscado a cada ~60 m percorridos, disparado pela chegada do GPS. */
   var addr = null, addrPos = null, addrPend = false, addrPendTs = 0;
@@ -23,7 +23,12 @@
     addrPend = true; addrPendTs = agora;
     try {
       buscarEnderecoImediato(lat, lon).then(function (a) {
-        if (a && a.rua) { addr = a; addrPos = [lat, lon]; }
+        if (a && a.rua) {
+          addr = a; addrPos = [lat, lon];
+          function ponha(id, v) { var el = document.getElementById(id); if (el && v) el.textContent = v; }
+          ponha('txtRua', a.numero ? (a.rua + ', ' + a.numero) : a.rua);
+          ponha('txtBairro', a.bairro); ponha('txtCidade', a.cidade); ponha('txtEstado', a.estado);
+        }
       }).catch(function () {}).then(function () { addrPend = false; });
     } catch (e) { addrPend = false; }
   }
@@ -46,6 +51,13 @@
       if (typeof registrarESincronizarPonto !== 'function' || typeof ultimaLeituraCompleta === 'undefined' || !ultimaLeituraCompleta) return r;
       if (typeof listaVeiculos === 'undefined' || !listaVeiculos.length) return r;
       var lei = ultimaLeituraCompleta;
+      /* Posição ao vivo (o que o admin mostra no mapa): o app só atualizava isso por temporizador,
+         que o Android congela com a tela apagada. Aqui é disparado a cada GPS recebido (máx. 1 a cada 5 s). */
+      var tRT = Date.now();
+      if (typeof sincronizarTempoRealImediato === 'function' && (tRT - ultimoRT) >= 5000) {
+        ultimoRT = tRT;
+        try { sincronizarTempoRealImediato(); } catch (e) {}
+      }
       var precisao = lei.precisao || (precisaoRaw ? Math.round(precisaoRaw) : null);
       if (typeof PRECISAO_MAXIMA_ACEITAVEL_M !== 'undefined' && precisao && precisao > PRECISAO_MAXIMA_ACEITAVEL_M) return r;
 
