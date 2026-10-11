@@ -81,14 +81,22 @@
     txt += 'Plugin bateria: ' + (pl('EvertonBateria') ? 'SIM' : 'NÃO') + '\n';
     txt += 'Rodando como app Android: ' + ((window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? 'SIM' : 'NÃO') + '\n';
     try { txt += 'Pontos na fila para enviar: ' + (typeof filaPendentes !== 'undefined' ? filaPendentes.length : '?') + '\n'; } catch (e) {}
-    txt += 'Scripts: modo-familia ' + (typeof aplicarTipoConta !== 'undefined' ? 'ok' : '?') + ', trajeto ' + (window.__trajetoAtivo ? 'ok' : 'NÃO CARREGOU') + '\n\n';
+    txt += 'Scripts: modo-familia ' + (typeof aplicarTipoConta !== 'undefined' ? 'ok' : '?') + ', trajeto ' + (window.__trajetoAtivo ? ('ok ' + (window.__trajetoVersao || 'v-antiga')) : 'NÃO CARREGOU') + '\n\n';
+    txt += 'Posição ao vivo: enviada ' + (window.__trajetoCntRT || 0) + 'x, última às ' + hora(window.__trajetoUltRT) + '\n';
+    txt += 'Bateria sem restrição: ' + (window.__evBateria === undefined ? '(consultando...)' : (window.__evBateria ? 'SIM' : 'NÃO — toque em Permitir')) + '\n';
+    txt += 'Agora: ' + new Date().toLocaleTimeString('pt-BR') + '  | app ' + (oculto() ? 'em 2º plano' : 'na frente') + '\n\n';
     txt += bloco('SESSÃO ATUAL', S) + '\n' + bloco('SESSÃO ANTERIOR', anterior) + '\n';
     txt += 'Como ler: se "batimentos em 2º plano" for 0 ou a maior pausa for grande, o Android congelou o app.\n' +
            'Se o GPS em 2º plano for 0, o serviço de localização foi encerrado.\n' +
            'Se houver erros de envio em 2º plano, o app roda mas a internet/banco falha.';
     pan.textContent = txt;
   }
+  function consultarBateria() {
+    try { var p = window.Capacitor.Plugins.EvertonBateria; if (p) p.status().then(function (r) { window.__evBateria = !!(r && r.ignorando); }).catch(function () {}); } catch (e) {}
+  }
+  consultarBateria();
   btn.addEventListener('click', function () {
+    consultarBateria();
     if (pan.style.display === 'none') { desenhar(); pan.style.display = 'block'; } else pan.style.display = 'none';
   });
   pan.addEventListener('click', function () { desenhar(); });
