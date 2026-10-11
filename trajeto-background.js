@@ -10,7 +10,7 @@
   var original = window.processarNovaPosicao;
   if (typeof original !== 'function') { console.warn('[trajeto] processarNovaPosicao não encontrada'); return; }
 
-  window.__trajetoAtivo = true;
+  window.__trajetoAtivo = true; window.__trajetoVersao = 'v3-posicao-ao-vivo';
   var ultimoTs = 0, ultimoLat = null, ultimoLon = null, ultimoRT = 0;
   /* Em segundo plano os temporizadores do app ficam congelados, então a busca normal de endereço
      não anda. Aqui o endereço é buscado a cada ~60 m percorridos, disparado pela chegada do GPS. */
@@ -56,6 +56,7 @@
       var tRT = Date.now();
       if (typeof sincronizarTempoRealImediato === 'function' && (tRT - ultimoRT) >= 5000) {
         ultimoRT = tRT;
+        window.__trajetoUltRT = tRT; window.__trajetoCntRT = (window.__trajetoCntRT || 0) + 1;
         try { sincronizarTempoRealImediato(); } catch (e) {}
       }
       var precisao = lei.precisao || (precisaoRaw ? Math.round(precisaoRaw) : null);
