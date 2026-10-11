@@ -50,6 +50,12 @@ jobs:
           if [ -f www/trajeto-background.js ] && ! grep -q 'trajeto-background.js' www/index.html; then
             sed -i 's#</body>#<script src="trajeto-background.js"></script>\n</body>#' www/index.html
           fi
+          if [ -f diagnostico.js ]; then
+            cp diagnostico.js www/diagnostico.js
+            if ! grep -q 'diagnostico.js' www/index.html; then
+              sed -i 's#</body>#<script src="diagnostico.js"></script>\n</body>#' www/index.html
+            fi
+          fi
           if ! grep -q 'modo-familia.js' www/index.html; then
             echo "ERRO: não encontrei </body> no index.html para ligar o modo Família."
             exit 1
