@@ -10,7 +10,23 @@
   var original = window.processarNovaPosicao;
   if (typeof original !== 'function') { console.warn('[trajeto] processarNovaPosicao não encontrada'); return; }
 
+  window.__trajetoAtivo = true;
   var ultimoTs = 0, ultimoLat = null, ultimoLon = null;
+  /* Em segundo plano os temporizadores do app ficam congelados, então a busca normal de endereço
+     não anda. Aqui o endereço é buscado a cada ~60 m percorridos, disparado pela chegada do GPS. */
+  var addr = null, addrPos = null, addrPend = false, addrPendTs = 0;
+  function atualizarEndereco(lat, lon) {
+    if (typeof buscarEnderecoImediato !== 'function') return;
+    var agora = Date.now();
+    if (addrPend && (agora - addrPendTs) < 30000) return;
+    if (addrPos && dist(addrPos[0], addrPos[1], lat, lon) < 60) return;
+    addrPend = true; addrPendTs = agora;
+    try {
+      buscarEnderecoImediato(lat, lon).then(function (a) {
+        if (a && a.rua) { addr = a; addrPos = [lat, lon]; }
+      }).catch(function () {}).then(function () { addrPend = false; });
+    } catch (e) { addrPend = false; }
+  }
   var INTERVALO_MOV_MS = 15000, INTERVALO_PARADO_MS = 60000, DIST_MIN_M = 20;
 
   function txt(id, padrao) {
@@ -42,12 +58,14 @@
 
       ultimoTs = agoraTs; ultimoLat = lat; ultimoLon = lon;
       var tipoVia = (typeof viaState !== 'undefined' && viaState && viaState.tipo) ? viaState.tipo : 'rua';
+      atualizarEndereco(lat, lon);
+      var usaAddr = addr && addrPos && dist(addrPos[0], addrPos[1], lat, lon) < 300;
       registrarESincronizarPonto(lat, lon, lei.status || 'EM MOVIMENTO', lei.velocidade || 0, precisao, new Date(), {
-        rua: txt('txtRua', null),
-        bairro: txt('txtBairro', null),
-        cidade: txt('txtCidade', null),
-        estado: txt('txtEstado', null),
-        tipoVia: tipoVia === 'rodovia' ? 'rodovia' : 'rua'
+        rua: usaAddr ? addr.rua : txt('txtRua', null),
+        bairro: usaAddr ? addr.bairro : txt('txtBairro', null),
+        cidade: usaAddr ? addr.cidade : txt('txtCidade', null),
+        estado: usaAddr ? addr.estado : txt('txtEstado', null),
+        tipoVia: usaAddr && addr.tipoVia ? addr.tipoVia : (tipoVia === 'rodovia' ? 'rodovia' : 'rua')
       }, 'trajeto');
     } catch (e) { console.warn('[trajeto]', e); }
     return r;
