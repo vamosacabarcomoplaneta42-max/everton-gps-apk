@@ -129,17 +129,18 @@ button {
 </div>
 
 <div class="box" id="boxValorQtd" style="display:none;">
-    <label>💰 Valor do plano e quantidade liberada (aparece no painel do cliente)</label>
+    <label>💰 Valor e quantidade (calculados automaticamente, aparecem no painel do cliente)</label>
     <div style="display:flex; gap:8px;">
         <div style="flex:1;">
-            <label>Valor (R$)</label>
-            <input type="text" id="valorPlano" inputmode="decimal" placeholder="ex: 199,90">
+            <label>Valor total (R$)</label>
+            <input type="text" id="valorPlano" inputmode="decimal" placeholder="automático">
         </div>
         <div style="flex:1;">
             <label>Qtd. de veículos</label>
             <input type="number" id="qtdPlano" min="1" step="1" value="1">
         </div>
     </div>
+    <div id="previewPrecos" style="font-size:0.78em;color:var(--text-dim);margin-top:8px;line-height:1.5;"></div>
 </div>
 
 <div class="box" id="boxPlanos" style="display:none;">
@@ -252,6 +253,41 @@ function mostrarMsg(texto, tipo) {
 }
 var empresaIdAtual = null;
 var mapaSelecionado = 'ruas';
+
+// ===== TABELA DE VALORES (PDF "Everton GPS - Tabela de Valores") =====
+// Valor = quantidade x preço unitário + adicional do mapa (adicional é fixo por conta, não por veículo)
+var TABELA_PRECOS = {
+    frota:   { unitario: 16.90, adicionalMapa: { ruas: 0, satelite: 3.00, ambos: 5.00 } },
+    familia: { unitario: 4.90,  adicionalMapa: { ruas: 0, satelite: 1.50, ambos: 3.00 } },
+    // Combo: 2 mapas inclusos; a parte Família é um valor fixo no mês
+    combo:   { unitario: 16.90, fixoFamilia: 6.90 }
+};
+var veiculosCadastrados = 1;
+var valorDigitadoManual = false;
+
+function formatarReais(n){
+    return 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function calcularValorPlano(tipo, mapa, qtd){
+    var t = TABELA_PRECOS[tipo];
+    if (!t) return 0;
+    var total;
+    if (tipo === 'combo') {
+        total = qtd * t.unitario + t.fixoFamilia;
+    } else {
+        total = qtd * t.unitario + (t.adicionalMapa[mapa] || 0);
+    }
+    return Math.round(total * 100) / 100;
+}
+function atualizarPreviewPrecos(){
+    var q = parseInt(document.getElementById('qtdPlano').value, 10) || 1;
+    var el = document.getElementById('previewPrecos');
+    if (!el) return;
+    el.innerHTML = '🚚 Frota: <b>' + formatarReais(calcularValorPlano('frota', mapaSelecionado, q)) + '</b> · ' +
+                   '👨‍👩‍👧 Família: <b>' + formatarReais(calcularValorPlano('familia', mapaSelecionado, q)) + '</b> · ' +
+                   '🔀 Combo: <b>' + formatarReais(calcularValorPlano('combo', 'ambos', q)) + '</b>' +
+                   '<br>Veículos cadastrados na empresa: <b>' + veiculosCadastrados + '</b> · valores por 30 dias';
+}
 function atualizarSelecaoMapa() {
     document.querySelectorAll('.mapa-opcao').forEach(function(el){ el.classList.remove('ativa'); });
     var ativa = document.querySelector('.mapa-opcao[data-mapa="'+mapaSelecionado+'"]');
@@ -262,6 +298,7 @@ function atualizarSelecaoMapa() {
     if (reativarMapaEl) reativarMapaEl.value = mapaSelecionado;
     var soloMapaEl = document.getElementById('selectMapaSozinho');
     if (soloMapaEl) soloMapaEl.value = mapaSelecionado;
+    if (typeof atualizarPreviewPrecos === 'function') atualizarPreviewPrecos();
 }
 document.querySelectorAll('.mapa-opcao').forEach(function(el){
     el.addEventListener('click', function(){
@@ -375,8 +412,16 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         var det = dados.planoDetalhe || {};
         var chaveDet = (dados.planoContratado || dados.plano || tipoLimpo);
         var detAtual = det[chaveDet] || det[Object.keys(det)[0]] || null;
-        document.getElementById('valorPlano').value = (detAtual && detAtual.valor) ? String(detAtual.valor).replace('.', ',') : '';
+        // Valor fica vazio (= automático); quantidade vem dos veículos cadastrados
+        valorDigitadoManual = false;
+        document.getElementById('valorPlano').value = '';
         document.getElementById('qtdPlano').value = (detAtual && detAtual.quantidade) ? detAtual.quantidade : 1;
+        atualizarPreviewPrecos();
+        db.ref(base + 'veiculos').once('value').then(function(snapV) {
+            veiculosCadastrados = snapV.exists() ? snapV.numChildren() : 0;
+            document.getElementById('qtdPlano').value = Math.max(1, veiculosCadastrados);
+            atualizarPreviewPrecos();
+        }).catch(function() {});
         document.getElementById('boxMapasEscolha').style.display = 'block';
         document.getElementById('boxValorQtd').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
@@ -388,13 +433,23 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
 
 // Salva SEM dar PERMISSION_DENIED: grava o mapa dentro do campo "tipo" (ex: frota_ruas)
 // NOVO: lê valor (R$) e quantidade digitados
-function lerValorQtd(){
-    var v = parseFloat(String(document.getElementById('valorPlano').value || '').replace(/\./g,'').replace(',', '.'));
-    if (isNaN(v) || v < 0) v = 0;
+// Valor: se você digitou, usa o digitado; senão calcula tabela do plano x quantidade
+function lerValorQtd(tipo, mapa){
     var q = parseInt(document.getElementById('qtdPlano').value, 10);
     if (!q || q < 1) q = 1;
+    var v;
+    if (valorDigitadoManual) {
+        v = parseFloat(String(document.getElementById('valorPlano').value || '').replace(/\./g,'').replace(',', '.'));
+        if (isNaN(v) || v < 0) v = 0;
+    } else {
+        v = calcularValorPlano(tipo, (tipo === 'combo' ? 'ambos' : mapa), q);
+    }
     return { valor: v, quantidade: q };
 }
+document.getElementById('valorPlano').addEventListener('input', function(){
+    valorDigitadoManual = String(this.value).trim() !== '';
+});
+document.getElementById('qtdPlano').addEventListener('input', atualizarPreviewPrecos);
 
 function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
     var agora = new Date();
@@ -421,7 +476,7 @@ function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
         updatesExtras['empresas/' + id + '/mapa'] = mapaFinal;
         updatesExtras['empresas/' + id + '/mapaPermitido'] = mapaFinal;
         updatesExtras['empresas/' + id + '/tipoMapa'] = mapaFinal;
-        var vq = lerValorQtd();
+        var vq = lerValorQtd(tipoBase, mapaFinal);
         updatesExtras['empresas/' + id + '/planoDetalhe/' + tipoBase] = {
             quantidade: vq.quantidade,
             mapa: mapaFinal,
@@ -455,7 +510,7 @@ function alterarSemMexerNaData(id, tipo, mapa){
         extras['empresas/' + id + '/mapasContratados']=mapa;
         extras['empresas/' + id + '/mapa']=mapa;
         extras['empresas/' + id + '/mapas']=mapa;
-        var vq = lerValorQtd();
+        var vq = lerValorQtd(tipo, mapa);
         extras['empresas/' + id + '/planoDetalhe/' + tipo + '/valor'] = vq.valor;
         extras['empresas/' + id + '/planoDetalhe/' + tipo + '/quantidade'] = vq.quantidade;
         extras['empresas/' + id + '/planoDetalhe/' + tipo + '/mapa'] = mapa;
@@ -487,7 +542,7 @@ document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
         var msgMapa = textoMapa(mapaFinal);
         var idEmp = empresaIdAtual;
         perguntarModo(
-            'Empresa: <b>' + idEmp + '</b><br>Plano: <b>' + tipo + '</b> · ' + msgMapa,
+            'Empresa: <b>' + idEmp + '</b><br>Plano: <b>' + tipo + '</b> · ' + msgMapa + '<br>' + lerValorQtd(tipo, mapaFinal).quantidade + ' veículo(s) · <b>' + formatarReais(lerValorQtd(tipo, mapaFinal).valor) + '</b>',
             '🔄 Renovar por 30 dias',
             function(){
                 salvarComBloqueio(idEmp, tipo, mapaFinal, 30).then(function(expira){
@@ -528,7 +583,7 @@ document.getElementById('btnReativar').addEventListener('click', function() {
     var textoPrazo = quantidade + " " + (unidade==='horas'?'hora(s)':'dia(s)');
     var idEmp = empresaIdAtual;
     perguntarModo(
-        'Empresa: <b>' + idEmp + '</b><br>Tipo: <b>' + tipo + '</b> · ' + msgMapa,
+        'Empresa: <b>' + idEmp + '</b><br>Tipo: <b>' + tipo + '</b> · ' + msgMapa + '<br>' + lerValorQtd(tipo, mapaEscolhido).quantidade + ' veículo(s) · <b>' + formatarReais(lerValorQtd(tipo, mapaEscolhido).valor) + '</b>',
         '🔄 Renovar por ' + textoPrazo,
         function(){
             salvarComBloqueio(idEmp, tipo, mapaEscolhido, dias).then(function(expira){
