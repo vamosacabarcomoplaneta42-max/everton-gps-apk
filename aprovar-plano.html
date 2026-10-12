@@ -1,27 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head><style>
-@font-face {
-  font-family: "Optimistic";
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url("/fonts/OptimisticAI_VF_Optimized.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Optimistic Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/OptimisticMono_W_TextRegular.woff2") format("woff2");
-}
-:where(html) {
-  font-family: "Optimistic", system-ui, sans-serif;
-}
-:where(code, pre, kbd, samp) {
-  font-family: "Optimistic Mono", ui-monospace, monospace;
-}
-</style>
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aprovar Plano - Everton GPS PRO Mapas</title>
@@ -82,6 +61,12 @@ button {
 .mapa-opcao input { width:auto; }
 .mapa-tag { font-size:.65em; padding:2px 6px; border-radius:4px; font-weight:800; }
 .debug-box{background:#000;color:#0f0;font-family:monospace;font-size:0.68em;padding:8px;border-radius:6px;margin-top:8px;white-space:pre-wrap;word-break:break-all;display:none}
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 200; }
+.modal-overlay.aberto { display: flex; }
+.modal-card { background: var(--bg-card); border: 1px solid var(--border); padding: 20px; border-radius: 12px; width: 92%; max-width: 380px; }
+.modal-card h3 { margin: 0 0 6px; font-size: 1.05em; }
+.modal-card p { margin: 0 0 8px; font-size: 0.82em; color: var(--text-dim); line-height: 1.4; }
+.modal-card .resumo { background:#1a212b; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:0.82em; color:var(--text); margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -93,6 +78,18 @@ button {
         <input type="password" id="authSenha" placeholder="senha">
         <button class="btn-buscar" id="btnEntrar">Entrar</button>
         <div id="erroLogin" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none;"></div>
+    </div>
+</div>
+
+<!-- Modal: pergunta se é renovação ou só alteração -->
+<div id="modalModo" class="modal-overlay">
+    <div class="modal-card">
+        <h3>O que você quer fazer?</h3>
+        <p>Escolha se é uma renovação com prazo novo ou só uma alteração na assinatura atual.</p>
+        <div class="resumo" id="modalResumo">—</div>
+        <button class="btn-buscar" id="btnModoRenovar" style="background: var(--brand); color:#04120e;">🔄 Renovar</button>
+        <button class="btn-buscar" id="btnModoAlterar" style="background: var(--warn); color:#1a1200;">✏️ Só alterar assinatura (plano / mapas)<br><span style="font-weight:normal;font-size:.8em;">não mexe em status nem na data de vencimento</span></button>
+        <button class="btn-plano" id="btnModoCancelar" style="text-align:center;">Cancelar</button>
     </div>
 </div>
 
@@ -132,7 +129,7 @@ button {
 </div>
 
 <div class="box" id="boxPlanos" style="display:none;">
-    <label>Confirmar plano pago (ativa por 30 dias a partir de agora) com o mapa escolhido acima</label>
+    <label>Confirmar plano pago (pergunta se renova 30 dias ou só altera) com o mapa escolhido acima</label>
     <button class="btn-plano" data-tipo="frota">
         <b>🚚 Frota</b><span>Só rastreamento de frota + mapa escolhido</span>
     </button>
@@ -367,34 +364,26 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
     });
 });
 
-// ==== CORREÇÃO PRINCIPAL: SALVA SEM DAR PERMISSION_DENIED ====
-// Antes salvava em campos novos (mapasContratados, mapa, etc) que sua regra bloqueia.
-// Agora salva TUDO dentro de campos que sua regra JÁ permite: tipo = "frota_ruas"
+// Salva SEM dar PERMISSION_DENIED: grava o mapa dentro do campo "tipo" (ex: frota_ruas)
 function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
     var agora = new Date();
     var expira = new Date(agora.getTime() + dias * 86400000);
-    // Truque: grava o mapa DENTRO do tipo: frota_ruas, frota_satelite, frota_ambos, etc
-    // Assim nunca dá PERMISSION_DENIED porque o campo tipo já é permitido
     var tipoComMapa = tipoBase + '_' + mapaFinal;
     if(tipoBase==='combo') tipoComMapa = 'combo_ambos'; // combo sempre ambos
-    
+
     var debug = document.getElementById('debugInfo');
     debug.style.display='block';
     debug.textContent = 'Salvando (sem erro de permissão)...\n tipo: ' + tipoComMapa + '\n plano: ' + tipoBase + '\n mapa: ' + mapaFinal + '\n expira: ' + expira.toISOString();
-    
-    // Só campos que sua regra permite: status, tipo, plano, planoContratado, assinaturaExpiraEm
-    // NÃO tenta salvar mapasContratados, mapa, etc no primeiro update (isso causava PERMISSION_DENIED)
+
     var updatesPermitidos = {};
     updatesPermitidos['empresas/' + id + '/status'] = 'ativo';
     updatesPermitidos['empresas/' + id + '/tipo'] = tipoComMapa;
     updatesPermitidos['empresas/' + id + '/plano'] = tipoBase;
     updatesPermitidos['empresas/' + id + '/planoContratado'] = tipoBase;
     updatesPermitidos['empresas/' + id + '/assinaturaExpiraEm'] = expira.toISOString();
-    
+
     return db.ref().update(updatesPermitidos).then(function(){
         debug.textContent += '\n\n✅ SALVO! Tipo = ' + tipoComMapa + '\n Agora tentando salvar campos extras de mapa (se a regra permitir)...';
-        // Agora tenta salvar os campos extras de mapa SEPARADO, sem quebrar o principal
-        // Se falhar, tudo bem, o bloqueio já funciona via tipo
         var updatesExtras = {};
         updatesExtras['empresas/' + id + '/mapasContratados'] = mapaFinal;
         updatesExtras['empresas/' + id + '/mapas'] = mapaFinal;
@@ -420,20 +409,67 @@ function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
     });
 }
 
+// NOVO: altera só plano + mapa, sem mexer em status nem na data de vencimento
+function alterarSemMexerNaData(id, tipo, mapa){
+    if (tipo === 'combo') mapa = 'ambos';
+    var tipoComMapa = tipo + '_' + mapa;
+    if (tipo==='combo') tipoComMapa='combo_ambos';
+    var updates = {};
+    updates['empresas/' + id + '/tipo'] = tipoComMapa;
+    updates['empresas/' + id + '/plano'] = tipo;
+    updates['empresas/' + id + '/planoContratado'] = tipo;
+    return db.ref().update(updates).then(function() {
+        var extras={};
+        extras['empresas/' + id + '/mapasContratados']=mapa;
+        extras['empresas/' + id + '/mapa']=mapa;
+        extras['empresas/' + id + '/mapas']=mapa;
+        return db.ref().update(extras).catch(function(){});
+    }).then(function(){ return tipoComMapa; });
+}
+
+// NOVO: modal que pergunta se é renovação (prazo novo) ou só alteração
+function perguntarModo(resumoHtml, textoRenovar, aoRenovar, aoAlterar){
+    var modal = document.getElementById('modalModo');
+    document.getElementById('modalResumo').innerHTML = resumoHtml;
+    document.getElementById('btnModoRenovar').textContent = textoRenovar;
+    function fechar(){ modal.classList.remove('aberto'); }
+    document.getElementById('btnModoRenovar').onclick = function(){ fechar(); aoRenovar(); };
+    document.getElementById('btnModoAlterar').onclick = function(){ fechar(); aoAlterar(); };
+    document.getElementById('btnModoCancelar').onclick = fechar;
+    modal.classList.add('aberto');
+}
+function textoMapa(m){
+    return m==='ambos'?'🗺️🛰️ Os 2 Mapas':(m==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
+}
+
 document.querySelectorAll('.btn-plano[data-tipo]').forEach(function(btn) {
     btn.addEventListener('click', function() {
         if (!empresaIdAtual) return;
         var tipo = btn.getAttribute('data-tipo');
         var mapaFinal = mapaSelecionado;
         if (tipo === 'combo') mapaFinal = 'ambos';
-        var msgMapa = mapaFinal==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaFinal==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
-        if (!confirm("Confirmar plano '" + tipo + "' com "+msgMapa+" para '" + empresaIdAtual + "', ativando por 30 dias? O outro mapa ficará BLOQUEADO.")) return;
-        salvarComBloqueio(empresaIdAtual, tipo, mapaFinal, 30).then(function(expira){
-            mostrarMsg("✅ Plano '" + tipo + "' + " + msgMapa + " ativado até " + expira.toLocaleDateString('pt-BR') + ". Tipo gravado: " + tipo + "_" + mapaFinal + " - BLOQUEIO ATIVO!", "ok");
-            document.getElementById('btnBuscar').click();
-        }).catch(function(e){
-            mostrarMsg("Erro ao salvar: " + e.message, "erro");
-        });
+        var msgMapa = textoMapa(mapaFinal);
+        var idEmp = empresaIdAtual;
+        perguntarModo(
+            'Empresa: <b>' + idEmp + '</b><br>Plano: <b>' + tipo + '</b> · ' + msgMapa,
+            '🔄 Renovar por 30 dias',
+            function(){
+                salvarComBloqueio(idEmp, tipo, mapaFinal, 30).then(function(expira){
+                    mostrarMsg("✅ Plano '" + tipo + "' + " + msgMapa + " ativado até " + expira.toLocaleDateString('pt-BR') + ". Tipo gravado: " + tipo + "_" + mapaFinal + " - BLOQUEIO ATIVO!", "ok");
+                    document.getElementById('btnBuscar').click();
+                }).catch(function(e){
+                    mostrarMsg("Erro ao salvar: " + e.message, "erro");
+                });
+            },
+            function(){
+                alterarSemMexerNaData(idEmp, tipo, mapaFinal).then(function(tcm){
+                    mostrarMsg("✅ Assinatura alterada para '" + tcm + "' (" + msgMapa + "). Data e status não foram mexidos.", "ok");
+                    document.getElementById('btnBuscar').click();
+                }).catch(function(e){
+                    mostrarMsg("Erro ao salvar: " + e.message, "erro");
+                });
+            }
+        );
     });
 });
 
@@ -452,14 +488,29 @@ document.getElementById('btnReativar').addEventListener('click', function() {
     if (tipo === 'combo') mapaEscolhido = 'ambos';
     if (!quantidade || quantidade < 1) { alert('Digite uma quantidade válida.'); return; }
     var dias = unidade==='horas' ? quantidade/24 : quantidade;
-    var msgMapa = mapaEscolhido==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapaEscolhido==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
-    if (!confirm("Reativar '" + empresaIdAtual + "' com '" + tipo + "' + "+msgMapa+" por " + quantidade + " " + (unidade==='horas'?'hora(s)':'dia(s)') + "?")) return;
-    salvarComBloqueio(empresaIdAtual, tipo, mapaEscolhido, dias).then(function(expira){
-        mostrarMsg("✅ Reativado '" + tipo + "' + "+msgMapa+" até " + expira.toLocaleString('pt-BR'), "ok");
-        document.getElementById('btnBuscar').click();
-    }).catch(function(e){
-        mostrarMsg("Erro ao salvar: " + e.message, "erro");
-    });
+    var msgMapa = textoMapa(mapaEscolhido);
+    var textoPrazo = quantidade + " " + (unidade==='horas'?'hora(s)':'dia(s)');
+    var idEmp = empresaIdAtual;
+    perguntarModo(
+        'Empresa: <b>' + idEmp + '</b><br>Tipo: <b>' + tipo + '</b> · ' + msgMapa,
+        '🔄 Renovar por ' + textoPrazo,
+        function(){
+            salvarComBloqueio(idEmp, tipo, mapaEscolhido, dias).then(function(expira){
+                mostrarMsg("✅ Reativado '" + tipo + "' + "+msgMapa+" até " + expira.toLocaleString('pt-BR'), "ok");
+                document.getElementById('btnBuscar').click();
+            }).catch(function(e){
+                mostrarMsg("Erro ao salvar: " + e.message, "erro");
+            });
+        },
+        function(){
+            alterarSemMexerNaData(idEmp, tipo, mapaEscolhido).then(function(tcm){
+                mostrarMsg("✅ Assinatura alterada para '" + tcm + "' (" + msgMapa + "). Data e status não foram mexidos.", "ok");
+                document.getElementById('btnBuscar').click();
+            }).catch(function(e){
+                mostrarMsg("Erro ao salvar: " + e.message, "erro");
+            });
+        }
+    );
 });
 
 document.getElementById('btnDefinirTipoSozinho').addEventListener('click', function() {
@@ -467,24 +518,10 @@ document.getElementById('btnDefinirTipoSozinho').addEventListener('click', funct
     var tipo = document.getElementById('selectTipoSozinho').value;
     var mapa = document.getElementById('selectMapaSozinho').value;
     if (tipo === 'combo') mapa = 'ambos';
-    var tipoComMapa = tipo + '_' + mapa;
-    if (tipo==='combo') tipoComMapa='combo_ambos';
-    var msgMapa = mapa==='ambos'?'🗺️🛰️ Os 2 Mapas':(mapa==='ruas'?'🗺️ Só Ruas':'🛰️ Só Satélite');
+    var msgMapa = textoMapa(mapa);
     if (!confirm("Definir modo '" + tipo + "' + "+msgMapa+" para '" + empresaIdAtual + "', SEM mexer em status/data?")) return;
-    // Salva só tipo (permitido) com mapa junto
-    var updates = {};
-    updates['empresas/' + empresaIdAtual + '/tipo'] = tipoComMapa;
-    updates['empresas/' + empresaIdAtual + '/plano'] = tipo;
-    updates['empresas/' + empresaIdAtual + '/planoContratado'] = tipo;
-    db.ref().update(updates).then(function() {
-        // tenta extras
-        var extras={};
-        extras['empresas/' + empresaIdAtual + '/mapasContratados']=mapa;
-        extras['empresas/' + empresaIdAtual + '/mapa']=mapa;
-        extras['empresas/' + empresaIdAtual + '/mapas']=mapa;
-        return db.ref().update(extras).catch(function(){});
-    }).then(function(){
-        mostrarMsg("✅ Tipo '"+tipoComMapa+"' + "+msgMapa+" definido.", "ok");
+    alterarSemMexerNaData(empresaIdAtual, tipo, mapa).then(function(tcm){
+        mostrarMsg("✅ Tipo '"+tcm+"' + "+msgMapa+" definido.", "ok");
         document.getElementById('btnBuscar').click();
     }).catch(function(e){
         mostrarMsg("Erro ao salvar: " + e.message, "erro");
@@ -502,5 +539,5 @@ document.getElementById('btnSuspender').addEventListener('click', function() {
     });
 });
 </script>
-<script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
+</body>
 </html>
