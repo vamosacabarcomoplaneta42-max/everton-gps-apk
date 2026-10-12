@@ -128,6 +128,20 @@ button {
     </div>
 </div>
 
+<div class="box" id="boxValorQtd" style="display:none;">
+    <label>💰 Valor do plano e quantidade liberada (aparece no painel do cliente)</label>
+    <div style="display:flex; gap:8px;">
+        <div style="flex:1;">
+            <label>Valor (R$)</label>
+            <input type="text" id="valorPlano" inputmode="decimal" placeholder="ex: 199,90">
+        </div>
+        <div style="flex:1;">
+            <label>Qtd. de veículos</label>
+            <input type="number" id="qtdPlano" min="1" step="1" value="1">
+        </div>
+    </div>
+</div>
+
 <div class="box" id="boxPlanos" style="display:none;">
     <label>Confirmar plano pago (pergunta se renova 30 dias ou só altera) com o mapa escolhido acima</label>
     <button class="btn-plano" data-tipo="frota">
@@ -301,7 +315,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
     id = sanitizarChavePath(id);
     empresaIdAtual = id;
     var base = 'empresas/' + id + '/';
-    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm', 'mapasContratados', 'mapa', 'mapas', 'planoContratado', 'plano', 'mapaPermitido', 'tipoMapa'];
+    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm', 'mapasContratados', 'mapa', 'mapas', 'planoContratado', 'plano', 'mapaPermitido', 'tipoMapa', 'planoDetalhe'];
     Promise.all(campos.map(function(campo) {
         return db.ref(base + campo).once('value')
             .then(function(snap) { return snap.val(); })
@@ -313,6 +327,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
             document.getElementById('boxInfo').style.display = 'none';
             document.getElementById('boxPlanos').style.display = 'none';
             document.getElementById('boxMapasEscolha').style.display = 'none';
+            document.getElementById('boxValorQtd').style.display = 'none';
             document.getElementById('boxReativar').style.display = 'none';
             document.getElementById('boxTipoSozinho').style.display = 'none';
             document.getElementById('boxSuspender').style.display = 'none';
@@ -356,7 +371,14 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
             selectReativar.value = tipoLimpo;
         }
         document.getElementById('boxInfo').style.display = 'block';
+        // Preenche valor e quantidade já salvos (se houver)
+        var det = dados.planoDetalhe || {};
+        var chaveDet = (dados.planoContratado || dados.plano || tipoLimpo);
+        var detAtual = det[chaveDet] || det[Object.keys(det)[0]] || null;
+        document.getElementById('valorPlano').value = (detAtual && detAtual.valor) ? String(detAtual.valor).replace('.', ',') : '';
+        document.getElementById('qtdPlano').value = (detAtual && detAtual.quantidade) ? detAtual.quantidade : 1;
         document.getElementById('boxMapasEscolha').style.display = 'block';
+        document.getElementById('boxValorQtd').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
         document.getElementById('boxReativar').style.display = 'block';
         document.getElementById('boxTipoSozinho').style.display = 'block';
@@ -365,6 +387,15 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
 });
 
 // Salva SEM dar PERMISSION_DENIED: grava o mapa dentro do campo "tipo" (ex: frota_ruas)
+// NOVO: lê valor (R$) e quantidade digitados
+function lerValorQtd(){
+    var v = parseFloat(String(document.getElementById('valorPlano').value || '').replace(/\./g,'').replace(',', '.'));
+    if (isNaN(v) || v < 0) v = 0;
+    var q = parseInt(document.getElementById('qtdPlano').value, 10);
+    if (!q || q < 1) q = 1;
+    return { valor: v, quantidade: q };
+}
+
 function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
     var agora = new Date();
     var expira = new Date(agora.getTime() + dias * 86400000);
@@ -390,12 +421,13 @@ function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
         updatesExtras['empresas/' + id + '/mapa'] = mapaFinal;
         updatesExtras['empresas/' + id + '/mapaPermitido'] = mapaFinal;
         updatesExtras['empresas/' + id + '/tipoMapa'] = mapaFinal;
+        var vq = lerValorQtd();
         updatesExtras['empresas/' + id + '/planoDetalhe/' + tipoBase] = {
-            quantidade: 1,
+            quantidade: vq.quantidade,
             mapa: mapaFinal,
             tipoMapa: mapaFinal,
             tipoComMapa: tipoComMapa,
-            valor: 0,
+            valor: vq.valor,
             dataAprovacao: agora.toISOString(),
             aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin'
         };
@@ -423,6 +455,10 @@ function alterarSemMexerNaData(id, tipo, mapa){
         extras['empresas/' + id + '/mapasContratados']=mapa;
         extras['empresas/' + id + '/mapa']=mapa;
         extras['empresas/' + id + '/mapas']=mapa;
+        var vq = lerValorQtd();
+        extras['empresas/' + id + '/planoDetalhe/' + tipo + '/valor'] = vq.valor;
+        extras['empresas/' + id + '/planoDetalhe/' + tipo + '/quantidade'] = vq.quantidade;
+        extras['empresas/' + id + '/planoDetalhe/' + tipo + '/mapa'] = mapa;
         return db.ref().update(extras).catch(function(){});
     }).then(function(){ return tipoComMapa; });
 }
