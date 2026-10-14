@@ -23,7 +23,7 @@ button.sm{padding:7px 10px;font-size:.8em}
 .tabs{display:flex;gap:6px;margin-bottom:10px}
 .tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:#1a212b;border:1px solid var(--b);font-weight:800;font-size:.85em;color:var(--dim);cursor:pointer}
 .tab.on{background:var(--ac);color:#04141f;border-color:var(--ac)}
-.filtros{display:flex;gap:6px;margin-bottom:10px}.filtros input{flex:2}.filtros select{flex:1}
+.filtros{display:flex;gap:6px;margin-bottom:10px}.filtros input{flex:2;min-width:0}.filtros select{flex:1;min-width:0}
 .cli,.pend{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px;margin-bottom:10px}
 .pend{border-color:rgba(255,176,32,.45);background:linear-gradient(135deg,rgba(255,176,32,.08),var(--card))}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;cursor:pointer}
@@ -228,7 +228,7 @@ function renderPendentes(){
     var L=limiteEfetivo(it.c), cheio=ocupadas(it.c)>=L.n;
     return '<div class="pend" data-id="'+esc(it.c.id)+'" data-dev="'+esc(it.k)+'">'+
       '<div class="top" style="cursor:default"><div><b>'+esc(it.c.nome||it.c.id)+'</b><div class="idt">'+esc(it.c.id)+'</div></div><span class="badge b-pend">PEDIDO</span></div>'+
-      '<div style="margin:8px 0">📱 <b>'+esc(it.d.nome||nomeBonito(it.k))+'</b>'+(it.d.modelo?' <span class="small">· '+esc(it.d.modelo)+'</span>':'')+'</div>'+
+      '<div style="margin:8px 0">📱 <b>'+esc(it.d.nome||nomeBonito(it.k))+'</b>'+(it.d.modelo&&it.d.modelo!==it.d.nome?' <span class="small">· '+esc(it.d.modelo)+'</span>':'')+(it.d.veiculos?'<div class="small">🚚 '+esc(it.d.veiculos)+'</div>':'')+'</div>'+
       '<div class="small">Pedido em '+esc(fmtData(it.d.solicitadoEm))+' · hoje: '+ocupadas(it.c)+' de '+L.n+' vaga(s)'+(cheio?' <b class="t-bad">(sem vaga: aprovar aumenta o limite)</b>':'')+'</div>'+
       '<div style="display:flex;gap:6px;margin-top:10px"><button class="ok" style="flex:1" data-act="aprovar">✅ Aprovar</button><button class="bad" style="flex:1" data-act="negar">✖ Negar</button></div></div>';
   }).join('');
@@ -238,7 +238,7 @@ function devRow(k,d){
   if(st==='pendente') acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button><button class="bad sm" data-act="negar" data-dev="'+esc(k)+'">Negar</button>';
   else if(st==='aprovado') acts='<button class="bad sm" data-act="revogar" data-dev="'+esc(k)+'">Revogar</button>';
   else acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button>';
-  return '<div class="dev"><div><b>'+esc(d.nome||nomeBonito(k))+'</b><div class="small">'+(d.modelo?esc(d.modelo)+' · ':'')+esc(fmtData(d.solicitadoEm))+'</div></div><div class="acts"><span class="badge '+cls+'">'+esc(st.toUpperCase())+'</span>'+acts+'</div></div>';
+  return '<div class="dev"><div><b>'+esc(d.nome||nomeBonito(k))+'</b><div class="small">'+(d.modelo&&d.modelo!==d.nome?esc(d.modelo)+' · ':'')+esc(fmtData(d.solicitadoEm))+(d.veiculos?'<br>🚚 '+esc(d.veiculos):'')+'</div></div><div class="acts"><span class="badge '+cls+'">'+esc(st.toUpperCase())+'</span>'+acts+'</div></div>';
 }
 function detalheHtml(c,L){
   var d=c.dispositivos||{}, ks=Object.keys(d), h='<div class="det">';
