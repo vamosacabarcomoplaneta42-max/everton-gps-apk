@@ -75,9 +75,9 @@ var firebaseConfig={apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:
 firebase.initializeApp(firebaseConfig);
 var db=firebase.database(),auth=firebase.auth();
 var map=L.map('map',{zoomControl:true}).setView([-29.6133,-52.1919],16);
-var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:20});
-var esriLayer=L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:20,maxNativeZoom:20});
-var esriLabels=L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{attribution:'',maxZoom:20,maxNativeZoom:20});
+var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:20,maxNativeZoom:19});
+var esriLayer=L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:20,maxNativeZoom:18});
+var esriLabels=L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{attribution:'',maxZoom:20,maxNativeZoom:18});
 var sateliteGrupo=L.layerGroup([esriLayer,esriLabels]);
 osmLayer.addTo(map);
 var baseMaps={"🗺️ Ruas":osmLayer,"🛰️ Satélite":sateliteGrupo};
@@ -337,7 +337,7 @@ function construirLinhaDoTempo(pontos,paradaMinMs){
     segs=juntar(segs);
   }
   var tot={parado:0,mov:0,semsinal:0,dist:0,distSemSinal:0,nParadas:0,maiorParada:0,vmax:0};
-  segs.forEach(function(s){ var dur=s.fim-s.ini; s.dur=dur;
+  segs.forEach(function(s){ var dur=s.fim-s.ini; s.dur=dur; var sl=0,so=0; s.pts.forEach(function(q){ sl+=q.lat; so+=q.lon; }); s.cLat=sl/s.pts.length; s.cLon=so/s.pts.length;
     if(s.est==='parado'){ tot.parado+=dur; tot.nParadas++; tot.maiorParada=Math.max(tot.maiorParada,dur); }
     else if(s.est==='mov'){ tot.mov+=dur; tot.dist+=s.dist; tot.vmax=Math.max(tot.vmax,s.vmax); s.vmed=dur>0?(s.dist/(dur/1000))*3.6:0; }
     else { tot.semsinal+=dur; tot.distSemSinal+=s.dist; } });
@@ -372,12 +372,12 @@ function renderizarRelatorioPeriodo(pontos){
     if(s.est==='parado'){
       nP++; div.className='parada-item';
       div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b>🅿️ Parada '+nP+'</b><span style="font-weight:900;color:#ffb020;font-size:1.1em">'+formatarDuracaoReal(s.dur)+'</span></div><div>📍 '+escHtml(a.rua)+'</div><div style="color:#74808f;font-size:.9em">🕐 '+horas+((cortaIni||cortaFim)?' • pode continuar fora do período':'')+'</div>';
-      L.circleMarker([a.lat,a.lon],{radius:9,weight:3,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(camadaParadasMapa).bindPopup('<b>🅿️ Parada '+nP+'</b><br>'+formatarDuracaoReal(s.dur)+'<br>'+escHtml(a.rua)+'<br>'+horas);
-      div.addEventListener('click',function(){ camadaDestaque.clearLayers(); map.setView([a.lat,a.lon],18); L.popup().setLatLng([a.lat,a.lon]).setContent('<b>🅿️ Parada</b><br>'+formatarDuracaoReal(s.dur)+'<br>'+escHtml(a.rua)+'<br>'+horas).openOn(map); });
+      L.marker([s.cLat,s.cLon],{icon:L.divIcon({className:'',html:'<div style="background:#ffb020;color:#000;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.6)">P'+nP+'</div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(camadaParadasMapa).bindPopup('<b>🅿️ Parada '+nP+'</b><br>'+formatarDuracaoReal(s.dur)+'<br>'+escHtml(a.rua)+'<br>'+horas);
+      div.addEventListener('click',function(){ camadaDestaque.clearLayers(); map.setView([s.cLat,s.cLon],17); L.popup().setLatLng([s.cLat,s.cLon]).setContent('<b>🅿️ Parada</b><br>'+formatarDuracaoReal(s.dur)+'<br>'+escHtml(a.rua)+'<br>'+horas).openOn(map); });
     } else if(s.est==='mov'){
       nM++; div.className='viagem-item';
       div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b>🚚 Movimento '+nM+'</b><span style="background:#00ffa6;color:#000;padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:800">'+formatarDistanciaKm(s.dist)+'</span></div><div style="margin-top:2px;font-weight:800;color:#00ffa6">⏱️ '+formatarDuracaoReal(s.dur)+' contínuos</div><div>📍 '+escHtml(a.rua).slice(0,38)+'</div><div>🏁 '+escHtml(b.rua).slice(0,38)+'</div><div style="display:flex;justify-content:space-between;color:#74808f;font-size:.85em;margin-top:2px"><span>🕐 '+horas+'</span><span>⚡ '+Math.round(s.vmed)+' km/h méd • '+Math.round(s.vmax)+' máx</span></div>';
-      div.addEventListener('click',function(){ camadaDestaque.clearLayers(); var ll=s.pts.map(function(q){return [q.lat,q.lon];}); L.polyline(ll,{color:'#2dd4ff',weight:16,opacity:.55,lineCap:'round',lineJoin:'round'}).addTo(camadaDestaque); try{ map.fitBounds(L.latLngBounds(ll),{padding:[40,40],maxZoom:18}); }catch(e){} });
+      div.addEventListener('click',function(){ camadaDestaque.clearLayers(); var ll=s.pts.map(function(q){return [q.lat,q.lon];}); L.polyline(ll,{color:'#2dd4ff',weight:16,opacity:.55,lineCap:'round',lineJoin:'round'}).addTo(camadaDestaque); try{ map.fitBounds(L.latLngBounds(ll),{padding:[40,40],maxZoom:17}); }catch(e){} });
     } else {
       nS++; div.className='rota-item'; div.style.borderColor='rgba(116,160,200,.4)';
       div.innerHTML='<div style="display:flex;justify-content:space-between"><b>📡 Sem sinal '+nS+'</b><span style="font-weight:800;color:#74a0c8">'+formatarDuracaoReal(s.dur)+'</span></div><div style="color:#74808f;font-size:.88em">🕐 '+horas+'</div><div style="color:#74808f;font-size:.88em">~'+formatarDistanciaKm(s.dist)+' em linha reta (sem registros no caminho)</div>';
@@ -387,7 +387,7 @@ function renderizarRelatorioPeriodo(pontos){
   });
   document.getElementById('badgeTabPeriodo').textContent='('+nP+')';
 }
-document.getElementById('selParadaMin').addEventListener('change',function(){ if(PONTOS_PERIODO.length) renderizarRelatorioPeriodo(PONTOS_PERIODO); });
+document.getElementById('selParadaMin').addEventListener('change',function(){ if(PONTOS_PERIODO.length){ desenharRotaClicavel(PONTOS_PERIODO,{manterEnquadramento:true}); renderizarRelatorioPeriodo(PONTOS_PERIODO); } });
 function mostrarAba(aba){ ['viagens','paradas','periodo'].forEach(function(n){ var cap=n.charAt(0).toUpperCase()+n.slice(1); document.getElementById('tab'+cap).classList.toggle('ativa',aba===n); document.getElementById('painel'+cap).style.display=aba===n?'block':'none'; }); }
 function calcularRelatorioParadas(pontos){ if(!pontos||pontos.length<2)return{paradas:[],tempoTotal:0,tempoParado:0,tempoMov:0}; var ordenados=pontos.slice().sort(function(a,b){return(getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0)}); var paradas=[],tempoParadoTotal=0; var tempoTotal=(getTimestampDoPonto(ordenados[ordenados.length-1])-getTimestampDoPonto(ordenados[0]))||0; if(tempoTotal<0) tempoTotal=0; var emParada=false,inicioParada=null,pontoInicioParada=null; for(var i=1;i<ordenados.length;i++){ var ant=ordenados[i-1],cur=ordenados[i]; var tAnt=getTimestampDoPonto(ant),tCur=getTimestampDoPonto(cur); if(!tAnt||!tCur)continue; var dt=tCur-tAnt; if(dt<0||dt>30*60*1000)continue; var parado=isParado(cur,ant); if(parado&&!emParada){ emParada=true; inicioParada=tAnt; pontoInicioParada=ant; } else if(!parado&&emParada){ emParada=false; var duracao=tAnt-inicioParada; if(duracao>=60*1000){ tempoParadoTotal+=duracao; paradas.push({inicio:inicioParada,fim:tAnt,duracao:duracao,ponto:pontoInicioParada,rua:pontoInicioParada.rua||ant.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ant.hora}); } } } if(emParada&&inicioParada){ var ultimoT=getTimestampDoPonto(ordenados[ordenados.length-1]); var dur=ultimoT-inicioParada; if(dur>=60000){ tempoParadoTotal+=dur; paradas.push({inicio:inicioParada,fim:ultimoT,duracao:dur,ponto:pontoInicioParada,rua:pontoInicioParada.rua||"—",horaIni:pontoInicioParada.hora,horaFim:ordenados[ordenados.length-1].hora,atual:true}); } } return{paradas:paradas,tempoParado:tempoParadoTotal,tempoTotal:tempoTotal,tempoMov:Math.max(0,tempoTotal-tempoParadoTotal)}; }
 function limparRotaAtual(){camadaRotaAtual.clearLayers();}
@@ -404,29 +404,45 @@ function escutarSOSFamilia(){ var caminhos=[ 'empresas/'+sanitizarChavePath(EMPR
 function processarSOS(id,dados,origem){ if(!dados||!dados.lat||!dados.lon) return; var ja=sosAtivos[id]; if(ja && ja.timestamp && dados.timestamp && ja.timestamp===dados.timestamp) return; sosAtivos[id]=dados; var icon=L.divIcon({className:'',html:'<div style="background:#ff5470;color:#fff;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.6);animation:piscar 0.6s infinite alternate;font-size:22px">🆘</div>',iconSize:[42,42],iconAnchor:[21,21]}); L.marker([dados.lat,dados.lon],{icon:icon}).addTo(camadaSOS).bindPopup('<div style="font-weight:bold;color:#ff5470;font-size:1.1em">🚨 SOS - '+(id.replace(/_/g,' ')).slice(0,25)+'</div><div style="margin-top:4px">'+(dados.mensagem||"Socorro!")+'</div><div style="font-size:0.82em;color:#74808f;margin-top:6px">📍 '+(dados.rua||dados.lat.toFixed(5))+'</div><div style="font-size:0.75em;color:#74808f">'+(dados.data||'')+' '+(dados.hora||'')+'</div>'); try{ document.getElementById('audioSOS').play(); }catch(e){} try{ if(navigator.vibrate) navigator.vibrate([400,150,400]); }catch(e){} var box=document.getElementById('boxSOS'); if(box) box.style.display='block'; atualizarListaSOS(); try{ if(typeof Notification!=='undefined'){ if(Notification.permission==='granted') new Notification('🚨 SOS - '+id.replace(/_/g,' '),{body:dados.mensagem||'Socorro acionado!'}); else if(Notification.permission!=='denied') Notification.requestPermission(); } }catch(e){} }
 function atualizarListaSOS(){ var lista=document.getElementById('listaSOS'); var badge=document.getElementById('badgeSOS'); if(!lista||!badge) return; lista.innerHTML=""; var keys=Object.keys(sosAtivos); badge.textContent=keys.length; var box=document.getElementById('boxSOS'); if(keys.length===0){ if(box) box.style.display='none'; return; } if(box) box.style.display='block'; keys.slice().reverse().forEach(function(id){ var dados=sosAtivos[id]; var div=document.createElement('div'); div.className='sos-item'; div.innerHTML='<div style="display:flex;justify-content:space-between"><b>🚨 '+id.replace(/_/g,' ').slice(0,20)+'</b><span style="background:#ff5470;color:#fff;padding:2px 6px;border-radius:10px;font-size:0.7em">AGORA</span></div><div>'+(dados.mensagem||"SOS!")+'</div><div style="color:#ff8fa3;font-size:0.82em">📍 '+(dados.rua||dados.lat.toFixed(4))+'</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btnVerSOS" data-lat="'+dados.lat+'" data-lon="'+dados.lon+'" style="flex:1;background:#ff5470;color:#fff;border:none;padding:6px;border-radius:6px;font-weight:800">📍 Ver</button><button class="btnAtenderSOS" data-id="'+id+'" style="flex:1;background:#1a212b;color:#fff;border:1px solid rgba(255,255,255,.1);padding:6px;border-radius:6px">✓ Atendido</button></div>'; lista.appendChild(div); div.querySelector('.btnVerSOS').addEventListener('click',function(){ map.setView([parseFloat(this.getAttribute('data-lat')),parseFloat(this.getAttribute('data-lon'))],18); }); div.querySelector('.btnAtenderSOS').addEventListener('click',function(){ var sid=this.getAttribute('data-id'); if(confirm('Marcar '+sid+' como atendido?')){ delete sosAtivos[sid]; camadaSOS.clearLayers(); Object.keys(sosAtivos).forEach(function(k){ var d=sosAtivos[k]; var ic=L.divIcon({className:'',html:'<div style="background:#ff5470;color:#fff;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:3px solid #fff;font-size:22px">🆘</div>',iconSize:[42,42],iconAnchor:[21,21]}); L.marker([d.lat,d.lon],{icon:ic}).addTo(camadaSOS); }); atualizarListaSOS(); try{ db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/sos/'+sid).remove(); db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/alertasSOS/'+sid).remove(); db.ref(caminhoVeiculos()+'/'+sid+'/sosAtivo').remove(); db.ref(caminhoVeiculos()+'/'+sid+'/sos').remove(); db.ref(caminhoVeiculos()+'/'+sid+'/atual/sos').remove(); }catch(e){} } }); }); }
 function desenharRotaClicavel(pontos,opcoes){ opcoes=opcoes||{}; limparRotaAtual(); camadaDestaque.clearLayers();
-  var validos=pontos.filter(function(p){return p&&p.lat!=null;}); if(validos.length===0) return;
-  if(validos.length===1){ if(!opcoes.manterEnquadramento) map.setView([validos[0].lat,validos[0].lon],17); return; }
+  var validos=(pontos||[]).filter(function(p){return p&&p.lat!=null&&p.lon!=null;}); if(validos.length===0) return;
   validos.sort(function(a,b){ return (getTimestampDoPonto(a)||0)-(getTimestampDoPonto(b)||0); });
-  var viagens=separarViagens(validos);
   function ll(q){ return [q.lat,q.lon]; }
-  // 1) Base: UMA linha única ligando TODOS os pontos em ordem (nunca fica buraco)
-  L.polyline(validos.map(ll),{color:'#2a3441',weight:13,opacity:0.7,lineCap:'round',lineJoin:'round',smoothFactor:0}).addTo(camadaRotaAtual);
-  if(!opcoes.manterEnquadramento){ try{ map.fitBounds(L.polyline(validos.map(ll)).getBounds(),{padding:[30,30],maxZoom:18}); }catch(e){} }
-  // 2) Trechos coloridos CONTÍNUOS: cada trecho começa exatamente onde o anterior terminou
-  var trecho=[], corAtual=null, GAP_SEM_SINAL=3*60*1000;
-  function fecharTrecho(){ if(trecho.length>1 && corAtual){ L.polyline(trecho.map(ll),{color:corAtual,weight:10,opacity:1,lineCap:'round',lineJoin:'round',smoothFactor:0}).addTo(camadaRotaAtual); } }
-  for(var i2=0;i2<validos.length-1;i2++){
-    var p1=validos[i2], p2=validos[i2+1];
-    (function(pp,anteriorPt,cc){ var fn=function(e){ if(e && e.originalEvent) L.DomEvent.stop(e.originalEvent); mostrarInfoDoPontoRapido(pp,anteriorPt); }; L.polyline(cc,{color:'#000',opacity:0,weight:30}).addTo(camadaRotaAtual).on('click',fn); })(p2,p1,[ll(p1),ll(p2)]);
-    var t1=getTimestampDoPonto(p1), t2=getTimestampDoPonto(p2);
-    var cor;
-    if(t1 && t2 && (t2-t1)>GAP_SEM_SINAL) cor='#74a0c8'; // intervalo sem sinal: continua ligado, só muda a cor
-    else if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470';
-    else cor=statusRealDoPonto(p2,p1)==="EM MOVIMENTO"?'#00ffa6':'#ffb020';
-    if(cor!==corAtual){ fecharTrecho(); corAtual=cor; trecho=[p1,p2]; } else { trecho.push(p2); }
+  // Paradas viram UM ÚNICO PONTO (sem rabisco de GPS parado); a linha só passa pelo movimento
+  var elSel=document.getElementById('selParadaMin'); var minSel=elSel?parseInt(elSel.value,10):60000; if(isNaN(minSel)) minSel=60000;
+  var r=construirLinhaDoTempo(validos,Math.max(minSel,30000)); var segs=r.segs;
+  if(segs.length===0){
+    // só um ponto / um único local
+    var u=validos[validos.length-1];
+    L.circleMarker(ll(u),{radius:11,weight:4,color:'#fff',fillColor:'#2dd4ff',fillOpacity:1}).addTo(camadaRotaAtual).on('click',function(){ mostrarInfoDoPontoRapido(u,null); });
+    if(!opcoes.manterEnquadramento) map.setView(ll(u),17);
+    document.getElementById('statusModo').textContent='1 ponto • CLIQUE NO PONTO';
+    renderizarHistoricoCompleto(pontos); return;
   }
-  fecharTrecho();
-  document.getElementById('statusModo').textContent=viagens.length+" viagem(ns) • "+validos.length+" pontos • CLIQUE NA LINHA";
+  var todos=[];
+  function pseudo(seg,fim){ var base=fim?seg.pts[seg.pts.length-1]:seg.pts[0]; return Object.assign({},base,{lat:seg.cLat,lon:seg.cLon,velocidade:0}); }
+  segs.forEach(function(s,idx){
+    if(s.est==='parado'){ todos.push([s.cLat,s.cLon]); return; }
+    var arr=s.pts.slice(), prev=segs[idx-1], next=segs[idx+1];
+    // a linha começa/termina exatamente no ponto da parada vizinha (continuidade, sem buraco)
+    if(prev&&prev.est==='parado') arr.unshift(pseudo(prev,true));
+    if(next&&next.est==='parado') arr.push(pseudo(next,false));
+    arr.forEach(function(q){ todos.push(ll(q)); });
+    L.polyline(arr.map(ll),{color:'#2a3441',weight:13,opacity:0.7,lineCap:'round',lineJoin:'round',smoothFactor:0}).addTo(camadaRotaAtual);
+    var trecho=[], corA=null;
+    function fechar(){ if(trecho.length>1&&corA) L.polyline(trecho.map(ll),{color:corA,weight:10,opacity:1,lineCap:'round',lineJoin:'round',smoothFactor:0}).addTo(camadaRotaAtual); }
+    for(var i=0;i<arr.length-1;i++){
+      var p1=arr[i], p2=arr[i+1];
+      (function(pp,ant){ L.polyline([ll(ant),ll(pp)],{color:'#000',opacity:0,weight:30}).addTo(camadaRotaAtual).on('click',function(e){ if(e&&e.originalEvent) L.DomEvent.stop(e.originalEvent); mostrarInfoDoPontoRapido(pp,ant); }); })(p2,p1);
+      var cor; if(s.est==='semsinal') cor='#74a0c8'; else if(p2.status==="VELOCIDADE ACIMA DO LIMITE") cor='#ff5470'; else cor='#00ffa6';
+      if(cor!==corA){ fechar(); corA=cor; trecho=[p1,p2]; } else { trecho.push(p2); }
+    }
+    fechar();
+  });
+  if(!opcoes.manterEnquadramento){
+    try{ var b=L.latLngBounds(todos); if(b.getSouthWest().distanceTo(b.getNorthEast())<60) map.setView(b.getCenter(),17); else map.fitBounds(b,{padding:[30,30],maxZoom:17}); }catch(e){}
+  }
+  var nM=segs.filter(function(s){return s.est==='mov';}).length, nP=segs.filter(function(s){return s.est==='parado';}).length;
+  document.getElementById('statusModo').textContent=nM+" movimento(s) • "+nP+" parada(s) • CLIQUE NA LINHA";
   renderizarHistoricoCompleto(pontos);
 }
 function mostrarInfoDoPontoRapido(ponto,anterior){ if(!ponto) return; pontoClicadoAtual=ponto; try{ var latlng=[ponto.lat,ponto.lon]; var ref=anterior||ultimoPos; var bearing=ultimoBearing; if(ref && ref.lat && ref.lon){ var dist=calcularDistanciaMetros(ref.lat,ref.lon,ponto.lat,ponto.lon); if(dist>5){ bearing=calcularBearing(ref.lat,ref.lon,ponto.lat,ponto.lon); ultimoBearing=bearing; } } marcadorVeiculo.setIcon(criarIconeVeiculo(bearing,ponto.velocidade||0)); marcadorVeiculo.setLatLng(latlng); var real=statusRealDoPonto(ponto,anterior||ultimoPos); var elV=document.getElementById('txtVelocidade'); if(elV) elV.textContent=(ponto.velocidade||0)+" km/h"; var elR=document.getElementById('txtRua'); if(elR) elR.textContent=ponto.rua||"-"; var elC=document.getElementById('txtCidadeEstado'); if(elC) elC.textContent=(ponto.cidade||"-")+" / "+(ponto.estado||"-"); var elD=document.getElementById('txtDataHora'); if(elD) elD.textContent=(ponto.data||"-")+" às "+(ponto.hora||"-"); var elS=document.getElementById('txtStatus'); if(elS){ elS.textContent=real; elS.className=real==="EM MOVIMENTO"?"badge badge-movimento":"badge badge-parado"; } ultimoPos=ponto; buscarLimiteVia(ponto.lat,ponto.lon); verificarExcesso(ponto.velocidade||0); }catch(e){} var vel=ponto.velocidade||0; var sitReal=statusRealDoPonto(ponto,anterior); var limiteParaMostrar=null; try{ limiteParaMostrar=buscarLimiteManual(ponto.rua,ponto.lat,ponto.lon)||limiteAtual; }catch(e){ limiteParaMostrar=limiteAtual; } var container = document.createElement('div'); container.style.minWidth='220px'; var ruaSafe = (ponto.rua||"Rua").replace(/</g,'&lt;'); container.innerHTML='<div style="font-weight:bold;font-size:1em">'+ruaSafe+'</div><div style="color:#2dd4ff;font-weight:bold;margin-top:4px">'+vel+' km/h - '+sitReal+'</div><div id="limiteAreaPopup"></div><div style="font-size:0.82em;color:#74808f;margin-top:8px;">'+(ponto.bairro||"")+'</div><div style="font-size:0.82em;color:#74808f;">'+(ponto.cidade||"")+' / '+(ponto.estado||"")+'</div><div style="font-size:0.78em;color:#74808f;margin-top:4px;">'+(ponto.data||"")+' '+(ponto.hora||"")+'</div><div style="margin-top:12px"><button id="btnCorrigirPopup" style="width:100%;background:linear-gradient(135deg,#00ffa6,#2dd4ff);color:#000;border:none;padding:10px;border-radius:9px;font-weight:900;font-size:0.82em;cursor:pointer">✏️ Corrigir limite</button></div>'; var limiteHtml=''; if(limiteParaMostrar){ var acima0=vel>limiteParaMostrar; limiteHtml='<div style="margin-top:8px;background:'+(acima0?'rgba(255,84,112,.15)':'rgba(0,255,166,.12)')+';border:1px solid '+(acima0?'rgba(255,84,112,.4)':'rgba(0,255,166,.25)')+';border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.82em;color:#74808f">🚦 Limite</span><span style="font-weight:900;color:'+(acima0?'#ff5470':'#00ffa6')+';font-size:1.2em">'+limiteParaMostrar+' km/h</span></div>'; } else { limiteHtml='<div style="margin-top:8px;background:rgba(52,179,255,.1);border:1px solid rgba(52,179,255,.2);border-radius:10px;padding:10px;text-align:center"><span style="font-size:0.82em;color:#2dd4ff">🔍 Buscando limite...</span></div>'; } setTimeout(function(){ var area = container.querySelector('#limiteAreaPopup'); if(area) area.innerHTML = limiteHtml; },0); setTimeout(function(){ var btn = container.querySelector('#btnCorrigirPopup'); if(btn){ btn.addEventListener('click',function(){ abrirEditorLimiteManual(ponto.rua,ponto.lat,ponto.lon,limiteParaMostrar||50); }); } },0); L.popup({maxWidth:350}).setLatLng([ponto.lat,ponto.lon]).setContent(container).openOn(map); buscarLimiteViaForcado(ponto.lat,ponto.lon,function(limEncontrado){ limiteAtual=limEncontrado; atualizarLimiteUI(limEncontrado); var area = container.querySelector('#limiteAreaPopup'); if(!area) return; var acima=vel>limEncontrado; var cor=acima?'#ff5470':'#00ffa6'; var bg=acima?'rgba(255,84,112,.15)':'rgba(0,255,166,.12)'; var borda=acima?'rgba(255,84,112,.4)':'rgba(0,255,166,.25)'; area.innerHTML='<div style="background:'+bg+';border:1px solid '+borda+';border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.82em;color:#74808f">🚦 Limite</span><span style="font-weight:900;color:'+cor+';font-size:1.2em">'+limEncontrado+' km/h</span></div>'+ (acima?'<div style="margin-top:8px;background:#ff5470;color:#fff;padding:8px;border-radius:8px;font-weight:900;text-align:center">⚠️ '+(vel-limEncontrado)+' km/h ACIMA</div>':'<div style="margin-top:6px;color:#00ffa6;font-size:0.82em;text-align:center">✅ Dentro do limite</div>'); verificarExcesso(vel); }); }
