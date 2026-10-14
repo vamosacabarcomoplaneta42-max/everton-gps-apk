@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Clientes - Everton GPS</title>
+<style>
+:root{--bg:#0a0d12;--card:#131820;--b:rgba(255,255,255,.08);--ok:#00ffa6;--ac:#2dd4ff;--bad:#ff5470;--warn:#ffb020;--tx:#eef2f6;--dim:#74808f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;padding:14px;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx);max-width:560px;margin:0 auto}
+h2{margin:0;color:var(--ac);font-size:1.15em}
+.head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.head .btns{display:flex;gap:6px}
+button,input,select{font:inherit;border-radius:8px;border:1px solid var(--b);background:#1a212b;color:var(--tx);padding:10px}
+button{cursor:pointer;font-weight:800;border:none;background:var(--ac);color:#04141f}
+button.sec{background:#1a212b;color:var(--tx);border:1px solid var(--b)}
+button.ok{background:var(--ok);color:#04120e}
+button.bad{background:rgba(255,84,112,.15);color:var(--bad);border:1px solid rgba(255,84,112,.4)}
+button.sm{padding:7px 10px;font-size:.8em}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.kpi{background:var(--card);border:1px solid var(--b);border-radius:10px;padding:8px 4px;text-align:center}
+.kpi b{display:block;font-size:1.25em}.kpi small{color:var(--dim);font-size:.62em;text-transform:uppercase;font-weight:700}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:#1a212b;border:1px solid var(--b);font-weight:800;font-size:.85em;color:var(--dim);cursor:pointer}
+.tab.on{background:var(--ac);color:#04141f;border-color:var(--ac)}
+.filtros{display:flex;gap:6px;margin-bottom:10px}.filtros input{flex:2}.filtros select{flex:1}
+.cli,.pend{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px;margin-bottom:10px}
+.pend{border-color:rgba(255,176,32,.45);background:linear-gradient(135deg,rgba(255,176,32,.08),var(--card))}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;cursor:pointer}
+.idt{font-size:.72em;color:var(--dim);word-break:break-all}
+.r{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.badge{font-size:.68em;padding:3px 8px;border-radius:6px;font-weight:800;white-space:nowrap}
+.s-ativo{background:rgba(0,255,166,.15);color:var(--ok)}.s-trial{background:rgba(45,212,255,.15);color:var(--ac)}
+.s-venc{background:rgba(255,176,32,.18);color:var(--warn)}.s-susp{background:rgba(255,84,112,.15);color:var(--bad)}
+.b-pend{background:rgba(255,176,32,.2);color:var(--warn)}.b-old{background:rgba(255,255,255,.08);color:var(--dim)}
+.uso{display:flex;justify-content:space-between;margin:10px 0 5px;font-size:.88em;gap:8px}
+.bar{height:6px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%}
+.small,small{font-size:.76em;color:var(--dim)}.t-bad{color:var(--bad)}
+.det{margin-top:12px;border-top:1px solid var(--b);padding-top:10px}
+.det h4{margin:10px 0 6px;font-size:.78em;text-transform:uppercase;color:var(--dim)}
+.dev{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0f141c;border:1px solid var(--b);border-radius:8px;padding:8px;margin-bottom:6px}
+.dev .acts{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.limrow{display:flex;gap:6px;align-items:center}.limrow input{width:90px;text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:5px}.chip{background:#0f141c;border:1px solid var(--b);border-radius:6px;padding:3px 8px;font-size:.76em}
+.vazio{text-align:center;color:var(--dim);padding:24px 8px;font-size:.9em}
+#aviso{display:none;background:rgba(255,84,112,.1);border:1px solid rgba(255,84,112,.4);color:var(--bad);border-radius:10px;padding:10px;font-size:.82em;margin-bottom:10px;line-height:1.45}
+#aviso .manual{display:flex;gap:6px;margin-top:8px}#aviso input{flex:1}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1a212b;border:1px solid var(--b);padding:11px 16px;border-radius:10px;font-size:.85em;display:none;z-index:300;max-width:92%;text-align:center}
+#toast.ok{border-color:var(--ok);color:var(--ok)}#toast.err{border-color:var(--bad);color:var(--bad)}
+.auth{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:200}
+.auth div{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:22px;width:90%;max-width:340px;display:flex;flex-direction:column;gap:10px}
+</style>
+</head>
+<body>
+
+<div id="auth" class="auth"><div>
+  <h3 style="margin:0;text-align:center">🔐 Painel de Clientes</h3>
+  <input type="email" id="authEmail" placeholder="seu-email@gmail.com">
+  <input type="password" id="authSenha" placeholder="senha">
+  <button id="btnEntrar">Entrar</button>
+  <div id="erroLogin" style="color:var(--bad);font-size:.85em;text-align:center;display:none"></div>
+</div></div>
+
+<div class="head">
+  <h2>🛰️ Clientes · Everton GPS</h2>
+  <div class="btns"><button class="sec sm" id="btnAtualizar">🔄</button><button class="sec sm" id="btnSair">Sair</button></div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><b id="kClientes">0</b><small>Clientes</small></div>
+  <div class="kpi"><b id="kUso">0</b><small>Em uso</small></div>
+  <div class="kpi"><b id="kLib">0</b><small>Liberados</small></div>
+  <div class="kpi"><b id="kPend" style="color:var(--warn)">0</b><small>Pendentes</small></div>
+</div>
+
+<div id="aviso"></div>
+
+<div class="tabs">
+  <div class="tab on" id="tabPendentes" data-aba="pendentes">⏳ Pendentes <span id="nPend">(0)</span></div>
+  <div class="tab" id="tabClientes" data-aba="clientes">👥 Clientes <span id="nCli">(0)</span></div>
+</div>
+
+<div id="viewPendentes"></div>
+<div id="viewClientes" style="display:none">
+  <div class="filtros">
+    <input type="search" id="busca" placeholder="Buscar cliente...">
+    <select id="filtro">
+      <option value="todos">Todos</option>
+      <option value="ativos">Ativos</option>
+      <option value="vencendo">Vencendo</option>
+      <option value="suspensos">Suspensos/vencidos</option>
+      <option value="semvaga">Sem vaga</option>
+    </select>
+  </div>
+  <div id="listaClientes"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+/* ======================================================================
+   MODELO DE DADOS (por cliente), usado por este painel e pelo app:
+   empresas/{id}/dispositivosLiberados          -> número de vagas liberadas por você
+   empresas/{id}/dispositivos/{idDispositivo}   -> { nome, modelo, solicitadoEm,
+                                                     status: pendente | aprovado | negado | revogado,
+                                                     aprovadoEm, aprovadoPor }
+   empresas/{id}/veiculos/*                     -> veículos que já rastreiam (só contamos as chaves)
+   ====================================================================== */
+var firebaseConfig={apiKey:"AIzaSyDwKIS8wL3D7OuaysVFV_xyAsFsKo2eXzY",authDomain:"everton-gps.firebaseapp.com",databaseURL:"https://everton-gps-default-rtdb.firebaseio.com",projectId:"everton-gps",storageBucket:"everton-gps.firebasestorage.app",messagingSenderId:"688936933095",appId:"1:688936933095:web:790b2407334e8b148e3442"};
+firebase.initializeApp(firebaseConfig);
+var db=firebase.database(), auth=firebase.auth();
+
+var CLIENTES=[], ABA='pendentes', ABERTO={}, ULT_PEND=-1, TIMER=null;
+var PRECO_UNIT={frota:16.90,combo:16.90,familia:4.90}; // R$ por dispositivo adicional (tabela de valores)
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function $(id){ return document.getElementById(id); }
+function reais(n){ return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function toMs(v){ if(v==null||v==='') return null; var n=(typeof v==='number')?v:Date.parse(v); return isNaN(n)?null:n; }
+function fmtData(v){ var t=toMs(v); return t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'; }
+function fmtDia(v){ var t=toMs(v); return t?new Date(t).toLocaleDateString('pt-BR'):'—'; }
+function toast(msg,tipo){ var t=$('toast'); t.textContent=msg; t.className=tipo||''; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(function(){ t.style.display='none'; },4500); }
+function nomeBonito(s){ return String(s||'').replace(/_/g,' '); }
+
+/* ---------- login ---------- */
+$('btnEntrar').addEventListener('click',function(){
+  var e=$('authEmail').value.trim(), s=$('authSenha').value;
+  if(!e||!s) return alert('Preencha tudo!');
+  auth.signInWithEmailAndPassword(e,s).catch(function(err){ $('erroLogin').textContent='Acesso negado: '+err.message; $('erroLogin').style.display='block'; });
+});
+$('btnSair').addEventListener('click',function(){ auth.signOut(); });
+auth.onAuthStateChanged(function(u){
+  $('auth').style.display=u?'none':'flex';
+  clearInterval(TIMER);
+  if(u){ carregarTudo(false); TIMER=setInterval(function(){ if(!document.hidden) carregarTudo(true); },60000); }
+  else { CLIENTES=[]; render(); }
+});
+
+/* ---------- leitura ---------- */
+async function shallow(path){
+  var tk=await auth.currentUser.getIdToken();
+  var r=await fetch(firebaseConfig.databaseURL+'/'+path+'.json?shallow=true&auth='+encodeURIComponent(tk));
+  if(r.status===401||r.status===403) throw new Error('Permissão negada em /'+path+' (ajuste as regras do Firebase)');
+  if(!r.ok) throw new Error('Erro '+r.status+' ao ler /'+path);
+  return await r.json();
+}
+function idsManuais(){ try{ return JSON.parse(localStorage.getItem('clientesIdsManuais')||'[]'); }catch(e){ return []; } }
+async function carregarCliente(id){
+  var base='empresas/'+id+'/';
+  var campos=['nome','status','tipo','planoContratado','assinaturaExpiraEm','trialExpiraEm','dispositivosLiberados','planoDetalhe','dispositivos'];
+  var vals=await Promise.all(campos.map(function(c){ return db.ref(base+c).once('value').then(function(s){ return s.val(); }).catch(function(){ return undefined; }); }));
+  var c={id:id}; campos.forEach(function(k,i){ c[k]=vals[i]; });
+  c.veiculos=[]; try{ var sh=await shallow(base+'veiculos'); c.veiculos=sh?Object.keys(sh):[]; }catch(e){}
+  return c;
+}
+async function carregarTudo(silencioso){
+  var ids, erro=null;
+  try{ var sh=await shallow('empresas'); ids=sh?Object.keys(sh):[]; }
+  catch(e){ erro=e.message; ids=idsManuais(); }
+  mostrarAviso(erro);
+  var out=[];
+  for(var i=0;i<ids.length;i+=6){
+    var lote=await Promise.all(ids.slice(i,i+6).map(function(id){ return carregarCliente(id).catch(function(){ return {id:id,veiculos:[]}; }); }));
+    out=out.concat(lote);
+  }
+  out.sort(function(a,b){ return String(a.nome||a.id).localeCompare(String(b.nome||b.id)); });
+  var antes=ULT_PEND; CLIENTES=out; render();
+  var n=totalPendentes();
+  if(silencioso && antes>=0 && n>antes) toast('🔔 Novo pedido de dispositivo!','ok');
+  ULT_PEND=n;
+}
+async function recarregarUm(id){
+  var c=await carregarCliente(id), i=CLIENTES.findIndex(function(x){ return x.id===id; });
+  if(i>=0) CLIENTES[i]=c; else CLIENTES.push(c);
+  render();
+}
+function mostrarAviso(erro){
+  var a=$('aviso');
+  if(!erro){ a.style.display='none'; return; }
+  a.style.display='block';
+  a.innerHTML='⚠️ Não consegui listar todos os clientes: '+esc(erro)+'<br>Enquanto isso, adicione os IDs das empresas à mão (ficam salvos neste aparelho). Clientes já listados: '+esc(idsManuais().length)+'.<div class="manual"><input id="idManual" placeholder="id da empresa, ex: transportadora_silva_ltda" autocapitalize="off" spellcheck="false"><button class="sm" data-act="addid">Adicionar</button></div>';
+}
+
+/* ---------- regras de negócio ---------- */
+function pendentes(c){ var d=c.dispositivos||{}; return Object.keys(d).filter(function(k){ return d[k]&&d[k].status==='pendente'; }); }
+function aprovados(c){ var d=c.dispositivos||{}; return Object.keys(d).filter(function(k){ return d[k]&&d[k].status==='aprovado'; }); }
+function totalPendentes(){ return CLIENTES.reduce(function(s,c){ return s+pendentes(c).length; },0); }
+function tipoBase(c){ return String(c.planoContratado||c.tipo||'').toLowerCase().split('_')[0]; }
+function limiteEfetivo(c){
+  if(c.dispositivosLiberados!=null&&!isNaN(+c.dispositivosLiberados)) return {n:+c.dispositivosLiberados,auto:false};
+  var pd=c.planoDetalhe||{}, k=Object.keys(pd), d=pd[tipoBase(c)]||(k.length?pd[k[0]]:null);
+  if(d&&d.quantidade) return {n:+d.quantidade,auto:true};
+  return {n:c.veiculos.length,auto:true};
+}
+function ocupadas(c){ return Math.max(c.veiculos.length,aprovados(c).length); }
+function statusEfetivo(c){
+  var now=Date.now(), st=String(c.status||'').toLowerCase();
+  var exp=toMs(st==='trial'?c.trialExpiraEm:c.assinaturaExpiraEm);
+  if(st==='suspenso') return {k:'susp',label:'SUSPENSO',cls:'s-susp'};
+  if(exp&&exp<now&&(st==='ativo'||st==='trial')) return {k:'susp',label:'VENCIDO',cls:'s-susp'};
+  var dias=exp?Math.ceil((exp-now)/86400000):null;
+  if(st==='trial') return {k:'trial',label:'TESTE'+(dias!=null?' · '+dias+'d':''),cls:'s-trial'};
+  if(st==='ativo'&&dias!=null&&dias<=3) return {k:'venc',label:'VENCE EM '+dias+'d',cls:'s-venc'};
+  if(st==='ativo') return {k:'ativo',label:'ATIVO',cls:'s-ativo'};
+  return {k:'susp',label:(st||'SEM STATUS').toUpperCase(),cls:'s-susp'};
+}
+
+/* ---------- desenho ---------- */
+function render(){
+  var uso=0,lib=0; CLIENTES.forEach(function(c){ uso+=c.veiculos.length; lib+=limiteEfetivo(c).n; });
+  var np=totalPendentes();
+  $('kClientes').textContent=CLIENTES.length; $('kUso').textContent=uso; $('kLib').textContent=lib; $('kPend').textContent=np;
+  $('nPend').textContent='('+np+')'; $('nCli').textContent='('+CLIENTES.length+')';
+  renderPendentes(); renderClientes();
+  $('viewPendentes').style.display=ABA==='pendentes'?'block':'none';
+  $('viewClientes').style.display=ABA==='clientes'?'block':'none';
+  $('tabPendentes').classList.toggle('on',ABA==='pendentes'); $('tabClientes').classList.toggle('on',ABA==='clientes');
+}
+function renderPendentes(){
+  var itens=[];
+  CLIENTES.forEach(function(c){ pendentes(c).forEach(function(k){ itens.push({c:c,k:k,d:c.dispositivos[k]}); }); });
+  itens.sort(function(a,b){ return (toMs(a.d.solicitadoEm)||0)-(toMs(b.d.solicitadoEm)||0); });
+  if(!itens.length){ $('viewPendentes').innerHTML='<div class="vazio">✅ Nenhum pedido aguardando aprovação.</div>'; return; }
+  $('viewPendentes').innerHTML=itens.map(function(it){
+    var L=limiteEfetivo(it.c), cheio=ocupadas(it.c)>=L.n;
+    return '<div class="pend" data-id="'+esc(it.c.id)+'" data-dev="'+esc(it.k)+'">'+
+      '<div class="top" style="cursor:default"><div><b>'+esc(it.c.nome||it.c.id)+'</b><div class="idt">'+esc(it.c.id)+'</div></div><span class="badge b-pend">PEDIDO</span></div>'+
+      '<div style="margin:8px 0">📱 <b>'+esc(it.d.nome||nomeBonito(it.k))+'</b>'+(it.d.modelo?' <span class="small">· '+esc(it.d.modelo)+'</span>':'')+'</div>'+
+      '<div class="small">Pedido em '+esc(fmtData(it.d.solicitadoEm))+' · hoje: '+ocupadas(it.c)+' de '+L.n+' vaga(s)'+(cheio?' <b class="t-bad">(sem vaga: aprovar aumenta o limite)</b>':'')+'</div>'+
+      '<div style="display:flex;gap:6px;margin-top:10px"><button class="ok" style="flex:1" data-act="aprovar">✅ Aprovar</button><button class="bad" style="flex:1" data-act="negar">✖ Negar</button></div></div>';
+  }).join('');
+}
+function devRow(k,d){
+  var st=d.status||'pendente', cls={aprovado:'s-ativo',pendente:'b-pend',negado:'s-susp',revogado:'s-susp'}[st]||'b-old', acts='';
+  if(st==='pendente') acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button><button class="bad sm" data-act="negar" data-dev="'+esc(k)+'">Negar</button>';
+  else if(st==='aprovado') acts='<button class="bad sm" data-act="revogar" data-dev="'+esc(k)+'">Revogar</button>';
+  else acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button>';
+  return '<div class="dev"><div><b>'+esc(d.nome||nomeBonito(k))+'</b><div class="small">'+(d.modelo?esc(d.modelo)+' · ':'')+esc(fmtData(d.solicitadoEm))+'</div></div><div class="acts"><span class="badge '+cls+'">'+esc(st.toUpperCase())+'</span>'+acts+'</div></div>';
+}
+function detalheHtml(c,L){
+  var d=c.dispositivos||{}, ks=Object.keys(d), h='<div class="det">';
+  h+='<h4>Vagas de dispositivo</h4><div class="limrow"><input type="number" min="0" step="1" class="inp-lim" value="'+L.n+'"><button class="sm" data-act="salvarlimite">Salvar limite</button><button class="sec sm" data-act="maisum">+1 vaga</button></div>';
+  h+='<h4>Dispositivos / pedidos ('+ks.length+')</h4>'+(ks.length?ks.map(function(k){ return devRow(k,d[k]||{}); }).join(''):'<div class="small">Nenhum pedido registrado ainda.</div>');
+  h+='<h4>Veículos cadastrados ('+c.veiculos.length+')</h4>'+(c.veiculos.length?'<div class="chips">'+c.veiculos.map(function(v){ return '<span class="chip">🚚 '+esc(nomeBonito(v))+'</span>'; }).join('')+'</div>':'<div class="small">Nenhum veículo ainda.</div>');
+  h+='<div style="margin-top:12px;display:flex;gap:6px">'+(String(c.status).toLowerCase()!=='suspenso'?'<button class="bad sm" data-act="suspender">🚫 Suspender acesso</button>':'<span class="small">Acesso suspenso — reative pela página Aprovar Plano.</span>')+'</div></div>';
+  return h;
+}
+function cardHtml(c){
+  var se=statusEfetivo(c), L=limiteEfetivo(c), uso=c.veiculos.length, np=pendentes(c).length;
+  var perc=L.n>0?Math.min(100,uso/L.n*100):(uso>0?100:0), exc=uso>L.n, cheio=L.n>0&&uso>=L.n;
+  var exp=toMs(se.k==='trial'||c.status==='trial'?c.trialExpiraEm:c.assinaturaExpiraEm);
+  return '<div class="cli" data-id="'+esc(c.id)+'">'+
+    '<div class="top" data-act="toggle"><div><b>'+esc(c.nome||c.id)+'</b><div class="idt">'+esc(c.id)+'</div></div><div class="r"><span class="badge '+se.cls+'">'+esc(se.label)+'</span>'+(np?'<span class="badge b-pend">⏳ '+np+'</span>':'')+'</div></div>'+
+    '<div class="uso"><span>🚚 <b class="'+(exc?'t-bad':'')+'">'+uso+'</b> de <b>'+L.n+'</b> dispositivo(s)'+(L.auto?' <small>(auto)</small>':'')+'</span><span class="small">'+esc(tipoBase(c)||'—')+'</span></div>'+
+    '<div class="bar"><i style="width:'+perc+'%;background:'+(exc?'var(--bad)':(cheio?'var(--warn)':'var(--ok)'))+'"></i></div>'+
+    '<div class="small" style="margin-top:6px">vence '+esc(fmtDia(exp))+(exc?' · <b class="t-bad">acima do limite</b>':'')+'</div>'+
+    (ABERTO[c.id]?detalheHtml(c,L):'')+'</div>';
+}
+function renderClientes(){
+  var q=$('busca').value.trim().toLowerCase(), f=$('filtro').value;
+  var lista=CLIENTES.filter(function(c){
+    if(q&&String(c.nome||'').toLowerCase().indexOf(q)<0&&c.id.toLowerCase().indexOf(q)<0) return false;
+    var se=statusEfetivo(c), L=limiteEfetivo(c);
+    if(f==='ativos') return se.k==='ativo'||se.k==='trial';
+    if(f==='vencendo') return se.k==='venc';
+    if(f==='suspensos') return se.k==='susp';
+    if(f==='semvaga') return c.veiculos.length>=L.n;
+    return true;
+  });
+  $('listaClientes').innerHTML=lista.length?lista.map(cardHtml).join(''):'<div class="vazio">Nenhum cliente encontrado.</div>';
+}
+$('busca').addEventListener('input',renderClientes);
+$('filtro').addEventListener('change',renderClientes);
+$('btnAtualizar').addEventListener('click',function(){ carregarTudo(false); });
+document.querySelectorAll('.tab').forEach(function(t){ t.addEventListener('click',function(){ ABA=t.getAttribute('data-aba'); render(); }); });
+
+/* ---------- ações ---------- */
+function achar(id){ return CLIENTES.find(function(c){ return c.id===id; }); }
+function falha(e){ toast('Erro: '+e.message+' — confira as regras do Firebase para este caminho.','err'); }
+async function aprovar(id,dev){
+  var c=achar(id), d=(c.dispositivos||{})[dev]||{}, L=limiteEfetivo(c), jaAprovado=d.status==='aprovado';
+  var cheio=ocupadas(c)>=L.n, novoLim=cheio?ocupadas(c)+1:L.n, upd={};
+  var msg='Aprovar "'+(d.nome||nomeBonito(dev))+'" para '+(c.nome||id)+'?';
+  if(cheio){ var p=PRECO_UNIT[tipoBase(c)]; msg+='\n\nIsso aumenta o limite de '+L.n+' para '+novoLim+' dispositivo(s)'+(p?' (+'+reais(p)+'/mês)':'')+'.'; }
+  if(!confirm(msg)) return;
+  var base='empresas/'+id+'/';
+  upd[base+'dispositivos/'+dev+'/status']='aprovado';
+  upd[base+'dispositivos/'+dev+'/aprovadoEm']=new Date().toISOString();
+  upd[base+'dispositivos/'+dev+'/aprovadoPor']=auth.currentUser?auth.currentUser.email:'admin';
+  if(cheio) upd[base+'dispositivosLiberados']=novoLim;
+  try{ await db.ref().update(upd); toast('✅ Dispositivo aprovado'+(cheio?' · limite '+novoLim:''),'ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
+async function mudarStatus(id,dev,st,txt){
+  var c=achar(id), d=(c.dispositivos||{})[dev]||{};
+  if(!confirm(txt+' "'+(d.nome||nomeBonito(dev))+'"?')) return;
+  var upd={}; upd['empresas/'+id+'/dispositivos/'+dev+'/status']=st; upd['empresas/'+id+'/dispositivos/'+dev+'/atualizadoEm']=new Date().toISOString();
+  try{ await db.ref().update(upd); toast('Feito: '+st,'ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
+async function salvarLimite(id,n){
+  if(isNaN(n)||n<0) return toast('Número inválido','err');
+  try{ await db.ref('empresas/'+id+'/dispositivosLiberados').set(n); toast('✅ Limite salvo: '+n,'ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
+async function suspender(id){
+  if(!confirm('Suspender o acesso de '+id+'?')) return;
+  try{ await db.ref('empresas/'+id+'/status').set('suspenso'); toast('🚫 Cliente suspenso','ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]'); if(!b) return;
+  var act=b.getAttribute('data-act'), box=b.closest('[data-id]'), id=box?box.getAttribute('data-id'):null;
+  var dev=b.getAttribute('data-dev')||(box&&box.getAttribute('data-dev'));
+  if(act==='toggle'){ ABERTO[id]=!ABERTO[id]; renderClientes(); }
+  else if(act==='aprovar') aprovar(id,dev);
+  else if(act==='negar') mudarStatus(id,dev,'negado','Negar');
+  else if(act==='revogar') mudarStatus(id,dev,'revogado','Revogar');
+  else if(act==='salvarlimite') salvarLimite(id,parseInt(box.querySelector('.inp-lim').value,10));
+  else if(act==='maisum'){ var c=achar(id); salvarLimite(id,limiteEfetivo(c).n+1); }
+  else if(act==='suspender') suspender(id);
+  else if(act==='addid'){
+    var v=($('idManual').value||'').trim().toLowerCase().replace(/[.#$\[\]\/]/g,'_'); if(!v) return;
+    var l=idsManuais(); if(l.indexOf(v)<0) l.push(v); try{ localStorage.setItem('clientesIdsManuais',JSON.stringify(l)); }catch(x){}
+    carregarTudo(false);
+  }
+});
+</script>
+</body>
+</html>
