@@ -410,10 +410,37 @@ firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 var auth = firebase.auth();
 
+// ===================== IDENTIDADE PRÓPRIA DO APARELHO (trava no servidor) =====================
+// Cada instalação entra no Firebase com um login anônimo só dela. As regras do Firebase só aceitam
+// gravar posições de um aparelho que você aprovou no Painel de Clientes.
+var appDisp = null, authDisp = null, dbDisp = null;
+try {
+    appDisp = firebase.initializeApp(firebaseConfig, 'aparelho');
+    authDisp = appDisp.auth();
+    dbDisp = appDisp.database();
+} catch (e) { console.warn("Identidade do aparelho indisponível:", e); }
+
 // ===================== ENVIO VIA REST (nativo, via CapacitorHttp) =====================
 function atualizarViaRestApi(updates, tokenForcarNovo) {
     if (!auth.currentUser) return Promise.reject(new Error("sem usuário logado"));
-    return comLimiteDeTempo(auth.currentUser.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
+    // 1º tenta como APARELHO (identidade anônima aprovada); se o Firebase recusar, tenta como conta (compatível com as regras antigas)
+    var ud = authDisp && authDisp.currentUser;
+    if (!ud) return atualizarViaRestApiComo(auth.currentUser, updates, tokenForcarNovo);
+    return atualizarViaRestApiComo(ud, updates, tokenForcarNovo).catch(function(e) {
+        if (/HTTP 40[13]/.test(String(e && e.message))) { return atualizarViaRestApiComo(auth.currentUser, updates, tokenForcarNovo); }
+        throw e;
+    });
+}
+
+function atualizarViaSdk(updates) {
+    if (dbDisp && authDisp && authDisp.currentUser) {
+        return dbDisp.ref().update(updates).catch(function() { return db.ref().update(updates); });
+    }
+    return db.ref().update(updates);
+}
+
+function atualizarViaRestApiComo(usuario, updates, tokenForcarNovo) {
+    return comLimiteDeTempo(usuario.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
         var url = firebaseConfig.databaseURL + "/.json?auth=" + encodeURIComponent(token);
         return fetchComTimeout(url, {
             method: "PATCH",
@@ -438,10 +465,10 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
                 return new Promise(function (resolve) { setTimeout(resolve, 800); })
                     .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
             }
-            return comLimiteDeTempo(db.ref().update(updates), 8000);
+            return comLimiteDeTempo(atualizarViaSdk(updates), 8000);
         });
     }
-    return db.ref().update(updates);
+    return atualizarViaSdk(updates);
 }
 
 // ===================== ROTA PLANEJADA (motorista digita um destino, tipo Waze) =====================
@@ -1007,7 +1034,11 @@ function falhaDispositivo(err){setDispositivoBloqueado(false);try{localStorage.r
 function registrarDispositivo(){if(registrandoDispositivo) return;registrandoDispositivo=true;var idEmp=sanitizarChavePath(EMPRESA_ID),base='empresas/'+idEmp+'/dispositivos/';db.ref(base).once('value').then(function(snap){return obterModeloAparelho().then(function(modelo){return {snap:snap,modelo:modelo};});}).then(function(x){var primeiro=!x.snap.exists(),agora=new Date().toISOString();var reg={nome:x.modelo||'Aparelho',modelo:x.modelo,veiculos:(listaVeiculos||[]).join(', ').slice(0,120),solicitadoEm:agora,status:primeiro?'aprovado':'pendente'};if(primeiro){reg.aprovadoEm=agora;reg.aprovadoPor='primeiro aparelho da conta';}
 function avisar(){db.ref('empresas/'+idEmp+'/nome').once('value').then(function(s){return s.val();}).catch(function(){return null;}).then(function(nome){avisarAdminTelegram('disp_pedido_'+EMPRESA_ID+'_'+DEVICE_ID,"📱 Novo aparelho pedindo liberação - Everton GPS\n\n🏢 "+(nome||EMPRESA_ID)+"\n🆔 "+EMPRESA_ID+"\n📲 "+reg.modelo+(reg.veiculos?"\n🚚 "+reg.veiculos:"")+"\n\nAbra o Painel de Clientes e aprove ou negue.");});}
 return db.ref(base+DEVICE_ID).set(reg).then(function(){if(!primeiro) avisar();}).catch(function(e){if(!primeiro) throw e;/* outro aparelho foi liberado no mesmo instante: este vira pedido pendente */reg.status='pendente';delete reg.aprovadoEm;delete reg.aprovadoPor;return db.ref(base+DEVICE_ID).set(reg).then(avisar);});}).catch(falhaDispositivo).then(function(){registrandoDispositivo=false;});}
-function observarDispositivo(){if(refDispositivo){try{refDispositivo.off();}catch(e){}refDispositivo=null;}if(!auth.currentUser||!EMPRESA_ID) return;refDispositivo=db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/dispositivos/'+DEVICE_ID);refDispositivo.on('value',function(s){var d=s.val();if(d&&d.status==='aprovado'){setDispositivoBloqueado(false);return;}if(d){setDispositivoBloqueado(true,d.status);return;}registrarDispositivo();},falhaDispositivo);}
+var identidadeAparelhoPromessa=null,tentandoNovamenteIdentidade=false;
+/* Login anônimo do aparelho. O código do aparelho passa a ser esse login (único por instalação). Resolve: 'ok' | 'indisponivel' (login anônimo desligado: segue só com a trava do app) | 'rede' (sem internet agora: tenta de novo). */
+function garantirIdentidadeAparelho(){if(identidadeAparelhoPromessa) return identidadeAparelhoPromessa;if(!authDisp) return Promise.resolve('indisponivel');identidadeAparelhoPromessa=new Promise(function(res){var feito=false;function fim(v){if(feito) return;feito=true;if(v!=='ok') identidadeAparelhoPromessa=null;res(v);}function usar(u){if(!u) return fim('rede');DEVICE_ID=u.uid;try{localStorage.setItem('device_id',u.uid);}catch(e){}fim('ok');}setTimeout(function(){fim('rede');},12000);var primeiro=true;authDisp.onAuthStateChanged(function(u){if(!primeiro) return;primeiro=false;if(u) return usar(u);authDisp.signInAnonymously().then(function(c){usar(c&&c.user);}).catch(function(e){var cod=(e&&e.code)||'';fim(/operation-not-allowed|admin-restricted/.test(cod)?'indisponivel':'rede');});});});return identidadeAparelhoPromessa;}
+function observarDispositivo(){garantirIdentidadeAparelho().then(function(r){if(r==='rede'){if(!tentandoNovamenteIdentidade){tentandoNovamenteIdentidade=true;setTimeout(function(){tentandoNovamenteIdentidade=false;observarDispositivo();},15000);}return;}observarDispositivoAgora();});}
+function observarDispositivoAgora(){if(refDispositivo){try{refDispositivo.off();}catch(e){}refDispositivo=null;}if(!auth.currentUser||!EMPRESA_ID) return;refDispositivo=db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/dispositivos/'+DEVICE_ID);refDispositivo.on('value',function(s){var d=s.val();if(d&&d.status==='aprovado'){setDispositivoBloqueado(false);return;}if(d){setDispositivoBloqueado(true,d.status);return;}registrarDispositivo();},falhaDispositivo);}
 (function(){try{var c=EMPRESA_ID&&localStorage.getItem('disp_estado_'+EMPRESA_ID);if(c&&c!=='aprovado'){dispositivoBloqueado=true;appSuspenso=true;pintarAvisoDispositivo(true,c);}}catch(e){}})();
 document.getElementById('btnWhatsDispositivo').addEventListener('click',function(){var texto="Olá! Preciso liberar um aparelho no Everton GPS.\n\nID empresa: "+EMPRESA_ID+"\nCódigo do aparelho: "+DEVICE_ID+"\nModelo: "+modeloDoAparelho();window.open("https://wa.me/"+WHATSAPP_SUPORTE+"?text="+encodeURIComponent(texto),'_blank');});
 document.getElementById('btnSairDispositivo').addEventListener('click',function(){auth.signOut();});
@@ -1757,4 +1788,527 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
                     return;
                 }
                 var latConsulta = latP, lonConsulta = lonP;
-                if (ultimaLeituraCompleta && ultimaLeituraComp
+                if (ultimaLeituraCompleta && ultimaLeituraCompleta.precisao != null &&
+                    (precisaoP == null || ultimaLeituraCompleta.precisao < precisaoP)) {
+                    latConsulta = ultimaLeituraCompleta.lat; lonConsulta = ultimaLeituraCompleta.lon;
+                }
+                buscarEnderecoImediato(latConsulta, lonConsulta).then(function(fresco) {
+                    if (inicioParadaTs !== inicioParadaTsNoMomento) { return; }
+                    var precisaoOk = precisaoP == null || precisaoP <= PRECISAO_MAXIMA_ACEITAVEL_M;
+                    var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
+                    var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                    registrarESincronizarPonto(latP, lonP, situacaoP, velP, precisaoP, agoraP, {
+                        rua: ruaFinal,
+                        bairro: (precisaoOk && fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                        cidade: (precisaoOk && fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                        estado: (precisaoOk && fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                        tipoVia: (precisaoOk && fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                        km: viaState.kmSincronizado
+                    }, 'inicio_parada');
+                });
+            }, 60000);
+        })(lat, lon, situacao, vel, precisao, agora, inicioParadaTs);
+    } else if (iniciouExcessoAgora) {
+        (function(latE, lonE, situacaoE, velE, precisaoE, agoraE, limiteViaNoMomento) {
+            buscarEnderecoImediato(latE, lonE).then(function(fresco) {
+                var precisaoOk = precisaoE == null || precisaoE <= PRECISAO_MAXIMA_ACEITAVEL_M;
+                var ruaBase = (precisaoOk && fresco && fresco.rua) || viaState.nome || null;
+                var ruaFinal = (precisaoOk && fresco && fresco.numero && ruaBase && fresco.tipoVia !== 'rodovia') ? (ruaBase + ", " + fresco.numero) : ruaBase;
+                registrarESincronizarPonto(latE, lonE, situacaoE, velE, precisaoE, agoraE, {
+                    rua: ruaFinal,
+                    bairro: (precisaoOk && fresco && fresco.bairro) || document.getElementById('txtBairro').textContent,
+                    cidade: (precisaoOk && fresco && fresco.cidade) || document.getElementById('txtCidade').textContent,
+                    estado: (precisaoOk && fresco && fresco.estado) || document.getElementById('txtEstado').textContent,
+                    tipoVia: (precisaoOk && fresco && fresco.tipoVia) || viaState.tipo || 'rua',
+                    km: viaState.kmSincronizado,
+                    limiteVia: limiteViaNoMomento
+                }, 'excesso_velocidade');
+            });
+        })(lat, lon, situacao, vel, precisao, agora, limiteVelocidadeAtual);
+    } else if (kmMudou) {
+        atualizandoKmRodovia = true;
+        buscarKmOficial(lat, lon).then(function(kmOficial) {
+            var kmFinal, fonte;
+            if (kmOficial !== null) {
+                kmFinal = Math.round(kmOficial); fonte = 'oficial';
+            } else {
+                kmFinal = viaState.kmBase + Math.round(viaState.odometroM / 1000); fonte = 'estimado';
+            }
+            viaState.kmBase = kmFinal; viaState.odometroM = 0; viaState.kmSincronizado = kmFinal;
+            salvarViaState();
+            atualizandoKmRodovia = false;
+            registrarESincronizarPonto(lat, lon, situacao, vel, precisao, agora, {
+                rua: viaState.nome,
+                bairro: document.getElementById('txtBairro').textContent,
+                cidade: document.getElementById('txtCidade').textContent,
+                estado: document.getElementById('txtEstado').textContent,
+                tipoVia: 'rodovia', km: kmFinal, fonteKm: fonte
+            }, 'km_rodovia');
+        }).catch(function() { atualizandoKmRodovia = false; });
+    } else {
+        sincronizarTempoRealImediato();
+    }
+
+    var limiarChecagemM = (viaState.tipo === 'rodovia') ? 300 : 60;
+    var distanciaChecagem = ultimoPontoChecadoEndereco ? calcularDistanciaMetros(ultimoPontoChecadoEndereco[0], ultimoPontoChecadoEndereco[1], lat, lon) : Infinity;
+    var precisaoAceitavel = !precisao || precisao <= PRECISAO_MAXIMA_ACEITAVEL_M;
+    if (distanciaChecagem >= limiarChecagemM && precisaoAceitavel) {
+        ultimoPontoChecadoEndereco = [lat, lon];
+        var idFixoPonto = gerarIdPonto(agoraTs);
+        var jaExisteFila = filaGeocodificarDepois.some(p => calcularDistanciaMetros(p.lat, p.lon, lat, lon) < 20);
+        if (!jaExisteFila) {
+            filaGeocodificarDepois.push({ id: idFixoPonto, lat: lat, lon: lon, ts: agoraTs, velocidadeNoMomento: vel, statusNoMomento: situacao, precisaoNoMomento: precisao });
+            salvarTudo();
+            processarFilaGeocodificacao();
+        }
+    }
+}
+
+function sincronizarTempoRealImediato() {
+    if (appSuspenso) return;
+    if (!EMPRESA_ID) return;
+    if (!ultimaLeituraCompleta || listaVeiculos.length === 0) return;
+    var updates = {};
+    listaVeiculos.forEach(vNome => {
+        var basePath = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/atual/';
+        updates[basePath + 'lat'] = ultimaLeituraCompleta.lat;
+        updates[basePath + 'lon'] = ultimaLeituraCompleta.lon;
+        updates[basePath + 'velocidade'] = ultimaLeituraCompleta.velocidade;
+        updates[basePath + 'status'] = ultimaLeituraCompleta.status;
+        updates[basePath + 'hora'] = ultimaLeituraCompleta.hora;
+        updates[basePath + 'data'] = ultimaLeituraCompleta.data;
+        updates[basePath + 'tempoParado'] = document.getElementById('txtTempoParado').textContent;
+
+        updates[basePath + 'rua'] = document.getElementById('txtRua').textContent;
+        updates[basePath + 'bairro'] = document.getElementById('txtBairro').textContent;
+        updates[basePath + 'cidade'] = document.getElementById('txtCidade').textContent;
+        updates[basePath + 'estado'] = document.getElementById('txtEstado').textContent;
+    });
+    enviarAtualizacoesFirebase(updates).then(() => {
+        if(!firebaseOnlineConfirmado) { firebaseOnlineConfirmado = true; atualizarInterfaceEstado(); }
+    }).catch(e => {
+        console.warn(e);
+        var agora = Date.now();
+        if (e && e.message === "tempo esgotado") { forcarReconexaoFirebaseSeTravado(); }
+        var msgErro1 = "Firebase recusou salvar posição ao vivo: " + (e && e.message ? e.message : e) + " [empresaId: " + EMPRESA_ID + ", logado: " + (auth.currentUser ? auth.currentUser.email : "NÃO") + "]";
+        mostrarErroSyncPersistente(msgErro1);
+        if (agora - ultimoAvisoErroEnvioTs > 60000) {
+            ultimoAvisoErroEnvioTs = agora;
+            mostrarAvisoGps("⚠️ " + msgErro1);
+        }
+    });
+}
+
+setInterval(function() {
+    if (appSuspenso) return;
+    var statusAtual = document.getElementById('badStatus').textContent;
+    if (statusAtual.indexOf("PARADO") !== -1 && ultimoIdPontoParadaGravado && listaVeiculos.length > 0 && firebaseOnlineConfirmado) {
+        var tempoAtualizado = document.getElementById('txtTempoParado').textContent;
+        var agoraStr = new Date().toLocaleTimeString('pt-BR');
+        var patchHistorico = {};
+
+        listaVeiculos.forEach(vNome => {
+            var path = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/historico/' + ultimoIdPontoParadaGravado + '/';
+            patchHistorico[path + 'tempoParado'] = tempoAtualizado;
+            patchHistorico[path + 'horaFinalParada'] = agoraStr;
+        });
+
+        enviarAtualizacoesFirebase(patchHistorico).catch(e => console.warn(e));
+    }
+}, 30000);
+
+function tratarErroGps(erro) {
+    console.error(erro); errosGpsConsecutivos++;
+    if (erro.code === 1) mostrarAvisoGps("⚠️ Permissão de localização negada.");
+    else if (errosGpsConsecutivos >= 4) mostrarAvisoGps("⚠️ Instabilidade no sinal do GPS.");
+}
+
+function iniciarRastreioNativoBackground() {
+    var BG = window.Capacitor.Plugins.BackgroundGeolocation;
+    if (!BG) {
+        mostrarAvisoGps("⚠️ Plugin nativo de rastreio em segundo plano NÃO encontrado neste app — usando GPS do navegador, que tende a PARAR quando a tela apaga ou o app sai de primeiro plano. Rastreio em 2º plano real não está garantido.");
+        iniciarRastreioWeb();
+        return;
+    }
+    atualizarBarraBackground("🟢 Rastreio em segundo plano ATIVO", true);
+    var resultadoWatcher = BG.addWatcher({
+        backgroundMessage: "Gravando rotas e telemetria em tempo real...",
+        backgroundTitle: "Everton GPS Corporativo",
+        requestPermissions: true, stale: false, distanceFilter: 0
+    }, function(location, error) {
+        if (error) {
+            mostrarAvisoGps("⚠️ Erro no rastreio em segundo plano: " + (error && error.message ? error.message : error));
+            return;
+        }
+        if (location) processarNovaPosicao(location.latitude, location.longitude, location.accuracy, location.speed);
+    });
+    if (resultadoWatcher && typeof resultadoWatcher.then === 'function') {
+        resultadoWatcher.then(function(id) { bgWatcherId = id; }).catch(function(erro) {
+            console.error(erro);
+            mostrarAvisoGps("⚠️ Falha ao iniciar GPS em segundo plano (plugin nativo): " + (erro && erro.message ? erro.message : erro) + " — usando GPS padrão do navegador.");
+            atualizarBarraBackground("", false);
+            iniciarRastreioWeb();
+        });
+    } else {
+        bgWatcherId = resultadoWatcher;
+    }
+}
+
+function iniciarRastreioWeb() {
+    if (!checarContextoSeguro() || !navigator.geolocation) return;
+    navigator.geolocation.watchPosition(position => {
+        processarNovaPosicao(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.coords.speed);
+    }, tratarErroGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+}
+
+function iniciarRastreioGps() {
+    try {
+        if (isNative) { iniciarRastreioNativoBackground(); } else { iniciarRastreioWeb(); }
+    } catch (erro) {
+        console.error(erro);
+        mostrarAvisoGps("⚠️ Erro ao iniciar o GPS nativo: " + (erro && erro.message ? erro.message : erro) + " — usando GPS padrão do navegador.");
+        atualizarBarraBackground("", false);
+        iniciarRastreioWeb();
+    }
+}
+iniciarRastreioGps();
+if (window.evManterAppAtivo) window.evManterAppAtivo();
+
+var ultimaBuscaTempTs = 0; var buscandoTemp = false;
+function talvezBuscarTemperatura(lat, lon) {
+    var agora = Date.now(); if (buscandoTemp || (agora - ultimaBuscaTempTs) < 300000) return;
+    buscandoTemp = true; ultimaBuscaTempTs = agora;
+    fetchComTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature&temperature_unit=celsius&timezone=auto`, {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json()).then(data => {
+            if (data && data.current && typeof data.current.temperature_2m === "number") {
+                var sensacao = typeof data.current.apparent_temperature === "number" ? ` (sensação ${data.current.apparent_temperature.toFixed(1)}°C)` : "";
+                document.getElementById('txtTemperatura').textContent = data.current.temperature_2m.toFixed(1) + " °C" + sensacao;
+            }
+        }).catch(e => console.warn(e)).finally(() => { buscandoTemp = false; });
+}
+
+function aplicarEnderecoNoPonto(lat, lon, rua, bairro, cidade, estado, dadosResposta, velocidadeNoMomento, statusNoMomento, tsNoMomento, precisaoNoMomento, numero) {
+    var tipoVia = classificarVia(rua, dadosResposta);
+    var ruaComNumero = (rua && numero) ? (rua + ", " + numero) : rua;
+
+    if (tipoVia === "rodovia") {
+        var kmExibicao = viaState.kmSincronizado !== null && viaState.tipo === 'rodovia' && viaState.nome === rua ? viaState.kmSincronizado : "—";
+        document.getElementById('txtRua').textContent = rua + " (rodovia) - Km " + kmExibicao;
+        document.getElementById('txtBairro').textContent = valorOuTraco(bairro, "Bairro não localizado");
+    } else {
+        document.getElementById('txtRua').textContent = ruaComNumero;
+        document.getElementById('txtBairro').textContent = valorOuTraco(bairro, "Bairro não localizado");
+    }
+    document.getElementById('txtCidade').textContent = cidade;
+    document.getElementById('txtEstado').textContent = estado;
+
+    var mudouDeVia = (viaState.tipo !== tipoVia) || (viaState.nome !== rua);
+
+    var velNoMomentoNum = velocidadeNoMomento != null ? velocidadeNoMomento : 0;
+    var tsEfetivo = tsNoMomento || Date.now();
+    var pareceRuidoDeGps = mudouDeVia && rua === viaAnterior && velNoMomentoNum < 15 && ultimoRegistroViaTs && (tsEfetivo - ultimoRegistroViaTs) < 15000;
+
+    if (pareceRuidoDeGps) {
+        salvarTudo();
+        sincronizarTempoRealImediato();
+    } else if (mudouDeVia && tipoVia === "rodovia" && !atualizandoKmRodovia) {
+        atualizandoKmRodovia = true;
+        buscarKmOficial(lat, lon).then(function(kmOficial) {
+            var kmFinal = (kmOficial !== null) ? Math.round(kmOficial) : null;
+            var fonte = (kmOficial !== null) ? 'oficial' : 'desconhecido';
+            viaAnterior = viaState.nome;
+            var limiteTagRodovia = extrairLimiteVelocidadeTag(dadosResposta && dadosResposta.extratags);
+            viaState = { tipo: 'rodovia', nome: rua, kmBase: kmFinal != null ? kmFinal : 0, odometroM: 0, kmSincronizado: kmFinal, limiteVelocidade: limiteTagRodovia || LIMITE_VELOCIDADE };
+            salvarViaState();
+            atualizandoKmRodovia = false;
+            ultimoRegistroViaTs = tsNoMomento || Date.now();
+
+            var agora = tsNoMomento ? new Date(tsNoMomento) : new Date();
+            var velAtual = velocidadeNoMomento != null ? velocidadeNoMomento : (ultimaLeituraCompleta ? ultimaLeituraCompleta.velocidade : 0);
+            var statusAtual = statusNoMomento || (ultimaLeituraCompleta ? ultimaLeituraCompleta.status : "PARADO");
+            registrarESincronizarPonto(lat, lon, statusAtual, velAtual, precisaoNoMomento != null ? precisaoNoMomento : null, agora, { rua: rua, bairro: bairro, cidade: cidade, estado: estado, tipoVia: "rodovia", km: kmFinal, fonteKm: fonte }, "entrada_rodovia");
+        }).catch(function() { atualizandoKmRodovia = false; });
+    } else if (mudouDeVia) {
+        viaAnterior = viaState.nome;
+        var limiteTagRua = extrairLimiteVelocidadeTag(dadosResposta && dadosResposta.extratags);
+        viaState = { tipo: 'rua', nome: rua, kmBase: 0, odometroM: 0, kmSincronizado: null, limiteVelocidade: limiteTagRua || 30 };
+        salvarViaState();
+        ultimoRegistroViaTs = tsNoMomento || Date.now();
+
+        var agora2 = tsNoMomento ? new Date(tsNoMomento) : new Date();
+        var velAtual2 = velocidadeNoMomento != null ? velocidadeNoMomento : (ultimaLeituraCompleta ? ultimaLeituraCompleta.velocidade : 0);
+        var statusAtual2 = statusNoMomento || (ultimaLeituraCompleta ? ultimaLeituraCompleta.status : "PARADO");
+        registrarESincronizarPonto(lat, lon, statusAtual2, velAtual2, precisaoNoMomento != null ? precisaoNoMomento : null, agora2, { rua: ruaComNumero, bairro: bairro, cidade: cidade, estado: estado, tipoVia: "rua" }, "troca_rua");
+    } else {
+        salvarTudo();
+        sincronizarTempoRealImediato();
+    }
+}
+
+var IDADE_MAXIMA_FILA_ENDERECO_MS = 45000;
+var TAMANHO_MAXIMO_FILA_ENDERECO = 8;
+
+function podarFilaGeocodificacao() {
+    var agora = Date.now();
+    var tamanhoAntes = filaGeocodificarDepois.length;
+    filaGeocodificarDepois = filaGeocodificarDepois.filter(function(p) {
+        return (agora - p.ts) <= IDADE_MAXIMA_FILA_ENDERECO_MS;
+    });
+    if (filaGeocodificarDepois.length > TAMANHO_MAXIMO_FILA_ENDERECO) {
+        filaGeocodificarDepois.splice(0, filaGeocodificarDepois.length - TAMANHO_MAXIMO_FILA_ENDERECO);
+    }
+    if (filaGeocodificarDepois.length !== tamanhoAntes) salvarTudo();
+}
+
+function bairroDoEndereco(addr) {
+    return addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.city_district || null;
+}
+function cidadeDoEndereco(addr) {
+    return addr.city || addr.town || addr.village || addr.municipality || addr.county || null;
+}
+
+function buscarEnderecoImediato(lat, lon) {
+    return fetchComTimeout(montarUrlGeocodificacao(lat, lon), {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json())
+        .then(data => {
+            var addr = data.address || {};
+            var rua = addr.road || addr.pedestrian || null;
+            return {
+                rua: rua,
+                numero: addr.house_number || null,
+                bairro: bairroDoEndereco(addr),
+                cidade: cidadeDoEndereco(addr),
+                estado: addr.state || null,
+                tipoVia: classificarVia(rua || "", data)
+            };
+        })
+        .catch(function() { return null; });
+}
+
+var geocodificando = false;
+function processarFilaGeocodificacao() {
+    if (appSuspenso) return;
+    podarFilaGeocodificacao();
+    if (geocodificando || filaGeocodificarDepois.length === 0) return;
+    geocodificando = true; atualizarInterfaceEstado();
+    var ponto = filaGeocodificarDepois[filaGeocodificarDepois.length - 1];
+
+    fetchComTimeout(montarUrlGeocodificacao(ponto.lat, ponto.lon), {}, TIMEOUT_FETCH_MS)
+        .then(res => res.json()).then(data => {
+            var addr = data.address || {};
+            var rua = addr.road || addr.pedestrian || "Rua não localizada";
+            var numero = addr.house_number || null;
+            var bairro = bairroDoEndereco(addr) || "Bairro não localizado";
+            var cidade = cidadeDoEndereco(addr) || "Cidade não localizada";
+            var estado = addr.state || "Estado não localizado";
+            aplicarEnderecoNoPonto(ponto.lat, ponto.lon, rua, bairro, cidade, estado, data, ponto.velocidadeNoMomento, ponto.statusNoMomento, ponto.ts, ponto.precisaoNoMomento, numero);
+            filaGeocodificarDepois.pop();
+        }).catch(err => {
+            ponto.tentativas = (ponto.tentativas || 0) + 1;
+            if (ponto.tentativas >= MAX_TENTATIVAS_GEOCODIFICACAO) filaGeocodificarDepois.pop();
+        }).finally(() => {
+            geocodificando = false; salvarTudo(); atualizarInterfaceEstado();
+            if (filaGeocodificarDepois.length > 0) setTimeout(processarFilaGeocodificacao, INTERVALO_GEOCODIFICACAO_MS);
+        });
+}
+
+var enviando = false; var falhasConsecutivasLote = 0;
+var ultimoAvisoErroEnvioTs = 0;
+var MAX_FILA_PENDENTES = 300;
+var ultimaVezQueComecouEnvio = null;
+function enviarDadosFila() {
+    if (appSuspenso) return;
+    if (!EMPRESA_ID) return;
+    if (enviando || filaPendentes.length === 0) { atualizarInterfaceEstado(); return; }
+    if (filaPendentes.length > MAX_FILA_PENDENTES) {
+        filaPendentes.splice(0, filaPendentes.length - MAX_FILA_PENDENTES);
+        salvarTudo();
+    }
+    enviando = true; ultimaVezQueComecouEnvio = Date.now(); var lote = filaPendentes.slice(0, 25); var updates = {};
+    try {
+        lote.forEach(item => {
+            var basePath = 'empresas/' + sanitizarChavePath(item.empresaId || EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(item.vID) + '/historico/' + item.id;
+            updates[basePath] = item;
+        });
+        enviarAtualizacoesFirebase(updates).then(() => {
+            filaPendentes.splice(0, lote.length); falhasConsecutivasLote = 0; firebaseOnlineConfirmado = true; salvarTudo();
+        }).catch(e => {
+            falhasConsecutivasLote++; if (falhasConsecutivasLote >= 20) { filaPendentes.shift(); falhasConsecutivasLote = 0; salvarTudo(); }
+            var agora = Date.now();
+            if (e && e.message === "tempo esgotado") { forcarReconexaoFirebaseSeTravado(); }
+            var empresaIdsDoLote = Array.from(new Set(lote.map(function(it) { return it.empresaId || EMPRESA_ID; })));
+            var msgErro2 = "Firebase recusou salvar os dados: " + (e && e.message ? e.message : e) + " [empresaId do(s) item(ns) que falharam: " + empresaIdsDoLote.join(", ") + " | empresaId atual do campo: " + EMPRESA_ID + ", logado: " + (auth.currentUser ? auth.currentUser.email : "NÃO") + "]";
+            mostrarErroSyncPersistente(msgErro2);
+            if (agora - ultimoAvisoErroEnvioTs > 60000) {
+                ultimoAvisoErroEnvioTs = agora;
+                mostrarAvisoGps("⚠️ " + msgErro2);
+            }
+        }).finally(() => {
+            enviando = false; ultimaVezQueComecouEnvio = null; atualizarInterfaceEstado();
+            if (filaPendentes.length > 0 && !appSuspenso) {
+                var esperaMs = Math.min(30000, 1000 * Math.pow(2, Math.min(falhasConsecutivasLote, 5)));
+                setTimeout(enviarDadosFila, falhasConsecutivasLote > 0 ? esperaMs : 0);
+            }
+        });
+    } catch (e) { filaPendentes.shift(); enviando = false; ultimaVezQueComecouEnvio = null; atualizarInterfaceEstado(); }
+}
+
+setInterval(function() {
+    if (enviando && ultimaVezQueComecouEnvio && (Date.now() - ultimaVezQueComecouEnvio) > 25000) {
+        console.warn("Envio da fila travado há mais de 25s — destravando e tentando de novo.");
+        enviando = false;
+        ultimaVezQueComecouEnvio = null;
+        forcarReconexaoFirebaseSeTravado();
+        mostrarErroSyncPersistente("⏱️ Envio ficou travado por mais de 25s (comum quando a tela fica muito tempo apagada) — destravado automaticamente e tentando de novo.");
+        enviarDadosFila();
+    }
+}, 10000);
+
+function atualizarInterfaceEstado() {
+    var barra = document.getElementById('statusConexao'); var totalPendente = filaPendentes.length + filaGeocodificarDepois.length;
+    if (!EMPRESA_ID) {
+        barra.className = "status-bar status-offline"; barra.innerHTML = "⚠️ Configure o ID da empresa acima pra começar";
+    } else if (appSuspenso) {
+        barra.className = "status-bar status-erro"; barra.innerHTML = "🚫 CONTA SUSPENSA — Sincronização pausada";
+    } else if (listaVeiculos.length === 0) {
+        barra.className = "status-bar status-offline"; barra.innerHTML = "MODO OFFLINE — Adicione um Veículo";
+    } else if (firebaseOnlineConfirmado && totalPendente === 0) {
+        barra.className = "status-bar status-online"; barra.innerHTML = "📡 SISTEMA ONLINE — Sincronizado!";
+    } else if (firebaseOnlineConfirmado) {
+        barra.className = "status-bar status-online"; barra.innerHTML = `📡 ONLINE — Sincronizando... <span>(${totalPendente} pendentes)</span>`;
+    } else {
+        barra.className = "status-bar status-offline"; barra.innerHTML = `MODO OFFLINE <span>(${totalPendente} pendentes)</span>`;
+    }
+    document.getElementById('filaInfo').textContent = registroCompleto.length + " pontos gravados localmente (" + filaPendentes.length + " no Firebase)";
+
+    var pill = document.getElementById('pillConta'); var pillTxt = document.getElementById('pillContaTexto');
+    if (pill && pillTxt) {
+        if (!EMPRESA_ID) { pill.className = "conta-pill"; pillTxt.textContent = "sem empresa"; }
+        else if (appSuspenso) { pill.className = "conta-pill"; pillTxt.textContent = "suspensa"; }
+        else if (firebaseOnlineConfirmado) { pill.className = "conta-pill ativa"; pillTxt.textContent = EMPRESA_ID; }
+        else { pill.className = "conta-pill"; pillTxt.textContent = EMPRESA_ID + " · offline"; }
+    }
+}
+
+window.addEventListener('online', function() { firebaseOnlineConfirmado = true; atualizarInterfaceEstado(); processarFilaGeocodificacao(); enviarDadosFila(); });
+window.addEventListener('offline', function() { firebaseOnlineConfirmado = false; atualizarInterfaceEstado(); });
+
+document.getElementById('btnForcar').addEventListener('click', function() {
+    if (appSuspenso) { alert("Conta suspensa por falta de pagamento. Entre em contato com o suporte."); return; }
+    geocodificando = false;
+    enviando = false;
+    processarFilaGeocodificacao();
+    enviarDadosFila();
+    sincronizarTempoRealImediato();
+});
+
+document.getElementById('btnExportar').addEventListener('click', async function() {
+    if (registroCompleto.length === 0) return alert("Sem pontos.");
+    var lines = ["Data;Hora;Latitude;Longitude;Velocidade(km/h);Situacao;Rua;Bairro;Cidade;Estado;Motivo;FonteKm;LimiteVia;ExcessoKmh"];
+    registroCompleto.forEach(p => { lines.push([p.data, p.hora, p.lat, p.lon, p.velocidade, p.status, p.rua, p.bairro, p.cidade, p.estado, p.motivo || "", p.fonteKm || "", p.limiteVia != null ? p.limiteVia : "", p.excessoKmh != null ? p.excessoKmh : ""].join(";")); });
+    var conteudoCsv = lines.join("\n");
+    var nomeArquivo = "rota_real_" + new Date().toISOString().slice(0,10) + ".csv";
+    var out = document.getElementById('diagnosticoResultado');
+
+    try {
+        if (isNative && window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share) {
+            var Filesystem = window.Capacitor.Plugins.Filesystem;
+            var Share = window.Capacitor.Plugins.Share;
+            var resultado = await Filesystem.writeFile({
+                path: nomeArquivo,
+                data: conteudoCsv,
+                directory: 'CACHE',
+                encoding: 'utf8'
+            });
+            await Share.share({ title: "Rota exportada", url: resultado.uri });
+            out.textContent = "✅ Exportado e compartilhado com sucesso.";
+            return;
+        }
+    } catch (e) {
+        console.warn(e);
+        out.textContent = "⚠️ Falha ao exportar via plugin nativo: " + (e && e.message ? e.message : e) + " — tentando alternativa...";
+    }
+    try {
+        var arquivo = new File([conteudoCsv], nomeArquivo, { type: "text/csv" });
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+            await navigator.share({ files: [arquivo], title: "Rota exportada - " + nomeArquivo });
+            out.textContent = "✅ Compartilhado com sucesso.";
+            return;
+        }
+    } catch (e2) { console.warn(e2); }
+    var blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob); var a = document.createElement("a"); a.href = url; a.download = nomeArquivo; a.click(); URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnDiagnostico').addEventListener('click', function() {
+    var out = document.getElementById('diagnosticoResultado'); out.textContent = "Testando...";
+    fetchComTimeout(montarUrlGeocodificacao(-29.6133, -52.1919), {}, 10000)
+        .then(res => res.text()).then(txt => { out.textContent = "✅ SUCESSO\n\n" + txt.slice(0, 300); }).catch(e => { out.textContent = "❌ ERRO: " + e.message; });
+});
+
+renderizarFrotaLocal(); atualizarInterfaceEstado(); checarContextoSeguro();
+desenharRotaPlanejadaNoMapa(); exibirInfoRotaPlanejadaNaTela(); sincronizarRotaPlanejadaFirebase();
+
+setInterval(function() { sincronizarTempoRealImediato(); }, 3000);
+setInterval(function() { if (filaGeocodificarDepois.length > 0) processarFilaGeocodificacao(); if (filaPendentes.length > 0) enviarDadosFila(); }, 6000);
+
+var ultimoPulsoTs = 0;
+var INTERVALO_PULSO_MS = 15000;
+setInterval(function() {
+    if (appSuspenso) return;
+    if (!ultimaLeituraCompleta || listaVeiculos.length === 0) return;
+    var agoraPulso = new Date();
+    if (agoraPulso.getTime() - ultimoPulsoTs < INTERVALO_PULSO_MS) return;
+    ultimoPulsoTs = agoraPulso.getTime();
+
+    if (ultimaLeituraCompleta.status === "PARADO" && ultimoIdPontoParadaGravado) {
+        return;
+    }
+
+    registrarESincronizarPonto(
+        ultimaLeituraCompleta.lat, ultimaLeituraCompleta.lon, ultimaLeituraCompleta.status,
+        ultimaLeituraCompleta.velocidade, ultimaLeituraCompleta.precisao, agoraPulso,
+        {
+            rua: (viaState.tipo === 'rodovia') ? viaState.nome : document.getElementById('txtRua').textContent,
+            bairro: document.getElementById('txtBairro').textContent,
+            cidade: document.getElementById('txtCidade').textContent,
+            estado: document.getElementById('txtEstado').textContent,
+            tipoVia: viaState.tipo || 'rua', km: viaState.kmSincronizado
+        }, 'pulso'
+    );
+}, 15000);
+
+// ===================== MANTER O APP ATIVO EM SEGUNDO PLANO =====================
+// CORREÇÃO (rastreio parava depois de ~40min em segundo plano, mesmo com a
+// notificação do serviço ainda visível): o áudio usado aqui pra sinalizar ao
+// Android "este app está reproduzindo mídia" (e assim evitar que o
+// JavaScript seja congelado) era um arquivo WAV VAZIO — só cabeçalho, sem
+// nenhuma amostra de áudio de verdade. Vários fabricantes (Samsung/One UI
+// entre eles) detectam esse tipo de "áudio fake" e revogam a exceção depois
+// de um tempo, deixando o app voltar a congelar mesmo com o serviço nativo
+// ainda de pé. Agora o áudio tem ~1,2s de um tom bem grave e baixo volume
+// (quase imperceptível, mas com amostras reais) em loop, e um vigia tenta
+// retomar a reprodução sozinho se ela for interrompida.
+(function () {
+    var au = document.getElementById('evManterAtivo');
+    if (!au) return;
+    au.src = "data:audio/wav;base64,UklGRqQlAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYAlAACAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgICAgICAgICBgYGBgYKCgoKCgoODg4ODg4OEhISEhISEhIWFhYWFhYWFhYWFhYWFhYWFhYaFhYWFhYWFhYWFhYWFhYWFhYWEhISEhISEhIODg4ODg4OCgoKCgoKBgYGBgYCAgICAgICAgICAf39/f39+fn5+fn59fX19fX19fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t6e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx8fHx9fX19fX19fn5+fn5+f39/f3+AgICAgICAgICAgIGBgYGBgoKCgoKCg4ODg4ODg4SEhISEhISEhYWFhYWFhYWFhYWFhYWFhYWFhoWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEg4ODg4ODg4KCgoKCgoGBgYGBgICAgICAgICAgIB/f39/f35+fn5+fn19fX19fX18fHx8fHx8fHt7e3t7e3t7e3t7e3t7e3t7e3p7e3t7e3t7e3t7e3t7e3t7e3t8fHx8fHx8fH19fX19fX1+fn5+fn5/f39/f4CAgICAgICAgICAgYGBgYGCgoKCgoKDg4ODg4ODhISEhISEhISFhYWFhYWFhYWFhYWFhYWFhYWGhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISDg4ODg4ODgoKCgoKCgYGBgYGAgICAgICAgICAgH9/f39/fn5+fn5+fX19fX19fXx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7ent7e3t7e3t7e3t7e3t7e3t7e3x8fHx8fHx8fX19fX19fX5+fn5+fn9/f39/gICAgIA=";
+    au.volume = 0.01;
+    window.evManterAppAtivo = function () { au.play().catch(function () {}); };
+    if (window.evManterAppAtivo) window.evManterAppAtivo();
+
+    // Vigia: se a reprodução for pausada/encerrada (ex: perda de foco de
+    // áudio), tenta retomar sozinho a cada 20s.
+    au.addEventListener('pause', function () { window.evManterAppAtivo(); });
+    au.addEventListener('ended', function () { window.evManterAppAtivo(); });
+    setInterval(function () {
+        if (au.paused) window.evManterAppAtivo();
+    }, 20000);
+})();
+</script>
+<!-- modo-familia.js precisa vir DEPOIS do script principal acima, porque ele usa
+     variáveis e funções (db, auth, map, EMPRESA_ID, listaVeiculos, etc.) que só
+     existem depois que esse script principal termina de rodar. -->
+<script src="modo-familia.js"></script>
+</body>
+</html>
