@@ -29,32 +29,8 @@ jobs:
             exit 1
           fi
           cp modo-familia.js www/modo-familia.js
-          cp planos-acesso.js www/planos-acesso.js
-          cp segundo-plano.js www/segundo-plano.js
-          # aceita qualquer grafia do arquivo: trajeto-background.js, Trajeto background.js, "Trajeto background"...
-          for f in ./*; do
-            n=$(basename "$f" | tr 'A-Z' 'a-z')
-            case "$n" in
-              trajeto*) cp "$f" www/trajeto-background.js; echo "trajeto ligado a partir de: $f"; break;;
-            esac
-          done
           if ! grep -q 'modo-familia.js' www/index.html; then
             sed -i 's#</body>#<script src="modo-familia.js"></script>\n</body>#' www/index.html
-          fi
-          if ! grep -q 'planos-acesso.js' www/index.html; then
-            sed -i 's#</body>#<script src="planos-acesso.js"></script>\n</body>#' www/index.html
-          fi
-          if ! grep -q 'segundo-plano.js' www/index.html; then
-            sed -i 's#</body>#<script src="segundo-plano.js"></script>\n</body>#' www/index.html
-          fi
-          if [ -f www/trajeto-background.js ] && ! grep -q 'trajeto-background.js' www/index.html; then
-            sed -i 's#</body>#<script src="trajeto-background.js"></script>\n</body>#' www/index.html
-          fi
-          if [ -f diagnostico.js ]; then
-            cp diagnostico.js www/diagnostico.js
-            if ! grep -q 'diagnostico.js' www/index.html; then
-              sed -i 's#</body>#<script src="diagnostico.js"></script>\n</body>#' www/index.html
-            fi
           fi
           if ! grep -q 'modo-familia.js' www/index.html; then
             echo "ERRO: não encontrei </body> no index.html para ligar o modo Família."
