@@ -410,37 +410,10 @@ firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 var auth = firebase.auth();
 
-// ===================== IDENTIDADE PRÓPRIA DO APARELHO (trava no servidor) =====================
-// Cada instalação entra no Firebase com um login anônimo só dela. As regras do Firebase só aceitam
-// gravar posições de um aparelho que você aprovou no Painel de Clientes.
-var appDisp = null, authDisp = null, dbDisp = null;
-try {
-    appDisp = firebase.initializeApp(firebaseConfig, 'aparelho');
-    authDisp = appDisp.auth();
-    dbDisp = appDisp.database();
-} catch (e) { console.warn("Identidade do aparelho indisponível:", e); }
-
 // ===================== ENVIO VIA REST (nativo, via CapacitorHttp) =====================
 function atualizarViaRestApi(updates, tokenForcarNovo) {
     if (!auth.currentUser) return Promise.reject(new Error("sem usuário logado"));
-    // 1º tenta como APARELHO (identidade anônima aprovada); se o Firebase recusar, tenta como conta (compatível com as regras antigas)
-    var ud = authDisp && authDisp.currentUser;
-    if (!ud) return atualizarViaRestApiComo(auth.currentUser, updates, tokenForcarNovo);
-    return atualizarViaRestApiComo(ud, updates, tokenForcarNovo).catch(function(e) {
-        if (/HTTP 40[13]/.test(String(e && e.message))) { return atualizarViaRestApiComo(auth.currentUser, updates, tokenForcarNovo); }
-        throw e;
-    });
-}
-
-function atualizarViaSdk(updates) {
-    if (dbDisp && authDisp && authDisp.currentUser) {
-        return dbDisp.ref().update(updates).catch(function() { return db.ref().update(updates); });
-    }
-    return db.ref().update(updates);
-}
-
-function atualizarViaRestApiComo(usuario, updates, tokenForcarNovo) {
-    return comLimiteDeTempo(usuario.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
+    return comLimiteDeTempo(auth.currentUser.getIdToken(!!tokenForcarNovo), 6000).then(function(token) {
         var url = firebaseConfig.databaseURL + "/.json?auth=" + encodeURIComponent(token);
         return fetchComTimeout(url, {
             method: "PATCH",
@@ -465,10 +438,10 @@ function enviarAtualizacoesFirebase(updates, tentativa) {
                 return new Promise(function (resolve) { setTimeout(resolve, 800); })
                     .then(function () { return enviarAtualizacoesFirebase(updates, tentativa + 1); });
             }
-            return comLimiteDeTempo(atualizarViaSdk(updates), 8000);
+            return comLimiteDeTempo(db.ref().update(updates), 8000);
         });
     }
-    return atualizarViaSdk(updates);
+    return db.ref().update(updates);
 }
 
 // ===================== ROTA PLANEJADA (motorista digita um destino, tipo Waze) =====================
@@ -1034,11 +1007,7 @@ function falhaDispositivo(err){setDispositivoBloqueado(false);try{localStorage.r
 function registrarDispositivo(){if(registrandoDispositivo) return;registrandoDispositivo=true;var idEmp=sanitizarChavePath(EMPRESA_ID),base='empresas/'+idEmp+'/dispositivos/';db.ref(base).once('value').then(function(snap){return obterModeloAparelho().then(function(modelo){return {snap:snap,modelo:modelo};});}).then(function(x){var primeiro=!x.snap.exists(),agora=new Date().toISOString();var reg={nome:x.modelo||'Aparelho',modelo:x.modelo,veiculos:(listaVeiculos||[]).join(', ').slice(0,120),solicitadoEm:agora,status:primeiro?'aprovado':'pendente'};if(primeiro){reg.aprovadoEm=agora;reg.aprovadoPor='primeiro aparelho da conta';}
 function avisar(){db.ref('empresas/'+idEmp+'/nome').once('value').then(function(s){return s.val();}).catch(function(){return null;}).then(function(nome){avisarAdminTelegram('disp_pedido_'+EMPRESA_ID+'_'+DEVICE_ID,"📱 Novo aparelho pedindo liberação - Everton GPS\n\n🏢 "+(nome||EMPRESA_ID)+"\n🆔 "+EMPRESA_ID+"\n📲 "+reg.modelo+(reg.veiculos?"\n🚚 "+reg.veiculos:"")+"\n\nAbra o Painel de Clientes e aprove ou negue.");});}
 return db.ref(base+DEVICE_ID).set(reg).then(function(){if(!primeiro) avisar();}).catch(function(e){if(!primeiro) throw e;/* outro aparelho foi liberado no mesmo instante: este vira pedido pendente */reg.status='pendente';delete reg.aprovadoEm;delete reg.aprovadoPor;return db.ref(base+DEVICE_ID).set(reg).then(avisar);});}).catch(falhaDispositivo).then(function(){registrandoDispositivo=false;});}
-var identidadeAparelhoPromessa=null,tentandoNovamenteIdentidade=false;
-/* Login anônimo do aparelho. O código do aparelho passa a ser esse login (único por instalação). Resolve: 'ok' | 'indisponivel' (login anônimo desligado: segue só com a trava do app) | 'rede' (sem internet agora: tenta de novo). */
-function garantirIdentidadeAparelho(){if(identidadeAparelhoPromessa) return identidadeAparelhoPromessa;if(!authDisp) return Promise.resolve('indisponivel');identidadeAparelhoPromessa=new Promise(function(res){var feito=false;function fim(v){if(feito) return;feito=true;if(v!=='ok') identidadeAparelhoPromessa=null;res(v);}function usar(u){if(!u) return fim('rede');DEVICE_ID=u.uid;try{localStorage.setItem('device_id',u.uid);}catch(e){}fim('ok');}setTimeout(function(){fim('rede');},12000);var primeiro=true;authDisp.onAuthStateChanged(function(u){if(!primeiro) return;primeiro=false;if(u) return usar(u);authDisp.signInAnonymously().then(function(c){usar(c&&c.user);}).catch(function(e){var cod=(e&&e.code)||'';fim(/operation-not-allowed|admin-restricted/.test(cod)?'indisponivel':'rede');});});});return identidadeAparelhoPromessa;}
-function observarDispositivo(){garantirIdentidadeAparelho().then(function(r){if(r==='rede'){if(!tentandoNovamenteIdentidade){tentandoNovamenteIdentidade=true;setTimeout(function(){tentandoNovamenteIdentidade=false;observarDispositivo();},15000);}return;}observarDispositivoAgora();});}
-function observarDispositivoAgora(){if(refDispositivo){try{refDispositivo.off();}catch(e){}refDispositivo=null;}if(!auth.currentUser||!EMPRESA_ID) return;refDispositivo=db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/dispositivos/'+DEVICE_ID);refDispositivo.on('value',function(s){var d=s.val();if(d&&d.status==='aprovado'){setDispositivoBloqueado(false);return;}if(d){setDispositivoBloqueado(true,d.status);return;}registrarDispositivo();},falhaDispositivo);}
+function observarDispositivo(){if(refDispositivo){try{refDispositivo.off();}catch(e){}refDispositivo=null;}if(!auth.currentUser||!EMPRESA_ID) return;refDispositivo=db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID)+'/dispositivos/'+DEVICE_ID);refDispositivo.on('value',function(s){var d=s.val();if(d&&d.status==='aprovado'){setDispositivoBloqueado(false);return;}if(d){setDispositivoBloqueado(true,d.status);return;}registrarDispositivo();},falhaDispositivo);}
 (function(){try{var c=EMPRESA_ID&&localStorage.getItem('disp_estado_'+EMPRESA_ID);if(c&&c!=='aprovado'){dispositivoBloqueado=true;appSuspenso=true;pintarAvisoDispositivo(true,c);}}catch(e){}})();
 document.getElementById('btnWhatsDispositivo').addEventListener('click',function(){var texto="Olá! Preciso liberar um aparelho no Everton GPS.\n\nID empresa: "+EMPRESA_ID+"\nCódigo do aparelho: "+DEVICE_ID+"\nModelo: "+modeloDoAparelho();window.open("https://wa.me/"+WHATSAPP_SUPORTE+"?text="+encodeURIComponent(texto),'_blank');});
 document.getElementById('btnSairDispositivo').addEventListener('click',function(){auth.signOut();});
