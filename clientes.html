@@ -154,6 +154,7 @@ async function carregarCliente(id){
   var vals=await Promise.all(campos.map(function(c){ return db.ref(base+c).once('value').then(function(s){ return s.val(); }).catch(function(){ return undefined; }); }));
   var c={id:id}; campos.forEach(function(k,i){ c[k]=vals[i]; });
   c.veiculos=[]; try{ var sh=await shallow(base+'veiculos'); c.veiculos=sh?Object.keys(sh):[]; }catch(e){}
+  c.suspensos={}; await Promise.all(c.veiculos.map(function(v){ return db.ref(base+'veiculos/'+v+'/suspenso').once('value').then(function(s){ if(s.val()===true) c.suspensos[v]=true; }).catch(function(){}); }));
   return c;
 }
 async function carregarTudo(silencioso){
@@ -245,7 +246,7 @@ function detalheHtml(c,L){
   h+='<h4>Vagas de dispositivo</h4><div class="limrow"><input type="number" min="0" step="1" class="inp-lim" value="'+L.n+'"><button class="sm" data-act="salvarlimite">Salvar limite</button><button class="sec sm" data-act="maisum">+1 vaga</button></div>';
   var nSobra=ks.filter(function(k){ var s=(d[k]||{}).status; return s==='revogado'||s==='negado'; }).length;
   h+='<h4>Dispositivos / pedidos ('+ks.length+')</h4>'+(nSobra?'<button class="bad sm" style="width:100%;margin-bottom:8px" data-act="limpar">🗑 Excluir todos os revogados/negados ('+nSobra+')</button>':'')+(ks.length?ks.map(function(k){ return devRow(k,d[k]||{}); }).join(''):'<div class="small">Nenhum pedido registrado ainda.</div>');
-  h+='<h4>Veículos cadastrados ('+c.veiculos.length+')</h4>'+(c.veiculos.length?'<div class="chips">'+c.veiculos.map(function(v){ return '<span class="chip">🚚 '+esc(nomeBonito(v))+' <button class="bad sm" data-act="excluirveic" data-veic="'+esc(v)+'" style="margin-left:4px;padding:1px 6px">🗑</button></span>'; }).join('')+'</div>':'<div class="small">Nenhum veículo ainda.</div>');
+  h+='<h4>Veículos cadastrados ('+c.veiculos.length+')</h4>'+(c.veiculos.length?'<div class="chips">'+c.veiculos.map(function(v){ var sp=(c.suspensos||{})[v]; return '<div class="dev" style="width:100%"><div><b>🚚 '+esc(nomeBonito(v))+'</b>'+(sp?' <span class="badge s-susp">SUSPENSO</span>':'')+'</div><div class="acts">'+(sp?'<button class="ok sm" data-act="reativaveic" data-veic="'+esc(v)+'">Reativar</button>':'<button class="bad sm" data-act="suspenderveic" data-veic="'+esc(v)+'">⛔ Suspender</button>')+'<button class="bad sm" data-act="excluirveic" data-veic="'+esc(v)+'">🗑</button></div></div>'; }).join('')+'</div>':'<div class="small">Nenhum veículo ainda.</div>');
   h+='<div style="margin-top:12px;display:flex;gap:6px">'+(String(c.status).toLowerCase()!=='suspenso'?'<button class="bad sm" data-act="suspender">🚫 Suspender acesso</button>':'<span class="small">Acesso suspenso — reative pela página Aprovar Plano.</span>')+'</div></div>';
   return h;
 }
@@ -305,6 +306,11 @@ async function excluirDispositivo(id,dev){
   if(!confirm('Excluir "'+(d.nome||nomeBonito(dev))+'" ('+String(d.status||'').toUpperCase()+') da lista?\n\nSe esse aparelho ainda estiver com o app instalado, ele volta como novo pedido.')) return;
   try{ await db.ref('empresas/'+id+'/dispositivos/'+dev).remove(); toast('🗑 Excluído','ok'); await recarregarUm(id); }catch(e){ falha(e); }
 }
+async function suspenderVeiculo(id,v,sus){
+  var nm=nomeBonito(v);
+  if(sus&&!confirm('Suspender o veículo "'+nm+'"?\n\nO celular dele para de rastrear e mostra "Veículo suspenso". Os outros veículos do cliente continuam normais.')) return;
+  try{ await db.ref('empresas/'+id+'/veiculos/'+v+'/suspenso').set(sus?true:null); toast(sus?'⛔ Veículo suspenso':'✅ Veículo reativado','ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
 async function excluirVeiculo(id,v){
   if(!confirm('Excluir o veículo "'+nomeBonito(v)+'" de '+((achar(id)||{}).nome||id)+'?\n\nApaga a posição e o histórico dele. Se o app em algum celular ainda usar esse nome, ele reaparece.')) return;
   try{ await db.ref('empresas/'+id+'/veiculos/'+v).remove(); toast('🗑 Veículo excluído','ok'); await recarregarUm(id); }catch(e){ falha(e); }
@@ -333,6 +339,8 @@ document.addEventListener('click',function(e){
   else if(act==='negar') mudarStatus(id,dev,'negado','Negar');
   else if(act==='revogar') mudarStatus(id,dev,'revogado','Revogar');
   else if(act==='excluir') excluirDispositivo(id,dev);
+  else if(act==='suspenderveic') suspenderVeiculo(id,b.getAttribute('data-veic'),true);
+  else if(act==='reativaveic') suspenderVeiculo(id,b.getAttribute('data-veic'),false);
   else if(act==='excluirveic') excluirVeiculo(id,b.getAttribute('data-veic'));
   else if(act==='limpar') limparDispositivos(id);
   else if(act==='salvarlimite') salvarLimite(id,parseInt(box.querySelector('.inp-lim').value,10));
@@ -346,4 +354,4 @@ document.addEventListener('click',function(e){
 });
 </script>
 </body>
-    </html>
+</html>
