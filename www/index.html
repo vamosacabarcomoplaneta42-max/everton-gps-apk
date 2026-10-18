@@ -743,7 +743,7 @@ function calcularRotaOsrm(origemLat, origemLon, destinoLat, destinoLon) {
 function sincronizarRotaPlanejadaFirebase() {
     if (!EMPRESA_ID || listaVeiculos.length === 0) return;
     var updates = {};
-    listaVeiculos.forEach(function(vNome) {
+    vAtivos().forEach(function(vNome) {
         var caminho = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/rotaPlanejada';
         updates[caminho] = rotaPlanejadaAtual;
     });
@@ -951,11 +951,44 @@ function formatarContagemRegressiva(ms) {
     return partes.join(" ");
 }
 
+
+// ===== Suspensão de UM veículo (painel marca empresas/{id}/veiculos/{veiculo}/suspenso = true) =====
+var veiculosSuspensos = {}, veiculoBloqueado = false, veiculoOverlayAtivo = false, refsSuspensos = [];
+try { veiculosSuspensos = JSON.parse(localStorage.getItem('veic_susp_' + EMPRESA_ID) || '{}') || {}; } catch (e) { veiculosSuspensos = {}; }
+veiculoBloqueado = listaVeiculos.length > 0 && listaVeiculos.every(function(v) { return !!veiculosSuspensos[v]; }); if (veiculoBloqueado) { appSuspenso = true; try { pintarAvisoVeiculo(true); } catch (e) {} }
+function veiculoSuspenso(v) { return !!veiculosSuspensos[v]; }
+function vAtivos() { return listaVeiculos.filter(function(v) { return !veiculosSuspensos[v]; }); }
+function recalcularVeiculoBloqueado() {
+    veiculoBloqueado = listaVeiculos.length > 0 && vAtivos().length === 0;
+    try { if (EMPRESA_ID) localStorage.setItem('veic_susp_' + EMPRESA_ID, JSON.stringify(veiculosSuspensos)); } catch (e) {}
+    avaliarEstadoEmpresa();
+}
+function pintarAvisoVeiculo(mostrar) {
+    var el = document.getElementById('avisoDispositivo'); if (!el) return;
+    veiculoOverlayAtivo = !!mostrar;
+    if (mostrar) {
+        document.getElementById('dispTitulo').textContent = 'Veículo suspenso';
+        document.getElementById('dispMsg').textContent = 'Este veículo foi suspenso pelo administrador. Fale com o suporte para reativar.';
+        document.getElementById('dispId').textContent = 'Veículo: ' + listaVeiculos.join(', ');
+        el.style.display = 'flex';
+    } else { el.style.display = 'none'; }
+}
+function observarSuspensos() {
+    refsSuspensos.forEach(function(r) { try { r.off(); } catch (e) {} }); refsSuspensos = [];
+    if (!auth.currentUser || !EMPRESA_ID) return;
+    listaVeiculos.forEach(function(v) {
+        var r = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(v) + '/suspenso');
+        refsSuspensos.push(r);
+        r.on('value', function(s) { if (s.val() === true) veiculosSuspensos[v] = true; else delete veiculosSuspensos[v]; recalcularVeiculoBloqueado(); }, function() {});
+    });
+    recalcularVeiculoBloqueado();
+}
+
 function avaliarEstadoEmpresa() {
     var testeVencido = estadoEmpresaAtual.status === 'trial' && estadoEmpresaAtual.trialExpiraEm && new Date(estadoEmpresaAtual.trialExpiraEm).getTime() < Date.now();
     var assinaturaVencida = estadoEmpresaAtual.status === 'ativo' && estadoEmpresaAtual.assinaturaExpiraEm && new Date(estadoEmpresaAtual.assinaturaExpiraEm).getTime() < Date.now();
     var suspenso = estadoEmpresaAtual.status === 'suspenso' || testeVencido || assinaturaVencida;
-    appSuspenso = suspenso || dispositivoBloqueado;
+    appSuspenso = suspenso || dispositivoBloqueado || veiculoBloqueado;
     document.getElementById('avisoSuspenso').style.display = suspenso ? 'flex' : 'none';
 
     var faixaTeste = document.getElementById('avisoTeste');
@@ -975,6 +1008,8 @@ function avaliarEstadoEmpresa() {
 
     if (assinaturaVencida) { notificarAssinaturaVencidaSeNecessario(); }
 
+    if (veiculoBloqueado && !dispositivoBloqueado) { pintarAvisoVeiculo(true); }
+    else if (!veiculoBloqueado && veiculoOverlayAtivo && !dispositivoBloqueado) { pintarAvisoVeiculo(false); }
     atualizarInterfaceEstado();
 }
 
@@ -1001,7 +1036,7 @@ var refDispositivo=null,registrandoDispositivo=false;
 function modeloDoAparelho(){var ua=navigator.userAgent||'';var m=ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|\))/);var n=(m&&m[1])?m[1]:(/iPhone|iPad/.test(ua)?'iPhone/iPad':'Navegador');if(n.length<2) n='Android';return n.slice(0,50);}
 function obterModeloAparelho(){return new Promise(function(res){var fb=modeloDoAparelho(),feito=false;function fim(v){if(feito) return;feito=true;res(v);}try{if(navigator.userAgentData&&navigator.userAgentData.getHighEntropyValues){navigator.userAgentData.getHighEntropyValues(['model']).then(function(v){fim((v&&v.model&&v.model.length>1)?String(v.model).slice(0,50):fb);}).catch(function(){fim(fb);});setTimeout(function(){fim(fb);},1500);return;}}catch(e){}fim(fb);});}
 function avisarAdminTelegram(chaveUnica,texto){try{if(localStorage.getItem(chaveUnica)) return;localStorage.setItem(chaveUnica,'1');}catch(e){}try{if(!TELEGRAM_CHAT_ID) return;fetch("https://api.telegram.org/bot"+TELEGRAM_BOT_TOKEN+"/sendMessage?chat_id="+TELEGRAM_CHAT_ID+"&text="+encodeURIComponent(texto)).catch(function(){});}catch(e){}}
-function pintarAvisoDispositivo(bloq,status){var el=document.getElementById('avisoDispositivo');if(!el) return;if(bloq){var neg=(status==='negado'||status==='revogado');document.getElementById('dispTitulo').textContent=neg?'Aparelho não autorizado':'Aguardando liberação';document.getElementById('dispMsg').textContent=neg?'Este aparelho não está autorizado a usar esta conta. Fale com o suporte.':'Este aparelho ainda não foi autorizado a usar esta conta. O administrador já foi avisado. Assim que liberar, o rastreamento começa sozinho.';document.getElementById('dispId').textContent='Código do aparelho: '+DEVICE_ID;el.style.display='flex';}else{el.style.display='none';}}
+function pintarAvisoDispositivo(bloq,status){var el=document.getElementById('avisoDispositivo');if(!el) return;if(bloq){var neg=(status==='negado'||status==='revogado');document.getElementById('dispTitulo').textContent=neg?'Aparelho não autorizado':'Aguardando liberação';document.getElementById('dispMsg').textContent=neg?'Este aparelho não está autorizado a usar esta conta. Fale com o suporte.':'Este aparelho ainda não foi autorizado a usar esta conta. O administrador já foi avisado. Assim que liberar, o rastreamento começa sozinho.';document.getElementById('dispId').textContent='Código do aparelho: '+DEVICE_ID;el.style.display='flex';}else{if(typeof veiculoBloqueado!=='undefined'&&veiculoBloqueado){pintarAvisoVeiculo(true);}else{el.style.display='none';}}}
 function setDispositivoBloqueado(bloq,status){var mudou=(dispositivoBloqueado!==!!bloq);dispositivoBloqueado=!!bloq;pintarAvisoDispositivo(bloq,status);try{if(EMPRESA_ID){if(bloq) localStorage.setItem('disp_estado_'+EMPRESA_ID,status||'pendente');else localStorage.setItem('disp_estado_'+EMPRESA_ID,'aprovado');}}catch(e){}if(mudou||bloq) avaliarEstadoEmpresa();}
 function falhaDispositivo(err){setDispositivoBloqueado(false);try{localStorage.removeItem('disp_estado_'+EMPRESA_ID);}catch(e){}avisarAdminTelegram('disp_falha_'+EMPRESA_ID+'_'+DEVICE_ID,"⚠️ Everton GPS: não consegui verificar o aparelho\n\n🆔 "+EMPRESA_ID+"\n📱 "+modeloDoAparelho()+"\n\nAs regras do Firebase não permitiram usar 'dispositivos'. Adicione o bloco de regras de dispositivos. Enquanto isso o aparelho segue liberado.\n\nMotivo: "+((err&&err.message)||err));}
 function registrarDispositivo(){if(registrandoDispositivo) return;registrandoDispositivo=true;var idEmp=sanitizarChavePath(EMPRESA_ID),base='empresas/'+idEmp+'/dispositivos/';db.ref(base).once('value').then(function(snap){return obterModeloAparelho().then(function(modelo){return {snap:snap,modelo:modelo};});}).then(function(x){var primeiro=!x.snap.exists(),agora=new Date().toISOString();var reg={nome:x.modelo||'Aparelho',modelo:x.modelo,veiculos:(listaVeiculos||[]).join(', ').slice(0,120),solicitadoEm:agora,status:primeiro?'aprovado':'pendente'};if(primeiro){reg.aprovadoEm=agora;reg.aprovadoPor='primeiro aparelho da conta';}
@@ -1039,6 +1074,7 @@ function observarStatusEmpresa() {
         console.warn(erro);
     });
     observarDispositivo();
+    observarSuspensos();
 }
 
 document.getElementById('btnSalvarEmpresa').addEventListener('click', function() {
@@ -1476,14 +1512,14 @@ document.getElementById('btnAdicionar').addEventListener('click', function() {
     if (!nome) return alert('Digite um nome!');
     if (listaVeiculos.includes(nome)) return alert('Já cadastrado!');
     abrirModalLogin(function() {
-        listaVeiculos.push(nome); salvarTudo();
+        listaVeiculos.push(nome); salvarTudo(); observarSuspensos();
         document.getElementById('veiculoInput').value = ""; renderizarFrotaLocal();
         atualizarInterfaceEstado();
     });
 });
 window.removerVeiculoExigindoSenha = function(index) {
     abrirModalLogin(function() {
-        if (confirm(`Remover veículo?`)) { listaVeiculos.splice(index, 1); salvarTudo(); renderizarFrotaLocal(); atualizarInterfaceEstado(); }
+        if (confirm(`Remover veículo?`)) { listaVeiculos.splice(index, 1); salvarTudo(); observarSuspensos(); renderizarFrotaLocal(); atualizarInterfaceEstado(); }
     });
 };
 
@@ -1591,7 +1627,7 @@ function registrarESincronizarPonto(lat, lon, situacao, velKmh, precisao, agora,
     };
     registroCompleto.push(registro);
     if (listaVeiculos.length > 0) {
-        listaVeiculos.forEach(vNome => { filaPendentes.push(Object.assign({ vID: vNome, empresaId: EMPRESA_ID }, registro)); });
+        vAtivos().forEach(vNome => { filaPendentes.push(Object.assign({ vID: vNome, empresaId: EMPRESA_ID }, registro)); });
     }
     salvarTudo(); atualizarInterfaceEstado(); enviarDadosFila(); sincronizarTempoRealImediato();
 }
@@ -1751,7 +1787,7 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
                 var duracaoFinalSegundos = Math.max(0, Math.floor((agoraTs - inicioParadaTs) / 1000));
                 var idParadaEncerrada = ultimoIdPontoParadaGravado;
                 var patchFinalParada = {};
-                listaVeiculos.forEach(function(vNome) {
+                vAtivos().forEach(function(vNome) {
                     var pathParada = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/historico/' + idParadaEncerrada + '/';
                     patchFinalParada[pathParada + 'tempoParado'] = formatarTempoParado(duracaoFinalSegundos);
                     patchFinalParada[pathParada + 'horaFinalParada'] = agora.toLocaleTimeString('pt-BR');
@@ -1889,7 +1925,7 @@ function sincronizarTempoRealImediato() {
     if (!EMPRESA_ID) return;
     if (!ultimaLeituraCompleta || listaVeiculos.length === 0) return;
     var updates = {};
-    listaVeiculos.forEach(vNome => {
+    vAtivos().forEach(vNome => {
         var basePath = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/atual/';
         updates[basePath + 'lat'] = ultimaLeituraCompleta.lat;
         updates[basePath + 'lon'] = ultimaLeituraCompleta.lon;
@@ -1927,7 +1963,7 @@ setInterval(function() {
         var agoraStr = new Date().toLocaleTimeString('pt-BR');
         var patchHistorico = {};
 
-        listaVeiculos.forEach(vNome => {
+        vAtivos().forEach(vNome => {
             var path = 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(vNome) + '/historico/' + ultimoIdPontoParadaGravado + '/';
             patchHistorico[path + 'tempoParado'] = tempoAtualizado;
             patchHistorico[path + 'horaFinalParada'] = agoraStr;
@@ -2147,6 +2183,7 @@ function enviarDadosFila() {
     enviando = true; ultimaVezQueComecouEnvio = Date.now(); var lote = filaPendentes.slice(0, 25); var updates = {};
     try {
         lote.forEach(item => {
+            if (veiculoSuspenso(item.vID)) return;
             var basePath = 'empresas/' + sanitizarChavePath(item.empresaId || EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(item.vID) + '/historico/' + item.id;
             updates[basePath] = item;
         });
