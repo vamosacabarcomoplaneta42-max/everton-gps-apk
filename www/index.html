@@ -1222,10 +1222,11 @@ function classificarVia(rua, dadosResposta) {
 
 var SERVIDORES_OVERPASS = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"
 ];
 var ultimaBuscaKmOficialTs = 0;
-var RAIO_BUSCA_MARCO_M = 1500;
+var RAIO_BUSCA_MARCO_M = 3000;
 var ultimaTentativaKmDesconhecidoTs = 0;
 
 /* Rodovias citadas num texto (ex.: "RSC-287" -> "287"); "Km 87" não conta como rodovia */
@@ -1262,9 +1263,17 @@ function extrairNumeroKm(tags) {
 function consultarOverpass(servidorIndex, query) {
     if (servidorIndex >= SERVIDORES_OVERPASS.length) return Promise.resolve(null);
     var url = SERVIDORES_OVERPASS[servidorIndex] + "?data=" + encodeURIComponent(query);
-    return fetchComTimeout(url, {}, 9000)
+    return fetchComTimeout(url, {}, 15000)
         .then(res => res.json())
         .catch(() => consultarOverpass(servidorIndex + 1, query));
+}
+
+function avisarKmNaoAchado(lat, lon, rodovia, motivo, marcos) {
+    try {
+        var baldeTs = Math.floor(Date.now() / 600000);
+        var linhas = (marcos || []).slice(0, 4).map(function(m) { return "• " + Math.round(m.d) + " m: " + JSON.stringify(m.tags); }).join("\n");
+        avisarAdminTelegram('km_diag_' + baldeTs, "🔎 Everton GPS: km não identificado\n\n🛣️ " + (rodovia || "-") + "\n📍 " + lat.toFixed(5) + "," + lon.toFixed(5) + "\n❓ " + motivo + (linhas ? "\n\nMarcos achados perto:\n" + linhas : ""));
+    } catch (e) {}
 }
 
 function buscarKmOficial(lat, lon, rodovia) {
@@ -1272,9 +1281,10 @@ function buscarKmOficial(lat, lon, rodovia) {
         var agora = Date.now();
         if (agora - ultimaBuscaKmOficialTs < 4000) { resolve(null); return; }
         ultimaBuscaKmOficialTs = agora;
-        var query = `[out:json][timeout:8];node(around:${RAIO_BUSCA_MARCO_M},${lat},${lon})["highway"="milestone"];out body;`;
+        var query = `[out:json][timeout:15];node(around:${RAIO_BUSCA_MARCO_M},${lat},${lon})["highway"="milestone"];out body;`;
         consultarOverpass(0, query).then(function(data) {
-            if (!data || !data.elements || data.elements.length === 0) { resolve(null); return; }
+            if (!data) { avisarKmNaoAchado(lat, lon, rodovia, "o OpenStreetMap (Overpass) não respondeu", []); resolve(null); return; }
+            if (!data.elements || data.elements.length === 0) { avisarKmNaoAchado(lat, lon, rodovia, "nenhum marco de km cadastrado num raio de " + RAIO_BUSCA_MARCO_M + " m", []); resolve(null); return; }
             var melhorKm = null; var menorDist = Infinity;
             var numRodoviaAtual = numerosDeRodovia(rodovia || "");
             var candidatos = [];
@@ -1291,8 +1301,12 @@ function buscarKmOficial(lat, lon, rodovia) {
             });
             // se algum marco é da mesma rodovia, usa só esses; marco sem identificação só vale bem perto
             var daMesma = candidatos.filter(c => c.mesma);
-            var lista = daMesma.length > 0 ? daMesma : candidatos.filter(c => c.d <= 600);
+            var lista = daMesma.length > 0 ? daMesma : candidatos.filter(c => c.d <= 1000);
             lista.forEach(c => { if (c.d < menorDist) { menorDist = c.d; melhorKm = c.km; } });
+            if (melhorKm === null) {
+                var resumo = data.elements.map(el => ({ d: calcularDistanciaMetros(lat, lon, el.lat, el.lon), tags: el.tags || {} })).sort((a, b) => a.d - b.d);
+                avisarKmNaoAchado(lat, lon, rodovia, "achei " + data.elements.length + " marco(s), mas nenhum da rodovia " + (rodovia || ""), resumo);
+            }
             resolve(melhorKm);
         }).catch(function() { resolve(null); });
     });
