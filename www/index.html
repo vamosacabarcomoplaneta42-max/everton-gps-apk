@@ -1226,13 +1226,34 @@ var SERVIDORES_OVERPASS = [
 ];
 var ultimaBuscaKmOficialTs = 0;
 var RAIO_BUSCA_MARCO_M = 1500;
+var ultimaTentativaKmDesconhecidoTs = 0;
+
+/* Rodovias citadas num texto (ex.: "RSC-287" -> "287"); "Km 87" não conta como rodovia */
+function numerosDeRodovia(txt) {
+    var out = [], re = /\b([a-z]{2,4})[\s-]?(\d{2,4})\b/gi, m;
+    var t = String(txt || "");
+    while ((m = re.exec(t)) !== null) { if (m[1].toLowerCase() !== "km") out.push(m[2]); }
+    return out;
+}
 
 function extrairNumeroKm(tags) {
-    var candidatos = [tags.distance, tags.ref, tags.name, tags.note, tags["addr:housenumber"]];
-    for (var i = 0; i < candidatos.length; i++) {
-        var v = candidatos[i];
-        if (!v) continue;
-        var m = String(v).match(/(\d+(?:[.,]\d+)?)/);
+    // 1º o campo "distance" (é o km de verdade no OpenStreetMap)
+    if (tags.distance) {
+        var d = String(tags.distance).match(/(\d+(?:[.,]\d+)?)/);
+        if (d) return parseFloat(d[1].replace(',', '.'));
+    }
+    var textos = [tags.ref, tags.name, tags.note, tags.description, tags["addr:housenumber"]];
+    // 2º um texto do tipo "Km 87"
+    for (var i = 0; i < textos.length; i++) {
+        if (!textos[i]) continue;
+        var k = String(textos[i]).match(/km\s*(\d+(?:[.,]\d+)?)/i);
+        if (k) return parseFloat(k[1].replace(',', '.'));
+    }
+    // 3º qualquer número, mas SEM o número da rodovia (RSC-287 não vira km 287)
+    for (var j = 0; j < textos.length; j++) {
+        if (!textos[j]) continue;
+        var limpo = String(textos[j]).replace(/\b[a-z]{2,4}[\s-]?\d{2,4}\b/gi, " ");
+        var m = limpo.match(/(\d+(?:[.,]\d+)?)/);
         if (m) return parseFloat(m[1].replace(',', '.'));
     }
     return null;
@@ -1246,7 +1267,7 @@ function consultarOverpass(servidorIndex, query) {
         .catch(() => consultarOverpass(servidorIndex + 1, query));
 }
 
-function buscarKmOficial(lat, lon) {
+function buscarKmOficial(lat, lon, rodovia) {
     return new Promise(function(resolve) {
         var agora = Date.now();
         if (agora - ultimaBuscaKmOficialTs < 4000) { resolve(null); return; }
@@ -1255,12 +1276,23 @@ function buscarKmOficial(lat, lon) {
         consultarOverpass(0, query).then(function(data) {
             if (!data || !data.elements || data.elements.length === 0) { resolve(null); return; }
             var melhorKm = null; var menorDist = Infinity;
+            var numRodoviaAtual = numerosDeRodovia(rodovia || "");
+            var candidatos = [];
             data.elements.forEach(el => {
-                var km = extrairNumeroKm(el.tags || {});
+                var tg = el.tags || {};
+                var km = extrairNumeroKm(tg);
                 if (km === null) return;
                 var d = calcularDistanciaMetros(lat, lon, el.lat, el.lon);
-                if (d < menorDist) { menorDist = d; melhorKm = km; }
+                var citadas = numerosDeRodovia([tg.ref, tg.name, tg.note, tg.description, tg.route_ref, tg["highway:ref"]].filter(Boolean).join(" "));
+                var mesma = numRodoviaAtual.length > 0 && citadas.some(n => numRodoviaAtual.indexOf(n) !== -1);
+                var outra = citadas.length > 0 && !mesma;      // marco de OUTRA rodovia: ignora
+                if (outra && numRodoviaAtual.length > 0) return;
+                candidatos.push({ km: km, d: d, mesma: mesma });
             });
+            // se algum marco é da mesma rodovia, usa só esses; marco sem identificação só vale bem perto
+            var daMesma = candidatos.filter(c => c.mesma);
+            var lista = daMesma.length > 0 ? daMesma : candidatos.filter(c => c.d <= 600);
+            lista.forEach(c => { if (c.d < menorDist) { menorDist = c.d; melhorKm = c.km; } });
             resolve(melhorKm);
         }).catch(function() { resolve(null); });
     });
@@ -1743,7 +1775,10 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
         var delta = calcularDistanciaMetros(ultimoPontoBruto[0], ultimoPontoBruto[1], lat, lon);
         if (delta > 2 && delta < 500) { viaState.odometroM += delta; }
         var kmEstimadoAtual = viaState.kmBase + Math.floor(viaState.odometroM / 1000);
-        if (viaState.kmSincronizado === null || kmEstimadoAtual !== viaState.kmSincronizado) {
+        if (viaState.kmSincronizado === null) {
+            // km ainda desconhecido: tenta achar o marco oficial de novo, mas no máximo a cada 30 s
+            if (Date.now() - ultimaTentativaKmDesconhecidoTs > 30000) { ultimaTentativaKmDesconhecidoTs = Date.now(); kmMudou = true; }
+        } else if (kmEstimadoAtual !== viaState.kmSincronizado) {
             kmMudou = true;
         }
         salvarViaState();
@@ -1796,14 +1831,16 @@ function processarNovaPosicao(lat, lon, precisaoRaw, velRaw) {
         })(lat, lon, situacao, vel, precisao, agora, limiteVelocidadeAtual);
     } else if (kmMudou) {
         atualizandoKmRodovia = true;
-        buscarKmOficial(lat, lon).then(function(kmOficial) {
+        buscarKmOficial(lat, lon, viaState.nome).then(function(kmOficial) {
             var kmFinal, fonte;
             if (kmOficial !== null) {
                 kmFinal = Math.round(kmOficial); fonte = 'oficial';
+            } else if (viaState.kmSincronizado === null) {
+                kmFinal = null; fonte = 'desconhecido';   // não há km de partida: não inventa (antes contava a partir de 0 e mostrava "Km 1")
             } else {
                 kmFinal = viaState.kmBase + Math.round(viaState.odometroM / 1000); fonte = 'estimado';
             }
-            viaState.kmBase = kmFinal; viaState.odometroM = 0; viaState.kmSincronizado = kmFinal;
+            viaState.kmBase = (kmFinal !== null) ? kmFinal : 0; viaState.odometroM = 0; viaState.kmSincronizado = kmFinal;
             salvarViaState();
             atualizandoKmRodovia = false;
             registrarESincronizarPonto(lat, lon, situacao, vel, precisao, agora, {
@@ -1982,7 +2019,7 @@ function aplicarEnderecoNoPonto(lat, lon, rua, bairro, cidade, estado, dadosResp
         sincronizarTempoRealImediato();
     } else if (mudouDeVia && tipoVia === "rodovia" && !atualizandoKmRodovia) {
         atualizandoKmRodovia = true;
-        buscarKmOficial(lat, lon).then(function(kmOficial) {
+        buscarKmOficial(lat, lon, rua).then(function(kmOficial) {
             var kmFinal = (kmOficial !== null) ? Math.round(kmOficial) : null;
             var fonte = (kmOficial !== null) ? 'oficial' : 'desconhecido';
             viaAnterior = viaState.nome;
