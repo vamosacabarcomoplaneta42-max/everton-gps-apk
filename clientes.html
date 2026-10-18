@@ -237,13 +237,14 @@ function devRow(k,d){
   var st=d.status||'pendente', cls={aprovado:'s-ativo',pendente:'b-pend',negado:'s-susp',revogado:'s-susp'}[st]||'b-old', acts='';
   if(st==='pendente') acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button><button class="bad sm" data-act="negar" data-dev="'+esc(k)+'">Negar</button>';
   else if(st==='aprovado') acts='<button class="bad sm" data-act="revogar" data-dev="'+esc(k)+'">Revogar</button>';
-  else acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button>';
+  else acts='<button class="ok sm" data-act="aprovar" data-dev="'+esc(k)+'">Aprovar</button><button class="bad sm" data-act="excluir" data-dev="'+esc(k)+'">🗑 Excluir</button>';
   return '<div class="dev"><div><b>'+esc(d.nome||nomeBonito(k))+'</b><div class="small">'+(d.modelo&&d.modelo!==d.nome?esc(d.modelo)+' · ':'')+esc(fmtData(d.solicitadoEm))+(d.veiculos?'<br>🚚 '+esc(d.veiculos):'')+'</div></div><div class="acts"><span class="badge '+cls+'">'+esc(st.toUpperCase())+'</span>'+acts+'</div></div>';
 }
 function detalheHtml(c,L){
   var d=c.dispositivos||{}, ks=Object.keys(d), h='<div class="det">';
   h+='<h4>Vagas de dispositivo</h4><div class="limrow"><input type="number" min="0" step="1" class="inp-lim" value="'+L.n+'"><button class="sm" data-act="salvarlimite">Salvar limite</button><button class="sec sm" data-act="maisum">+1 vaga</button></div>';
-  h+='<h4>Dispositivos / pedidos ('+ks.length+')</h4>'+(ks.length?ks.map(function(k){ return devRow(k,d[k]||{}); }).join(''):'<div class="small">Nenhum pedido registrado ainda.</div>');
+  var nSobra=ks.filter(function(k){ var s=(d[k]||{}).status; return s==='revogado'||s==='negado'; }).length;
+  h+='<h4>Dispositivos / pedidos ('+ks.length+')</h4>'+(nSobra?'<button class="bad sm" style="width:100%;margin-bottom:8px" data-act="limpar">🗑 Excluir todos os revogados/negados ('+nSobra+')</button>':'')+(ks.length?ks.map(function(k){ return devRow(k,d[k]||{}); }).join(''):'<div class="small">Nenhum pedido registrado ainda.</div>');
   h+='<h4>Veículos cadastrados ('+c.veiculos.length+')</h4>'+(c.veiculos.length?'<div class="chips">'+c.veiculos.map(function(v){ return '<span class="chip">🚚 '+esc(nomeBonito(v))+'</span>'; }).join('')+'</div>':'<div class="small">Nenhum veículo ainda.</div>');
   h+='<div style="margin-top:12px;display:flex;gap:6px">'+(String(c.status).toLowerCase()!=='suspenso'?'<button class="bad sm" data-act="suspender">🚫 Suspender acesso</button>':'<span class="small">Acesso suspenso — reative pela página Aprovar Plano.</span>')+'</div></div>';
   return h;
@@ -299,6 +300,18 @@ async function mudarStatus(id,dev,st,txt){
   var upd={}; upd['empresas/'+id+'/dispositivos/'+dev+'/status']=st; upd['empresas/'+id+'/dispositivos/'+dev+'/atualizadoEm']=new Date().toISOString();
   try{ await db.ref().update(upd); toast('Feito: '+st,'ok'); await recarregarUm(id); }catch(e){ falha(e); }
 }
+async function excluirDispositivo(id,dev){
+  var c=achar(id), d=(c.dispositivos||{})[dev]||{};
+  if(!confirm('Excluir "'+(d.nome||nomeBonito(dev))+'" ('+String(d.status||'').toUpperCase()+') da lista?\n\nSe esse aparelho ainda estiver com o app instalado, ele volta como novo pedido.')) return;
+  try{ await db.ref('empresas/'+id+'/dispositivos/'+dev).remove(); toast('🗑 Excluído','ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
+async function limparDispositivos(id){
+  var c=achar(id), d=c.dispositivos||{}, ks=Object.keys(d).filter(function(k){ var s=(d[k]||{}).status; return s==='revogado'||s==='negado'; });
+  if(!ks.length) return;
+  if(!confirm('Excluir '+ks.length+' dispositivo(s) revogado(s)/negado(s) de '+(c.nome||id)+'?\n\nOs aprovados e pendentes não são mexidos. Se algum desses aparelhos ainda tiver o app, ele volta como novo pedido.')) return;
+  var upd={}; ks.forEach(function(k){ upd['empresas/'+id+'/dispositivos/'+k]=null; });
+  try{ await db.ref().update(upd); toast('🗑 '+ks.length+' excluído(s)','ok'); await recarregarUm(id); }catch(e){ falha(e); }
+}
 async function salvarLimite(id,n){
   if(isNaN(n)||n<0) return toast('Número inválido','err');
   try{ await db.ref('empresas/'+id+'/dispositivosLiberados').set(n); toast('✅ Limite salvo: '+n,'ok'); await recarregarUm(id); }catch(e){ falha(e); }
@@ -315,6 +328,8 @@ document.addEventListener('click',function(e){
   else if(act==='aprovar') aprovar(id,dev);
   else if(act==='negar') mudarStatus(id,dev,'negado','Negar');
   else if(act==='revogar') mudarStatus(id,dev,'revogado','Revogar');
+  else if(act==='excluir') excluirDispositivo(id,dev);
+  else if(act==='limpar') limparDispositivos(id);
   else if(act==='salvarlimite') salvarLimite(id,parseInt(box.querySelector('.inp-lim').value,10));
   else if(act==='maisum'){ var c=achar(id); salvarLimite(id,limiteEfetivo(c).n+1); }
   else if(act==='suspender') suspender(id);
