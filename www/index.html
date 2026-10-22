@@ -1038,7 +1038,7 @@ function obterModeloAparelho(){return new Promise(function(res){var fb=modeloDoA
 function avisarAdminTelegram(chaveUnica,texto){try{if(localStorage.getItem(chaveUnica)) return;localStorage.setItem(chaveUnica,'1');}catch(e){}try{if(!TELEGRAM_CHAT_ID) return;fetch("https://api.telegram.org/bot"+TELEGRAM_BOT_TOKEN+"/sendMessage?chat_id="+TELEGRAM_CHAT_ID+"&text="+encodeURIComponent(texto)).catch(function(){});}catch(e){}}
 function pintarAvisoDispositivo(bloq,status){var el=document.getElementById('avisoDispositivo');if(!el) return;if(bloq){var neg=(status==='negado'||status==='revogado');document.getElementById('dispTitulo').textContent=neg?'Aparelho não autorizado':'Aguardando liberação';document.getElementById('dispMsg').textContent=neg?'Este aparelho não está autorizado a usar esta conta. Fale com o suporte.':'Este aparelho ainda não foi autorizado a usar esta conta. O administrador já foi avisado. Assim que liberar, o rastreamento começa sozinho.';document.getElementById('dispId').textContent='Código do aparelho: '+DEVICE_ID;el.style.display='flex';}else{if(typeof veiculoBloqueado!=='undefined'&&veiculoBloqueado){pintarAvisoVeiculo(true);}else{el.style.display='none';}}}
 function setDispositivoBloqueado(bloq,status){var mudou=(dispositivoBloqueado!==!!bloq);dispositivoBloqueado=!!bloq;pintarAvisoDispositivo(bloq,status);try{if(EMPRESA_ID){if(bloq) localStorage.setItem('disp_estado_'+EMPRESA_ID,status||'pendente');else localStorage.setItem('disp_estado_'+EMPRESA_ID,'aprovado');}}catch(e){}if(mudou||bloq) avaliarEstadoEmpresa();}
-function falhaDispositivo(err){setDispositivoBloqueado(false);try{localStorage.removeItem('disp_estado_'+EMPRESA_ID);}catch(e){}avisarAdminTelegram('disp_falha_'+EMPRESA_ID+'_'+DEVICE_ID,"⚠️ Everton GPS: não consegui verificar o aparelho\n\n🆔 "+EMPRESA_ID+"\n📱 "+modeloDoAparelho()+"\n\nAs regras do Firebase não permitiram usar 'dispositivos'. Adicione o bloco de regras de dispositivos. Enquanto isso o aparelho segue liberado.\n\nMotivo: "+((err&&err.message)||err));}
+function falhaDispositivo(err){setDispositivoBloqueado(false);try{localStorage.removeItem('disp_estado_'+EMPRESA_ID);}catch(e){}try{console.warn("regras de dispositivos indisponíveis",err);}catch(e){}}
 function registrarDispositivo(){if(registrandoDispositivo) return;registrandoDispositivo=true;var idEmp=sanitizarChavePath(EMPRESA_ID),base='empresas/'+idEmp+'/dispositivos/';db.ref(base).once('value').then(function(snap){return obterModeloAparelho().then(function(modelo){return {snap:snap,modelo:modelo};});}).then(function(x){var primeiro=!x.snap.exists(),agora=new Date().toISOString();var reg={nome:x.modelo||'Aparelho',modelo:x.modelo,veiculos:(listaVeiculos||[]).join(', ').slice(0,120),solicitadoEm:agora,status:primeiro?'aprovado':'pendente'};if(primeiro){reg.aprovadoEm=agora;reg.aprovadoPor='primeiro aparelho da conta';}
 function avisar(){db.ref('empresas/'+idEmp+'/nome').once('value').then(function(s){return s.val();}).catch(function(){return null;}).then(function(nome){avisarAdminTelegram('disp_pedido_'+EMPRESA_ID+'_'+DEVICE_ID,"📱 Novo aparelho pedindo liberação - Everton GPS\n\n🏢 "+(nome||EMPRESA_ID)+"\n🆔 "+EMPRESA_ID+"\n📲 "+reg.modelo+(reg.veiculos?"\n🚚 "+reg.veiculos:"")+"\n\nAbra o Painel de Clientes e aprove ou negue.");});}
 return db.ref(base+DEVICE_ID).set(reg).then(function(){if(!primeiro) avisar();}).catch(function(e){if(!primeiro) throw e;/* outro aparelho foi liberado no mesmo instante: este vira pedido pendente */reg.status='pendente';delete reg.aprovadoEm;delete reg.aprovadoPor;return db.ref(base+DEVICE_ID).set(reg).then(avisar);});}).catch(falhaDispositivo).then(function(){registrandoDispositivo=false;});}
@@ -1305,11 +1305,8 @@ function consultarOverpass(servidorIndex, query) {
 }
 
 function avisarKmNaoAchado(lat, lon, rodovia, motivo, marcos) {
-    try {
-        var baldeTs = Math.floor(Date.now() / 600000);
-        var linhas = (marcos || []).slice(0, 4).map(function(m) { return "• " + Math.round(m.d) + " m: " + JSON.stringify(m.tags); }).join("\n");
-        avisarAdminTelegram('km_diag_' + baldeTs, "🔎 Everton GPS: km não identificado\n\n🛣️ " + (rodovia || "-") + "\n📍 " + lat.toFixed(5) + "," + lon.toFixed(5) + "\n❓ " + motivo + (linhas ? "\n\nMarcos achados perto:\n" + linhas : ""));
-    } catch (e) {}
+    // sem aviso no Telegram: apenas registro local
+    try { console.warn('km não identificado', rodovia, motivo); } catch (e) {}
 }
 
 function buscarKmOficial(lat, lon, rodovia) {
