@@ -1259,10 +1259,15 @@ function classificarVia(rua, dadosResposta) {
 var SERVIDORES_OVERPASS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter"
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 ];
 var ultimaBuscaKmOficialTs = 0;
-var RAIO_BUSCA_MARCO_M = 3000;
+var RAIO_BUSCA_MARCO_M = 1500;
+var RAIO_REUSO_MARCOS_M = 700;      // reaproveita a lista de marcos enquanto estiver a até 700 m do ponto consultado
+var falhaOverpassAteTs = 0;         // depois de falhar em todos os servidores, espera antes de tentar de novo
+var cacheMarcosKm = null;
+try { cacheMarcosKm = JSON.parse(localStorage.getItem('cache_marcos_km') || 'null'); } catch (e) { cacheMarcosKm = null; }
 var ultimaTentativaKmDesconhecidoTs = 0;
 
 /* Rodovias citadas num texto (ex.: "RSC-287" -> "287"); "Km 87" não conta como rodovia */
@@ -1299,8 +1304,8 @@ function extrairNumeroKm(tags) {
 function consultarOverpass(servidorIndex, query) {
     if (servidorIndex >= SERVIDORES_OVERPASS.length) return Promise.resolve(null);
     var url = SERVIDORES_OVERPASS[servidorIndex] + "?data=" + encodeURIComponent(query);
-    return fetchComTimeout(url, {}, 15000)
-        .then(res => res.json())
+    return fetchComTimeout(url, {}, 12000)
+        .then(res => { if (!res.ok) throw new Error('http ' + res.status); return res.json(); })
         .catch(() => consultarOverpass(servidorIndex + 1, query));
 }
 
@@ -1312,10 +1317,27 @@ function avisarKmNaoAchado(lat, lon, rodovia, motivo, marcos) {
 function buscarKmOficial(lat, lon, rodovia) {
     return new Promise(function(resolve) {
         var agora = Date.now();
-        if (agora - ultimaBuscaKmOficialTs < 4000) { resolve(null); return; }
-        ultimaBuscaKmOficialTs = agora;
-        var query = `[out:json][timeout:15];node(around:${RAIO_BUSCA_MARCO_M},${lat},${lon})["highway"="milestone"];out body;`;
-        consultarOverpass(0, query).then(function(data) {
+        var data0 = null;
+        // 1) lista de marcos já baixada perto daqui (evita consultar o servidor a cada ponto)
+        if (cacheMarcosKm && cacheMarcosKm.elements && (agora - cacheMarcosKm.ts) < 6 * 3600 * 1000 &&
+            calcularDistanciaMetros(lat, lon, cacheMarcosKm.lat, cacheMarcosKm.lon) <= RAIO_REUSO_MARCOS_M) {
+            data0 = { elements: cacheMarcosKm.elements };
+        }
+        if (!data0) {
+            if (agora < falhaOverpassAteTs) { resolve(null); return; }        // servidores falharam há pouco: espera
+            if (agora - ultimaBuscaKmOficialTs < 4000) { resolve(null); return; }
+            ultimaBuscaKmOficialTs = agora;
+        }
+        var query = `[out:json][timeout:10];node(around:${RAIO_BUSCA_MARCO_M},${lat},${lon})["highway"="milestone"];out body;`;
+        (data0 ? Promise.resolve(data0) : consultarOverpass(0, query).then(function(d) {
+            if (!d) { falhaOverpassAteTs = Date.now() + 120000; return null; }
+            if (d.elements) {
+                var enxuto = d.elements.map(function(e) { return { lat: e.lat, lon: e.lon, tags: e.tags || {} }; });
+                cacheMarcosKm = { lat: lat, lon: lon, ts: Date.now(), elements: enxuto };
+                try { localStorage.setItem('cache_marcos_km', JSON.stringify(cacheMarcosKm)); } catch (e) {}
+            }
+            return d;
+        })).then(function(data) {
             if (!data) { avisarKmNaoAchado(lat, lon, rodovia, "o OpenStreetMap (Overpass) não respondeu", []); resolve(null); return; }
             if (!data.elements || data.elements.length === 0) { avisarKmNaoAchado(lat, lon, rodovia, "nenhum marco de km cadastrado num raio de " + RAIO_BUSCA_MARCO_M + " m", []); resolve(null); return; }
             var melhorKm = null; var menorDist = Infinity;
