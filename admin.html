@@ -34,7 +34,6 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .bloqueio-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#080a12;z-index:20000;display:none;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;overflow-y:auto}.bloqueio-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;max-width:400px;margin:auto}.bloqueio-icon{width:100px;height:100px;border-radius:24px;background:linear-gradient(135deg,#ff4d6d,#b91c3a);display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 0 40px rgba(255,77,109,.5);margin:0 auto 16px auto}.bloqueio-title{font-size:1.35em;font-weight:900;letter-spacing:3px;margin-bottom:20px;color:#fff;text-align:center}.bloqueio-card{background:#15101c;border:1px solid rgba(255,77,109,.25);border-radius:22px;padding:22px 18px;width:100%;box-sizing:border-box;text-align:center}.pagamento-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;margin-top:12px;width:100%;box-sizing:border-box}
 .telemetry-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85em;gap:8px;align-items:center}
 .veiculo-arrow{width:46px;height:46px;display:flex;align-items:center;justify-content:center;transition:transform 0.35s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 4px 8px rgba(0,0,0,.7))}.veiculo-arrow-inner{width:40px;height:40px;background:linear-gradient(135deg,#00ffa6,#2dd4ff);border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px rgba(0,255,166,.25)}.veiculo-arrow-inner span{transform:rotate(45deg);font-size:20px}.veiculo-arrow.parado .veiculo-arrow-inner{background:linear-gradient(135deg,#ffb020,#ff7a45)}
-.veiculo-carro{width:46px;height:46px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}.veiculo-carro-emoji{font-size:34px;line-height:1;display:block;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;transition:transform .25s ease}.veiculo-carro.parado{opacity:.75}
 .limite-badge{font-size:0.95em;padding:5px 12px;border-radius:10px;font-weight:900;min-width:72px;text-align:center;border:2px solid transparent}.limite-ok{background:#1a212b;color:#eef2f6;border-color:rgba(255,255,255,.1)}.limite-alerta{background:#ff5470;color:#fff;border-color:#ff5470;animation:piscar 0.5s infinite alternate}.limite-manual{background:linear-gradient(135deg,#7c3aed,#2dd4ff);color:#fff;border-color:#7c3aed}@keyframes piscar{0%{transform:scale(1)}100%{transform:scale(1.1)}}.vel-excedida{color:#ff5470!important;animation:piscar 0.45s infinite alternate}
 .map-fullscreen{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:99998!important}.sidebar-hidden{display:none!important}
 #btnFullscreen{position:fixed!important;top:12px;right:12px;height:38px;display:flex;align-items:center;min-width:140px;justify-content:center;z-index:100000!important;background:#131820;color:#eef2f6;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:10px;font-weight:800;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer;width:auto}
@@ -213,12 +212,7 @@ var PIX_PAYLOAD="00020126360014br.gov.bcb.pix0114+555198580324352040000530398658
 function initAudio(){ if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
 function tocarAlertaVelocidade(){ if(muteAlerta) return; var agora=Date.now(); if(agora-ultimoAlertaTS<8000) return; ultimoAlertaTS=agora; try{ initAudio(); if(audioCtx){ [0,220].forEach(function(d,i){ setTimeout(function(){ var osc=audioCtx.createOscillator(); var gain=audioCtx.createGain(); osc.frequency.value=i==0?880:1320; osc.type='sine'; gain.gain.setValueAtTime(0.6,audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.4); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+0.4); },d); }); } }catch(e){} }
 function calcularBearing(lat1,lon1,lat2,lon2){ var phi1=lat1*Math.PI/180,phi2=lat2*Math.PI/180; var dl=(lon2-lon1)*Math.PI/180; var y=Math.sin(dl)*Math.cos(phi2); var x=Math.cos(phi1)*Math.sin(phi2)-Math.sin(phi1)*Math.cos(phi2)*Math.cos(dl); var br=Math.atan2(y,x)*180/Math.PI; return (br+360)%360; }
-/* Ícone 🚗: não gira (ficaria de cabeça pra baixo); só espelha conforme anda pra direita ou pra esquerda */
-var CARRO_OLHA_ESQUERDA=true; /* se no seu celular o 🚗 aparecer virado pro lado errado, troque para false */
-var _carroLado='E';
-function _ladoCarro(bearing,atual){ var b=((bearing%360)+360)%360; if(b>=20&&b<=160) return 'D'; if(b>=200&&b<=340) return 'E'; return atual; }
-function _transformCarro(lado){ var paraDireita=(lado==='D'); var espelhar=CARRO_OLHA_ESQUERDA?paraDireita:!paraDireita; return espelhar?'scaleX(-1)':'scaleX(1)'; }
-function criarIconeVeiculo(bearing,velocidade){ var parado=(velocidade||0)<=4; _carroLado=_ladoCarro(bearing,_carroLado); var html='<div class="veiculo-carro'+(parado?' parado':'')+'"><span class="veiculo-carro-emoji" style="transform:'+_transformCarro(_carroLado)+'">🚗</span></div>'; return L.divIcon({html:html,className:'',iconSize:[46,46],iconAnchor:[23,23]}); }
+function criarIconeVeiculo(bearing,velocidade){ var parado=(velocidade||0)<=4; var cls=parado?'veiculo-arrow parado':'veiculo-arrow'; var html='<div class="'+cls+'" style="transform:rotate('+bearing+'deg)"><div class="veiculo-arrow-inner"><span>➤</span></div></div>'; return L.divIcon({html:html,className:'',iconSize:[46,46],iconAnchor:[23,23]}); }
 function sanitizarChavePath(v){return String(v).replace(/[.#$\[\]\/]/g,"_");}
 function caminhoVeiculos(){return 'empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/veiculos';}
 function carregarLimitesManuais(){ try{ var local=localStorage.getItem('everton_limites_manuais_v2'); if(local) limitesManuaisCache=JSON.parse(local); }catch(e){} try{ if(EMPRESA_ID_ADMIN){ db.ref('empresas/'+sanitizarChavePath(EMPRESA_ID_ADMIN)+'/limitesManuais').on('value',function(snap){ if(snap.exists()){ Object.assign(limitesManuaisCache,snap.val()); try{ localStorage.setItem('everton_limites_manuais_v2',JSON.stringify(limitesManuaisCache)); }catch(e){} } }); } }catch(e){} }
@@ -276,31 +270,21 @@ function moverVeiculoSuave(destino,seguir){
   _anim.from=[de.lat,de.lng]; _anim.to=destino; _anim.t0=agora; _anim.dur=Math.min(Math.max(_durMedia,700),4000);
   if(!_anim.raf) _anim.raf=requestAnimationFrame(_passoAnimVeiculo);
 }
-/* Atualiza o 🚗 sem recriar o ícone (só espelha quando muda de lado ou de parado/andando) */
-var _iconeEstado={parado:null};
+/* Seta: gira o ícone existente (sem recriar) pelo caminho mais curto, evitando piscar/girar 350°→10° ao contrário */
+var _iconeEstado={parado:null,ang:0};
 function atualizarIconeVeiculoSuave(bearing,vel){
-  var parado=(vel||0)<=4, lado=_ladoCarro(bearing,_carroLado);
-  var el=marcadorVeiculo.getElement(), emoji=el&&el.querySelector('.veiculo-carro-emoji');
-  if(!emoji||_iconeEstado.parado!==parado){ _iconeEstado.parado=parado; marcadorVeiculo.setIcon(criarIconeVeiculo(bearing,vel)); return; }
-  if(lado!==_carroLado){ _carroLado=lado; emoji.style.transform=_transformCarro(lado); }
+  var parado=(vel||0)<=4;
+  var delta=((bearing-_iconeEstado.ang+540)%360)-180; var alvo=_iconeEstado.ang+delta;
+  var el=marcadorVeiculo.getElement(), seta=el&&el.querySelector('.veiculo-arrow');
+  if(!seta||_iconeEstado.parado!==parado){ _iconeEstado.parado=parado; _iconeEstado.ang=alvo; marcadorVeiculo.setIcon(criarIconeVeiculo(alvo,vel)); return; }
+  if(Math.abs(delta)>=1){ _iconeEstado.ang=alvo; seta.style.transform='rotate('+alvo+'deg)'; }
 }
 /* Descarta leituras de GPS absurdas (salto enorme de uma vez): só aceita se a leitura seguinte confirmar */
 function leituraPlausivel(dados){ var lat=+dados.lat,lon=+dados.lon; if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(Math.abs(lat)<0.5&&Math.abs(lon)<0.5)) return false;
-  /* Filtro anti-pulo: o GPS às vezes manda um ponto "fantasma" a centenas de metros e volta no próximo.
-     Aceita só o que é fisicamente possível desde a última leitura boa (60 m de folga + 40 m/s ≈ 144 km/h).
-     Se 3 leituras SEGUIDAS rejeitadas concordarem entre si, o veículo realmente apareceu lá: aceita. */
-  var agora=Date.now();
-  var prec=+(dados.precisao||dados.accuracy||dados.acc||0);
-  if(prec>100&&ultimoLivePos&&agora-ultimoLivePos.t<30000) return false;
-  if(!ultimoLivePos){ ultimoLivePos={lat:lat,lon:lon,t:agora}; candidatoSalto=null; return true; }
-  var dt=Math.max(1,(agora-ultimoLivePos.t)/1000);
-  var dist=calcularDistanciaMetros(ultimoLivePos.lat,ultimoLivePos.lon,lat,lon);
-  if(dist<=60+40*dt){ ultimoLivePos={lat:lat,lon:lon,t:agora}; candidatoSalto=null; return true; }
-  if(!candidatoSalto) candidatoSalto=[];
-  candidatoSalto.push({lat:lat,lon:lon}); if(candidatoSalto.length>3) candidatoSalto.shift();
-  if(candidatoSalto.length===3){ var c=candidatoSalto, ok=true; for(var k=0;k<2;k++){ if(calcularDistanciaMetros(c[k].lat,c[k].lon,lat,lon)>80) ok=false; }
-    if(ok){ ultimoLivePos={lat:lat,lon:lon,t:agora}; candidatoSalto=null; return true; } }
-  return false; }
+  if(!ultimoLivePos){ ultimoLivePos={lat:lat,lon:lon}; return true; }
+  if(calcularDistanciaMetros(ultimoLivePos.lat,ultimoLivePos.lon,lat,lon)<=30000){ ultimoLivePos={lat:lat,lon:lon}; candidatoSalto=null; return true; }
+  if(candidatoSalto&&calcularDistanciaMetros(candidatoSalto.lat,candidatoSalto.lon,lat,lon)<2000){ ultimoLivePos={lat:lat,lon:lon}; candidatoSalto=null; return true; }
+  candidatoSalto={lat:lat,lon:lon}; return false; }
 var seguirVeiculoAtivo=false,ultimoPanTS=0,posicaoSuavizada=null;
 var sosAtivos={};
 
@@ -539,4 +523,12 @@ document.getElementById('btnMuteAlerta').addEventListener('click',function(){ mu
 document.getElementById('btnCorrigirLimiteBox').addEventListener('click',function(){ if(!ultimoPos){ alert('Clique primeiro em um ponto da linha'); return; } abrirEditorLimiteManual(ultimoPos.rua,ultimoPos.lat,ultimoPos.lon,limiteAtual); });
 document.getElementById('btnVerLimitesSalvos').addEventListener('click',function(){ var keys=Object.keys(limitesManuaisCache); if(keys.length===0){ alert('Nenhum limite manual salvo ainda'); return; } var txt='Limites salvos ('+keys.length+'):\n\n'; keys.slice(0,40).forEach(function(k){ txt+=k+': '+limitesManuaisCache[k]+' km/h\n'; }); txt+='\nSalvos no navegador E no Firebase.'; alert(txt); });
 var mapaFullscreenAtivo=false;
-document.getElementById('b
+document.getElementById('btnFullscreen').addEventListener('click',function(){ var mapEl=document.getElementById('map'); var sidebar=document.querySelector('.sidebar'); mapaFullscreenAtivo=!mapaFullscreenAtivo; if(mapaFullscreenAtivo){ mapEl.classList.add('map-fullscreen'); if(sidebar) sidebar.classList.add('sidebar-hidden'); this.innerHTML='⛶ Sair tela cheia'; this.classList.add('fullscreen-active'); } else { mapEl.classList.remove('map-fullscreen'); if(sidebar) sidebar.classList.remove('sidebar-hidden'); this.innerHTML='⛶ Tela cheia'; this.classList.remove('fullscreen-active'); } setTimeout(function(){ map.invalidateSize(); },200); setTimeout(function(){ map.invalidateSize(); },600); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape' && mapaFullscreenAtivo){ document.getElementById('btnFullscreen').click(); } });
+document.addEventListener('click',function(){ initAudio(); },{once:true});
+// NOVO: "Seguir veículo" começa ligado automaticamente (o botão continua podendo desligar)
+(function(){ var b=document.getElementById('btnModoWaze'); if(b && !seguirVeiculoAtivo) b.click(); })();
+</script>
+<script src="admin-planos.js"></script>
+</body>
+                                                                                                                                                                                                             </html>
