@@ -2476,6 +2476,7 @@ setInterval(function() {
     var elBadge = document.getElementById('rdBadge');
     var elPara = document.getElementById('rdPara');
     var contatos = {}, refContatos = null;
+    var recibos = {}, refRecibos = null, recibosCarregados = false, pendRec = {}, nivelEnviado = {}, filaRec = {}, timerRec = null, minhasMsgs = {}, textosNaoLidos = [];
     var reprodutor = new Audio();   // um único player, reaproveitado a cada áudio recebido
 
     function status(txt) { elStatus.textContent = txt || ''; }
@@ -2507,6 +2508,7 @@ setInterval(function() {
         painelAberto = true; naoLidas = 0; atualizarBadge();
         elNome.value = nomeUsuario();
         registrarPresenca();
+        textosNaoLidos.splice(0).forEach(function (id) { confirmar(id, 2); });   // abriu o painel = viu os textos
         painel.style.display = 'flex';
         elLista.scrollTop = elLista.scrollHeight;
         if (window.evManterAppAtivo) window.evManterAppAtivo();
@@ -2516,14 +2518,16 @@ setInterval(function() {
     });
 
     // ---------- mensagens ----------
-    function enfileirarAudio(src) { filaAudio.push(src); tocarProximo(); }
+    function enfileirarAudio(src, id) { filaAudio.push({ src: src, id: id }); tocarProximo(); }
     function tocarProximo() {
         if (tocando || filaAudio.length === 0) return;
         if (gravando) { setTimeout(tocarProximo, 600); return; }   // não toca enquanto você fala (evita eco)
         tocando = true;
+        var item = filaAudio.shift();
         var fim = function () { tocando = false; tocarProximo(); };
-        reprodutor.onended = fim; reprodutor.onerror = fim;
-        reprodutor.src = filaAudio.shift();
+        reprodutor.onended = function () { confirmar(item.id, 2); fim(); };   // tocou até o fim = ouviu
+        reprodutor.onerror = fim;
+        reprodutor.src = item.src;
         var p = reprodutor.play();
         if (p && p.catch) p.catch(fim);
     }
@@ -2533,7 +2537,7 @@ setInterval(function() {
         idsVistos[key] = true;
 
         if (m.ts && Date.now() - m.ts > VALIDADE_MS) {         // limpeza de mensagens velhas
-            var u = {}; u[caminhoMsgs() + '/' + key] = null;
+            var u = {}; u[caminhoMsgs() + '/' + key] = null; u[caminhoRecibos() + '/' + key] = null;
             try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
             return;
         }
@@ -2554,10 +2558,20 @@ setInterval(function() {
             });
         }
         div.appendChild(de);
+        if (meu) {
+            var tk = document.createElement('span');
+            tk.style.cssText = 'float:right;margin-left:12px;font-size:.85em;cursor:pointer;color:var(--text-dim);';
+            tk.textContent = '✓'; tk.title = 'Toque para ver quem recebeu';
+            tk.addEventListener('click', function () { detalhesRecibo(key, m); });
+            de.appendChild(tk);
+            minhasMsgs[key] = { tk: tk, m: m };
+            atualizarTicks();
+        }
 
         if (m.tipo === 'audio' && m.audio) {
             var au = document.createElement('audio');
             au.controls = true; au.preload = 'none'; au.src = m.audio;
+            if (!meu) au.addEventListener('play', function () { confirmar(key, 2); });   // apertou play = ouviu
             div.appendChild(au);
         } else {
             var t = document.createElement('div');
@@ -2567,10 +2581,16 @@ setInterval(function() {
         elLista.appendChild(div);
         elLista.scrollTop = elLista.scrollHeight;
 
+        // recibos: chegou no aparelho (1) e visto/ouvido (2)
+        if (!meu) {
+            confirmar(key, 1);
+            if (m.tipo !== 'audio') { if (painelAberto) confirmar(key, 2); else textosNaoLidos.push(key); }
+        }
+
         // "nova" = chegou depois do histórico inicial (não depende do relógio do outro aparelho)
         var nova = !local && !meu && !carregandoHistorico;
         if (nova) {
-            if (m.tipo === 'audio' && m.audio) enfileirarAudio(m.audio);   // toca sozinho, como no Zello
+            if (m.tipo === 'audio' && m.audio) enfileirarAudio(m.audio, key);   // toca sozinho, como no Zello
             if (!painelAberto) { naoLidas++; atualizarBadge(); }
         }
     }
@@ -2700,14 +2720,85 @@ setInterval(function() {
         contatos = {}; preencherContatos();
     }
 
+    // ---------- recibos: ✓ enviada, ✓✓ chegou no aparelho, ✓✓ azul = ouviu/viu ----------
+    function caminhoRecibos() { return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/recibos'; }
+    function nivelDe(id, dev) { return ((recibos[id] || {})[dev]) || 0; }
+    function confirmar(id, nivel) {
+        if (!id) return;
+        if (!recibosCarregados) { pendRec[id] = Math.max(pendRec[id] || 0, nivel); return; }
+        if (Math.max(nivelEnviado[id] || 0, nivelDe(id, DEVICE_ID)) >= nivel) return;
+        nivelEnviado[id] = nivel;
+        filaRec[id] = nivel;
+        if (!timerRec) timerRec = setTimeout(descarregarRecibos, 300);   // junta vários recibos num envio só
+    }
+    function descarregarRecibos() {
+        timerRec = null;
+        var u = {}, tem = false;
+        Object.keys(filaRec).forEach(function (id) { u[caminhoRecibos() + '/' + id + '/' + DEVICE_ID] = filaRec[id]; tem = true; });
+        filaRec = {};
+        if (!tem || !EMPRESA_ID || !recursoLiberado) return;
+        try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
+    }
+    function ouvirRecibos() {
+        if (refRecibos) return;
+        recibosCarregados = false;
+        refRecibos = db.ref(caminhoRecibos()).limitToLast(60);
+        refRecibos.on('value', function (s) {
+            recibos = s.val() || {};
+            if (!recibosCarregados) {
+                recibosCarregados = true;
+                var p = pendRec; pendRec = {};
+                Object.keys(p).forEach(function (id) { confirmar(id, p[id]); });
+            }
+            atualizarTicks();
+        }, function () { recibosCarregados = true; });
+    }
+    function pararRecibos() {
+        if (refRecibos) { try { refRecibos.off(); } catch (e) {} refRecibos = null; }
+        recibos = {}; recibosCarregados = false; pendRec = {}; nivelEnviado = {}; filaRec = {};
+        if (timerRec) { clearTimeout(timerRec); timerRec = null; }
+    }
+    function destinatarios(m) {
+        if (m.para) return [{ id: m.para, nome: m.paraNome || (contatos[m.para] && contatos[m.para].nome) || 'destinatário' }];
+        var agora = Date.now(), lista = [];
+        Object.keys(contatos).forEach(function (id) {
+            var c = contatos[id];
+            if (id === DEVICE_ID || !c || !c.ts || agora - c.ts > 3 * 86400000) return;
+            lista.push({ id: id, nome: c.nome || 'Sem nome' });
+        });
+        return lista;
+    }
+    function atualizarTicks() {
+        Object.keys(minhasMsgs).forEach(function (id) {
+            var x = minhasMsgs[id], dest = destinatarios(x.m), chegou = 0, leu = 0;
+            dest.forEach(function (d) { var n = nivelDe(id, d.id); if (n >= 1) chegou++; if (n >= 2) leu++; });
+            var txt = '✓', cor = 'var(--text-dim)';
+            if (chegou > 0) {
+                txt = '✓✓' + (x.m.para ? '' : ' ' + chegou + '/' + dest.length);
+                if (leu === dest.length) cor = 'var(--accent)';
+            }
+            x.tk.textContent = txt; x.tk.style.color = cor;
+        });
+    }
+    function detalhesRecibo(id, m) {
+        var dest = destinatarios(m);
+        if (!dest.length) { alert('Ninguém mais está no canal no momento.'); return; }
+        var audio = m.tipo === 'audio';
+        alert(dest.map(function (d) {
+            var n = nivelDe(id, d.id);
+            return (n >= 1 ? '✓✓ ' : '✓ ') + d.nome + ' — ' + (n >= 2 ? (audio ? 'ouviu' : 'viu') : (n >= 1 ? 'chegou no aparelho' : 'ainda não chegou'));
+        }).join('\n'));
+    }
+
     // ---------- ligação com a empresa / assinatura ----------
     function pararMensagens() {
         if (refMsgs) { try { refMsgs.off(); } catch (e) {} refMsgs = null; }
         pararContatos();
+        pararRecibos();
     }
     function ouvirMensagens() {
         if (refMsgs) return;
-        ouvirContatos(); registrarPresenca();
+        ouvirContatos(); ouvirRecibos(); registrarPresenca();
         carregandoHistorico = true;
         refMsgs = db.ref(caminhoMsgs()).limitToLast(MAX_MENSAGENS);
         refMsgs.on('child_added', function (snap) { renderizar(snap.key, snap.val(), false); }, function () {});
@@ -2717,7 +2808,7 @@ setInterval(function() {
     function desligar() {
         if (refRecurso) { try { refRecurso.off(); } catch (e) {} refRecurso = null; }
         pararMensagens();
-        recursoLiberado = false; empresaAtual = null; idsVistos = {};
+        recursoLiberado = false; empresaAtual = null; idsVistos = {}; minhasMsgs = {}; textosNaoLidos = [];
         elLista.innerHTML = ''; naoLidas = 0; atualizarBadge();
         aplicarBloqueio();
         atualizarVisibilidade();
@@ -2769,4 +2860,4 @@ setInterval(function() {
 
 </script>
 </body>
-    </html>
+</html>
