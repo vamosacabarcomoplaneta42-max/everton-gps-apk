@@ -2397,8 +2397,8 @@ setInterval(function() {
    Embutido no index.html, logo DEPOIS do script principal.
    Usa as variáveis do app: db, auth, EMPRESA_ID, listaVeiculos, DEVICE_ID,
    appSuspenso, sanitizarChavePath e enviarAtualizacoesFirebase.
-   Só funciona entre aparelhos da MESMA empresa (mesmo ID de empresa) e só
-   aparece se empresas/{id}/recursos/chat == true no Firebase.
+   Só funciona entre aparelhos da MESMA empresa (mesmo ID de empresa) e aparece
+   para quem estiver logado, mas só funciona se empresas/{id}/recursos/chat == true.
    ===================================================================== */
 (function () {
     'use strict';
@@ -2460,6 +2460,7 @@ setInterval(function() {
         '<div class="row"><input type="text" id="rdTexto" placeholder="Digite uma mensagem..." maxlength="300">' +
         '<button id="rdEnviar" type="button">Enviar</button></div>' +
         '<button id="rdPtt" type="button">🎙️ SEGURE PARA FALAR</button>' +
+        '<button id="rdVerPlanos" type="button" style="display:none;background:var(--accent);color:#04141f;">💳 Ver planos com Rádio</button>' +
         '<div id="rdStatus"></div></div>';
     document.body.appendChild(painel);
 
@@ -2656,19 +2657,38 @@ setInterval(function() {
         pararMensagens();
         recursoLiberado = false; empresaAtual = null; idsVistos = {};
         elLista.innerHTML = ''; naoLidas = 0; atualizarBadge();
+        aplicarBloqueio();
         atualizarVisibilidade();
+    }
+    function aplicarBloqueio() {
+        var bloq = !recursoLiberado;
+        elPtt.disabled = bloq;
+        document.getElementById('rdEnviar').disabled = bloq;
+        document.getElementById('rdTexto').disabled = bloq;
+        document.getElementById('rdVerPlanos').style.display = bloq ? 'block' : 'none';
+        elPtt.style.opacity = bloq ? '.4' : '1';
+        if (bloq) status('🔒 Rádio disponível só para quem contratou um plano com Rádio.');
+        else status('');
     }
     function iniciar() {
         empresaAtual = EMPRESA_ID;
+        recursoLiberado = false;
+        aplicarBloqueio();
         refRecurso = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/recursos/chat');
         refRecurso.on('value', function (s) {
             recursoLiberado = (s.val() === true);
             if (recursoLiberado) ouvirMensagens(); else pararMensagens();
+            aplicarBloqueio();
             atualizarVisibilidade();
-        }, function () { recursoLiberado = false; pararMensagens(); atualizarVisibilidade(); });
+        }, function () { recursoLiberado = false; pararMensagens(); aplicarBloqueio(); atualizarVisibilidade(); });
     }
+    document.getElementById('rdVerPlanos').addEventListener('click', function () {
+        painelAberto = false; painel.style.display = 'none';
+        var box = document.getElementById('boxAssinar');
+        if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     function atualizarVisibilidade() {
-        var pode = recursoLiberado && !!auth.currentUser && !!EMPRESA_ID && !appSuspenso;
+        var pode = !!auth.currentUser && !!EMPRESA_ID && !appSuspenso;   // visível sempre; bloqueado se não tiver o plano
         botao.style.display = pode ? 'block' : 'none';
         if (!pode && painelAberto) { painelAberto = false; painel.style.display = 'none'; }
     }
@@ -2682,4 +2702,4 @@ setInterval(function() {
 
 </script>
 </body>
-                                                                            </html>
+    </html>
