@@ -2518,7 +2518,7 @@ setInterval(function() {
     });
 
     // ---------- mensagens ----------
-    function enfileirarAudio(src, id) { filaAudio.push({ src: src, id: id }); tocarProximo(); }
+    function enfileirarAudio(src, id, de) { filaAudio.push({ src: src, id: id, de: de }); tocarProximo(); }
     function tocarProximo() {
         if (tocando || filaAudio.length === 0) return;
         if (gravando) { setTimeout(tocarProximo, 600); return; }   // não toca enquanto você fala (evita eco)
@@ -2528,8 +2528,16 @@ setInterval(function() {
         reprodutor.onended = function () { confirmar(item.id, 2); fim(); };   // tocou até o fim = ouviu
         reprodutor.onerror = fim;
         reprodutor.src = item.src;
-        var p = reprodutor.play();
-        if (p && p.catch) p.catch(fim);
+        var tentativas = 0;
+        var iniciar = function () {
+            if (window.evManterAppAtivo) window.evManterAppAtivo();   // acorda o app antes de tocar (2º plano)
+            var p = reprodutor.play();
+            if (p && p.catch) p.catch(function () {
+                if (++tentativas <= 3) setTimeout(iniciar, 1000);   // o Android pode recusar na 1ª vez com a tela apagada
+                else { status('⚠️ Não consegui tocar o áudio de ' + (item.de || 'alguém') + '. Toque no play dele.'); fim(); }
+            });
+        };
+        iniciar();
     }
 
     function renderizar(key, m, local) {
@@ -2590,7 +2598,7 @@ setInterval(function() {
         // "nova" = chegou depois do histórico inicial (não depende do relógio do outro aparelho)
         var nova = !local && !meu && !carregandoHistorico;
         if (nova) {
-            if (m.tipo === 'audio' && m.audio) enfileirarAudio(m.audio, key);   // toca sozinho, como no Zello
+            if (m.tipo === 'audio' && m.audio) enfileirarAudio(m.audio, key, m.de);   // toca sozinho, como no Zello
             if (!painelAberto) { naoLidas++; atualizarBadge(); }
         }
     }
@@ -2691,13 +2699,21 @@ setInterval(function() {
         u[caminhoContatos() + '/' + DEVICE_ID] = { nome: nomeUsuario(), ts: { '.sv': 'timestamp' } };
         try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
     }
+    // Mesmo nome = mesmo aparelho (reinstalou o app gera outro ID): fica só o mais recente
+    function contatosUnicos() {
+        var agora = Date.now(), porNome = {};
+        Object.keys(contatos).forEach(function (id) {
+            var c = contatos[id];
+            if (id === DEVICE_ID || !c || !c.ts || agora - c.ts > 3 * 86400000) return;
+            var chave = String(c.nome || 'Sem nome').trim().toLowerCase();
+            if (!porNome[chave] || c.ts > porNome[chave].c.ts) porNome[chave] = { id: id, c: c };
+        });
+        return Object.keys(porNome).map(function (k) { return porNome[k]; });
+    }
     function preencherContatos() {
         var atual = elPara.value, agora = Date.now(), lista = [];
-        Object.keys(contatos).forEach(function (id) {
-            if (id === DEVICE_ID) return;
-            var c = contatos[id];
-            if (!c || !c.ts || agora - c.ts > 3 * 86400000) return;
-            lista.push({ id: id, nome: c.nome || 'Sem nome', online: agora - c.ts < 180000 });
+        contatosUnicos().forEach(function (x) {
+            lista.push({ id: x.id, nome: x.c.nome || 'Sem nome', online: agora - x.c.ts < 180000 });
         });
         lista.sort(function (a, b) { return ((b.online ? 1 : 0) - (a.online ? 1 : 0)) || a.nome.localeCompare(b.nome); });
         var contagem = {}; lista.forEach(function (c) { contagem[c.nome] = (contagem[c.nome] || 0) + 1; });
@@ -2760,12 +2776,8 @@ setInterval(function() {
     }
     function destinatarios(m) {
         if (m.para) return [{ id: m.para, nome: m.paraNome || (contatos[m.para] && contatos[m.para].nome) || 'destinatário' }];
-        var agora = Date.now(), lista = [];
-        Object.keys(contatos).forEach(function (id) {
-            var c = contatos[id];
-            if (id === DEVICE_ID || !c || !c.ts || agora - c.ts > 3 * 86400000) return;
-            lista.push({ id: id, nome: c.nome || 'Sem nome' });
-        });
+        var lista = [];
+        contatosUnicos().forEach(function (x) { lista.push({ id: x.id, nome: x.c.nome || 'Sem nome' }); });
         return lista;
     }
     function atualizarTicks() {
@@ -2860,4 +2872,4 @@ setInterval(function() {
 
 </script>
 </body>
-</html>
+    </html>
