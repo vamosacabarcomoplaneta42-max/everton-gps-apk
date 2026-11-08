@@ -136,7 +136,7 @@ button {
             <input type="text" id="valorPlano" inputmode="decimal" placeholder="automático">
         </div>
         <div style="flex:1;">
-            <label>Qtd. de veículos</label>
+            <label>Qtd. de veículos / pessoas / aparelhos</label>
             <input type="number" id="qtdPlano" min="1" step="1" value="1">
         </div>
     </div>
@@ -151,6 +151,22 @@ button {
     </label>
     <p style="font-size:0.78em;color:var(--text-dim);margin:8px 0 0;line-height:1.4;">Marcado = o rádio fica liberado ao aprovar/alterar o plano. Para o plano <b>Rádio avulso</b> ou liberar sem mexer em nada, use o botão abaixo.</p>
     <button class="btn-buscar" id="btnSoRadio" style="background: var(--warn); color:#1a1200;">Só salvar o rádio (sem mexer em plano, status ou data)</button>
+</div>
+
+<div class="box" id="boxCompletos" style="display:none; border-color: rgba(255,176,32,.35); background: linear-gradient(135deg, rgba(255,176,32,.07), rgba(0,255,166,.04));">
+    <label>📻 Planos com Rádio (já marca o rádio e confirma)</label>
+    <button class="btn-plano" data-completo="radio">
+        <b>📻 Rádio avulso <span style="background:var(--warn);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">R$ 3,90/aparelho</span></b><span>Só libera o rádio. Não mexe em plano, status nem data.</span>
+    </button>
+    <button class="btn-plano" data-completo="frota">
+        <b>🚚📻 Completo Empresas <span style="background:var(--warn);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">R$ 18,90/veículo</span></b><span>Frota + Rádio</span>
+    </button>
+    <button class="btn-plano" data-completo="familia">
+        <b>👨‍👩‍👧📻 Completo Família <span style="background:var(--warn);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">R$ 6,90/pessoa</span></b><span>Família + Rádio</span>
+    </button>
+    <button class="btn-plano" data-completo="combo">
+        <b>🔀📻 Completo Tudo <span style="background:var(--warn);color:#000;font-size:.65em;padding:2px 6px;border-radius:4px;margin-left:4px;">R$ 20,90/veículo</span></b><span>Frota + Família + 2 Mapas + Rádio</span>
+    </button>
 </div>
 
 <div class="box" id="boxPlanos" style="display:none;">
@@ -378,6 +394,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         if (dados.nome === undefined && dados.status === undefined && dados.tipo === undefined) {
             document.getElementById('boxInfo').style.display = 'none';
             document.getElementById('boxPlanos').style.display = 'none';
+            document.getElementById('boxCompletos').style.display = 'none';
             document.getElementById('boxMapasEscolha').style.display = 'none';
             document.getElementById('boxValorQtd').style.display = 'none';
             document.getElementById('boxRadio').style.display = 'none';
@@ -446,6 +463,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         document.getElementById('boxMapasEscolha').style.display = 'block';
         document.getElementById('boxValorQtd').style.display = 'block';
         document.getElementById('boxRadio').style.display = 'block';
+        document.getElementById('boxCompletos').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
         document.getElementById('boxReativar').style.display = 'block';
         document.getElementById('boxTipoSozinho').style.display = 'block';
@@ -569,6 +587,37 @@ document.getElementById('btnSoRadio').addEventListener('click', function(){
         document.getElementById('btnBuscar').click();
     }).catch(function(e){
         mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro");
+    });
+});
+
+
+// Planos com Rádio: marca o rádio e usa o mesmo fluxo dos botões de plano
+document.querySelectorAll('.btn-plano[data-completo]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        if (!empresaIdAtual) return;
+        var tipo = btn.getAttribute('data-completo');
+        if (tipo === 'radio') {
+            var q = parseInt(document.getElementById('qtdPlano').value, 10) || 1;
+            var valor = Math.round(q * RADIO_AVULSO * 100) / 100;
+            if (!confirm("Liberar o RÁDIO AVULSO para '" + empresaIdAtual + "'?\n" + q + " aparelho(s) · " + formatarReais(valor) + "\nNão mexe em plano, status nem data.")) return;
+            var u = {};
+            u['empresas/' + empresaIdAtual + '/radio'] = true;
+            db.ref().update(u).then(function(){
+                var d = {};
+                d['empresas/' + empresaIdAtual + '/planoDetalhe/radio'] = { quantidade: q, valor: valor, dataAprovacao: new Date().toISOString(), aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin' };
+                return db.ref().update(d).catch(function(){});
+            }).then(function(){
+                mostrarMsg("✅ Rádio avulso liberado (" + formatarReais(valor) + ").", "ok");
+                document.getElementById('btnBuscar').click();
+            }).catch(function(e){
+                mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro");
+            });
+            return;
+        }
+        document.getElementById('chkRadio').checked = true;
+        atualizarPreviewPrecos();
+        var alvo = document.querySelector('.btn-plano[data-tipo="' + tipo + '"]');
+        if (alvo) alvo.click();
     });
 });
 
