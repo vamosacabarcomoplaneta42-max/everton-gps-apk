@@ -523,6 +523,7 @@
 
   /* ---------- ajustar quantidade de pessoas (autoatendimento) ---------- */
   var PRECO_POR_PESSOA_FAMILIA = 4.90;  // manter igual ao valor em index.html (PLANOS_ASSINATURA)
+  var ACRESCIMO_RADIO_FAMILIA = 2.00;   // Família + Rádio = R$ 6,90 por pessoa (igual ao painel e ao index.html)
 
   function formatarPrecoReaisFam(v) {
     return "R$ " + v.toFixed(2).replace('.', ',');
@@ -536,6 +537,8 @@
     });
     var chaves = Object.keys(nomesPorChave).sort();
     var total = chaves.length;
+    var comRadio = (window.EVERTON_RADIO_LIBERADO === true);   // o index.html informa se a família tem o rádio
+    var precoPessoa = PRECO_POR_PESSOA_FAMILIA + (comRadio ? ACRESCIMO_RADIO_FAMILIA : 0);   // 4,90, ou 6,90 com rádio
 
     var itens = chaves.length
       ? chaves.map(function (k) {
@@ -575,11 +578,17 @@
       if (!c.marcados && !c.adicionar) { preview.textContent = 'Marque quem sai ou informe quantas pessoas novas vão entrar.'; return; }
       if (c.restantes <= 0) { preview.textContent = 'Precisa sobrar ao menos 1 pessoa na família.'; return; }
       preview.textContent = c.restantes + ' pessoa' + (c.restantes === 1 ? '' : 's') + ' no total' +
-        ' = ' + formatarPrecoReaisFam(c.restantes * PRECO_POR_PESSOA_FAMILIA) + '/mês';
+        ' = ' + formatarPrecoReaisFam(c.restantes * precoPessoa) + '/mês' + (comRadio ? ' (com Rádio)' : '');
     }
     m.querySelectorAll('.ev-chk-remover').forEach(function (chk) { chk.addEventListener('change', atualizarPreviewAjuste); });
     $('evQtdAdicionar').addEventListener('input', atualizarPreviewAjuste);
     atualizarPreviewAjuste();
+    db.ref('empresas/' + san(EMPRESA_ID) + '/radio').once('value').then(function (s) {
+      if (s.val() === true && $('evPreviewReducao')) {
+        comRadio = true; precoPessoa = PRECO_POR_PESSOA_FAMILIA + ACRESCIMO_RADIO_FAMILIA;
+        atualizarPreviewAjuste();
+      }
+    }).catch(function () {});
 
     $('evCancelarReducao').addEventListener('click', function () { m.hidden = true; });
     $('evPedirReducao').addEventListener('click', function () {
@@ -589,13 +598,14 @@
 
       var marcadosEl = m.querySelectorAll('.ev-chk-remover:checked');
       var nomesRemover = Array.prototype.slice.call(marcadosEl).map(function (chk) { return nomesPorChave[chk.value]; }).join(', ');
-      var novoValor = c.restantes * PRECO_POR_PESSOA_FAMILIA;
+      var novoValor = c.restantes * precoPessoa;
 
       var linhas = ["Quero ajustar meu plano Família", "", "ID da família: " + EMPRESA_ID];
       if (c.marcados) linhas.push("Pessoas a remover: " + nomesRemover);
       if (c.adicionar) linhas.push("Pessoas novas a adicionar: " + c.adicionar);
       linhas.push("Total final: " + c.restantes + " pessoa(s)");
       linhas.push("Novo valor mensal: " + formatarPrecoReaisFam(novoValor));
+      linhas.push("Rádio: " + (comRadio ? "incluso (" + formatarPrecoReaisFam(precoPessoa) + " por pessoa)" : "não contratado"));
       linhas.push("");
       linhas.push("Por favor, só confirme a mudança depois de combinarmos.");
       var texto = linhas.join("\n");
