@@ -70,6 +70,14 @@ jobs:
       - name: Ajustar permissões, serviço de localização e assinatura
         run: python3 scripts/patch-android.py
 
+      - name: Permissão de microfone (rádio)
+        run: |
+          m=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'android.permission.RECORD_AUDIO' "$m"; then
+            sed -i 's#<application#<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application#' "$m"
+          fi
+          grep -q 'android.permission.RECORD_AUDIO' "$m" || { echo "ERRO: não consegui adicionar RECORD_AUDIO"; exit 1; }
+
       - name: Copiar o app para o Android
         run: npx cap sync android
 
@@ -77,7 +85,20 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug
+          # o download do Gradle estourava 10s; sobe o limite para 3 min
+          f=gradle/wrapper/gradle-wrapper.properties
+          if grep -q '^networkTimeout=' "$f"; then
+            sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$f"
+          else
+            echo "networkTimeout=180000" >> "$f"
+          fi
+          # tenta até 4 vezes caso a rede falhe de novo
+          for i in 1 2 3 4; do
+            ./gradlew assembleDebug && exit 0
+            echo "Tentativa $i falhou. Aguardando para tentar de novo..."
+            sleep 20
+          done
+          exit 1
 
       - name: Nomear o APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Everton-GPS.apk
