@@ -2609,7 +2609,7 @@ setInterval(function() {
             timerGrav = setTimeout(pararGravacao, MAX_SEGUNDOS_AUDIO * 1000);
         }).catch(function (e) {
             segurando = false;
-            status('⚠️ Sem acesso ao microfone: ' + (e && e.message ? e.message : e));
+            status('⚠️ Sem acesso ao microfone [' + (e && e.name ? e.name : 'erro') + ']: ' + (e && e.message ? e.message : e));
         });
     }
 
