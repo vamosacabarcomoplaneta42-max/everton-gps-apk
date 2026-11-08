@@ -2442,7 +2442,10 @@ setInterval(function() {
         '#rdPtt{width:100%;padding:18px;font-size:1em;background:linear-gradient(135deg,var(--accent),#1b8fe0);color:#04141f;' +
         'touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}' +
         '#rdPtt.gravando{background:linear-gradient(135deg,var(--danger),#a91c3e);color:#fff;}' +
-        '#rdStatus{font-size:.75em;color:var(--text-dim);text-align:center;min-height:1.2em;}';
+        '#rdStatus{font-size:.75em;color:var(--text-dim);text-align:center;min-height:1.2em;}' +
+        '#rdParaLinha{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:.8em;color:var(--text-dim);}' +
+        '#rdPara{flex:1;padding:8px 9px;font-size:.9em;}' +
+        '.rdMsg.priv{border-color:var(--accent);}';
     document.head.appendChild(css);
 
     // ---------- elementos ----------
@@ -2456,6 +2459,7 @@ setInterval(function() {
         '<div id="rdTopo"><b>🎙️ Rádio da empresa</b>' +
         '<input type="text" id="rdNome" maxlength="20" placeholder="Seu nome">' +
         '<button id="rdFechar" type="button">✕</button></div>' +
+        '<div id="rdParaLinha"><span>Para:</span><select id="rdPara"><option value="">👥 Todos da empresa</option></select></div>' +
         '<div id="rdLista"></div>' +
         '<div id="rdRodape">' +
         '<div class="row"><input type="text" id="rdTexto" placeholder="Digite uma mensagem..." maxlength="300">' +
@@ -2470,6 +2474,9 @@ setInterval(function() {
     var elPtt = document.getElementById('rdPtt');
     var elNome = document.getElementById('rdNome');
     var elBadge = document.getElementById('rdBadge');
+    var elPara = document.getElementById('rdPara');
+    var contatos = {}, refContatos = null;
+    var reprodutor = new Audio();   // um único player, reaproveitado a cada áudio recebido
 
     function status(txt) { elStatus.textContent = txt || ''; }
 
@@ -2484,6 +2491,7 @@ setInterval(function() {
     elNome.value = nomeUsuario();
     elNome.addEventListener('change', function () {
         try { localStorage.setItem('chat_nome', elNome.value.trim()); } catch (e) {}
+        registrarPresenca();
     });
 
     function caminhoMsgs() {
@@ -2498,6 +2506,7 @@ setInterval(function() {
     botao.addEventListener('click', function () {
         painelAberto = true; naoLidas = 0; atualizarBadge();
         elNome.value = nomeUsuario();
+        registrarPresenca();
         painel.style.display = 'flex';
         elLista.scrollTop = elLista.scrollHeight;
         if (window.evManterAppAtivo) window.evManterAppAtivo();
@@ -2512,10 +2521,10 @@ setInterval(function() {
         if (tocando || filaAudio.length === 0) return;
         if (gravando) { setTimeout(tocarProximo, 600); return; }   // não toca enquanto você fala (evita eco)
         tocando = true;
-        var a = new Audio(filaAudio.shift());
         var fim = function () { tocando = false; tocarProximo(); };
-        a.onended = fim; a.onerror = fim;
-        var p = a.play();
+        reprodutor.onended = fim; reprodutor.onerror = fim;
+        reprodutor.src = filaAudio.shift();
+        var p = reprodutor.play();
         if (p && p.catch) p.catch(fim);
     }
 
@@ -2530,12 +2539,20 @@ setInterval(function() {
         }
 
         var meu = m.deId === DEVICE_ID;
+        if (!meu && m.para && m.para !== DEVICE_ID) return;   // mensagem privada para outro aparelho
         var div = document.createElement('div');
-        div.className = 'rdMsg' + (meu ? ' eu' : '');
+        div.className = 'rdMsg' + (meu ? ' eu' : '') + (m.para ? ' priv' : '');
         var de = document.createElement('div');
         de.className = 'rdDe';
         var hora = m.ts ? new Date(m.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-        de.textContent = (meu ? 'Você' : (m.de || 'Alguém')) + ' · ' + hora;
+        var quem = meu ? ('Você' + (m.para ? ' → ' + (m.paraNome || 'privado') : '')) : (m.de || 'Alguém');
+        de.textContent = quem + (m.para ? ' 🔒' : '') + ' · ' + hora;
+        if (!meu && m.deId) {
+            de.style.cursor = 'pointer'; de.title = 'Toque para responder só para ele';
+            de.addEventListener('click', function () {
+                if (elPara.querySelector('option[value="' + m.deId + '"]')) { elPara.value = m.deId; status('Respondendo só para ' + (m.de || 'ele')); }
+            });
+        }
         div.appendChild(de);
 
         if (m.tipo === 'audio' && m.audio) {
@@ -2563,6 +2580,11 @@ setInterval(function() {
         var path = caminhoMsgs();
         var key = db.ref(path).push().key;
         var msg = Object.assign({ de: nomeUsuario(), deId: DEVICE_ID, ts: Date.now() }, extra);
+        if (elPara.value) {
+            msg.para = elPara.value;
+            var opt = elPara.options[elPara.selectedIndex];
+            msg.paraNome = (contatos[elPara.value] && contatos[elPara.value].nome) || (opt ? opt.text.replace(/^[^ ]+ /, '') : '');
+        }
         var upd = {}; upd[path + '/' + key] = msg;
         renderizar(key, msg, true);
         return enviarAtualizacoesFirebase(upd);
@@ -2641,12 +2663,51 @@ setInterval(function() {
     elPtt.addEventListener('pointercancel', pararGravacao);
     elPtt.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
+    // ---------- contatos (quem está no canal da empresa) ----------
+    function caminhoContatos() { return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/contatos'; }
+    function registrarPresenca() {
+        if (!EMPRESA_ID || !recursoLiberado || !auth.currentUser) return;
+        var u = {};
+        u[caminhoContatos() + '/' + DEVICE_ID] = { nome: nomeUsuario(), ts: { '.sv': 'timestamp' } };
+        try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
+    }
+    function preencherContatos() {
+        var atual = elPara.value, agora = Date.now(), lista = [];
+        Object.keys(contatos).forEach(function (id) {
+            if (id === DEVICE_ID) return;
+            var c = contatos[id];
+            if (!c || !c.ts || agora - c.ts > 3 * 86400000) return;
+            lista.push({ id: id, nome: c.nome || 'Sem nome', online: agora - c.ts < 180000 });
+        });
+        lista.sort(function (a, b) { return ((b.online ? 1 : 0) - (a.online ? 1 : 0)) || a.nome.localeCompare(b.nome); });
+        var contagem = {}; lista.forEach(function (c) { contagem[c.nome] = (contagem[c.nome] || 0) + 1; });
+        elPara.innerHTML = '';
+        var todos = document.createElement('option'); todos.value = ''; todos.textContent = '👥 Todos da empresa'; elPara.appendChild(todos);
+        lista.forEach(function (c) {
+            var o = document.createElement('option'); o.value = c.id;
+            o.textContent = (c.online ? '🟢 ' : '⚪ ') + c.nome + (contagem[c.nome] > 1 ? ' (' + c.id.slice(-4) + ')' : '');
+            elPara.appendChild(o);
+        });
+        if (atual && elPara.querySelector('option[value="' + atual + '"]')) elPara.value = atual;
+    }
+    function ouvirContatos() {
+        if (refContatos) return;
+        refContatos = db.ref(caminhoContatos());
+        refContatos.on('value', function (s) { contatos = s.val() || {}; preencherContatos(); }, function () {});
+    }
+    function pararContatos() {
+        if (refContatos) { try { refContatos.off(); } catch (e) {} refContatos = null; }
+        contatos = {}; preencherContatos();
+    }
+
     // ---------- ligação com a empresa / assinatura ----------
     function pararMensagens() {
         if (refMsgs) { try { refMsgs.off(); } catch (e) {} refMsgs = null; }
+        pararContatos();
     }
     function ouvirMensagens() {
         if (refMsgs) return;
+        ouvirContatos(); registrarPresenca();
         carregandoHistorico = true;
         refMsgs = db.ref(caminhoMsgs()).limitToLast(MAX_MENSAGENS);
         refMsgs.on('child_added', function (snap) { renderizar(snap.key, snap.val(), false); }, function () {});
@@ -2699,6 +2760,10 @@ setInterval(function() {
         if (empresaAtual !== EMPRESA_ID) { desligar(); iniciar(); }
         atualizarVisibilidade();
     }, INTERVALO_VERIFICACAO_MS);
+
+    // mantém o "online" atualizado para os outros aparelhos e a lista de contatos fresca
+    setInterval(registrarPresenca, 60000);
+    setInterval(function () { if (document.activeElement !== elPara) preencherContatos(); }, 30000);
 })();
 
 </script>
