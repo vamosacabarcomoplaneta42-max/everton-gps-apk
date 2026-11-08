@@ -70,13 +70,16 @@ jobs:
       - name: Ajustar permissões, serviço de localização e assinatura
         run: python3 scripts/patch-android.py
 
-      - name: Permissão de microfone (rádio)
+      - name: Permissões de áudio (rádio)
         run: |
           m=android/app/src/main/AndroidManifest.xml
-          if ! grep -q 'android.permission.RECORD_AUDIO' "$m"; then
-            sed -i 's#<application#<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application#' "$m"
-          fi
-          grep -q 'android.permission.RECORD_AUDIO' "$m" || { echo "ERRO: não consegui adicionar RECORD_AUDIO"; exit 1; }
+          for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS; do
+            if ! grep -q "android.permission.$perm" "$m"; then
+              sed -i "s#<application#<uses-permission android:name=\"android.permission.$perm\" />\n    <application#" "$m"
+            fi
+            grep -q "android.permission.$perm" "$m" || { echo "ERRO: não consegui adicionar $perm"; exit 1; }
+          done
+          grep -n "RECORD_AUDIO\|MODIFY_AUDIO_SETTINGS" "$m"
 
       - name: Copiar o app para o Android
         run: npx cap sync android
