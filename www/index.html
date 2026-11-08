@@ -2398,7 +2398,7 @@ setInterval(function() {
    Usa as variáveis do app: db, auth, EMPRESA_ID, listaVeiculos, DEVICE_ID,
    appSuspenso, sanitizarChavePath e enviarAtualizacoesFirebase.
    Só funciona entre aparelhos da MESMA empresa (mesmo ID de empresa) e aparece
-   para quem estiver logado, mas só funciona se empresas/{id}/recursos/chat == true.
+   para quem estiver logado, mas só funciona se empresas/{id}/planoContratado incluir o rádio.
    ===================================================================== */
 (function () {
     'use strict';
@@ -2406,6 +2406,8 @@ setInterval(function() {
     if (typeof db === 'undefined' || typeof auth === 'undefined') return;
 
     // Áudio vai em base64 dentro do Firebase: limites menores evitam baixar vários MB a cada abertura do app.
+    // Planos que incluem o rádio (mesmos ids do PLANOS_ASSINATURA; o painel grava em empresas/{id}/planoContratado)
+    var PLANOS_COM_RADIO = ['radio', 'completo_empresa', 'completo_familia', 'completo_tudo'];
     var MAX_SEGUNDOS_AUDIO = 20;
     var BITS_AUDIO = 16000;
     var MAX_MENSAGENS = 20;
@@ -2674,9 +2676,9 @@ setInterval(function() {
         empresaAtual = EMPRESA_ID;
         recursoLiberado = false;
         aplicarBloqueio();
-        refRecurso = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/recursos/chat');
+        refRecurso = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/planoContratado');
         refRecurso.on('value', function (s) {
-            recursoLiberado = (s.val() === true);
+            recursoLiberado = PLANOS_COM_RADIO.indexOf(String(s.val() || '').toLowerCase()) !== -1;
             if (recursoLiberado) ouvirMensagens(); else pararMensagens();
             aplicarBloqueio();
             atualizarVisibilidade();
