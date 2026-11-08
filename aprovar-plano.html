@@ -143,6 +143,16 @@ button {
     <div id="previewPrecos" style="font-size:0.78em;color:var(--text-dim);margin-top:8px;line-height:1.5;"></div>
 </div>
 
+<div class="box" id="boxRadio" style="display:none; border-color: rgba(255,176,32,.35);">
+    <label>📻 Rádio (chat de voz estilo Zello)</label>
+    <div class="info-row"><span>Rádio atual</span><span id="badgeRadioAtual" class="badge badge-nenhum">—</span></div>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:.9em;color:var(--text);margin-top:10px;cursor:pointer;">
+        <input type="checkbox" id="chkRadio" style="width:auto;"> Incluir o rádio (acrescenta R$ 2,00/veículo no Frota e Família, R$ 2,90 no Combo)
+    </label>
+    <p style="font-size:0.78em;color:var(--text-dim);margin:8px 0 0;line-height:1.4;">Marcado = o rádio fica liberado ao aprovar/alterar o plano. Para o plano <b>Rádio avulso</b> ou liberar sem mexer em nada, use o botão abaixo.</p>
+    <button class="btn-buscar" id="btnSoRadio" style="background: var(--warn); color:#1a1200;">Só salvar o rádio (sem mexer em plano, status ou data)</button>
+</div>
+
 <div class="box" id="boxPlanos" style="display:none;">
     <label>Confirmar plano pago (pergunta se renova 30 dias ou só altera) com o mapa escolhido acima</label>
     <button class="btn-plano" data-tipo="frota">
@@ -259,16 +269,20 @@ var mapaSelecionado = 'ruas';
 var TABELA_PRECOS = {
     frota:   { unitario: 16.90, adicionalMapa: { ruas: 0, satelite: 3.00, ambos: 5.00 } },
     familia: { unitario: 4.90,  adicionalMapa: { ruas: 0, satelite: 1.50, ambos: 3.00 } },
-    // Combo: 2 mapas inclusos; a parte Família é um valor fixo no mês
-    combo:   { unitario: 16.90, fixoFamilia: 6.90 }
+    // Combo: 2 mapas inclusos; R$ 18,00 por veículo
+    combo:   { unitario: 18.00, fixoFamilia: 0 }
 };
+// Rádio (chat de voz): acréscimo por veículo/pessoa quando incluído no plano. Rádio avulso = R$ 3,90 por aparelho.
+var RADIO_ADICIONAL = { frota: 2.00, familia: 2.00, combo: 2.90 };
+var RADIO_AVULSO = 3.90;
+function radioMarcado(){ var c = document.getElementById('chkRadio'); return !!(c && c.checked); }
 var veiculosCadastrados = 1;
 var valorDigitadoManual = false;
 
 function formatarReais(n){
     return 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function calcularValorPlano(tipo, mapa, qtd){
+function calcularValorPlano(tipo, mapa, qtd, comRadio){
     var t = TABELA_PRECOS[tipo];
     if (!t) return 0;
     var total;
@@ -277,16 +291,17 @@ function calcularValorPlano(tipo, mapa, qtd){
     } else {
         total = qtd * t.unitario + (t.adicionalMapa[mapa] || 0);
     }
+    if (comRadio) total += qtd * (RADIO_ADICIONAL[tipo] || 0);
     return Math.round(total * 100) / 100;
 }
 function atualizarPreviewPrecos(){
     var q = parseInt(document.getElementById('qtdPlano').value, 10) || 1;
     var el = document.getElementById('previewPrecos');
     if (!el) return;
-    el.innerHTML = '🚚 Frota: <b>' + formatarReais(calcularValorPlano('frota', mapaSelecionado, q)) + '</b> · ' +
-                   '👨‍👩‍👧 Família: <b>' + formatarReais(calcularValorPlano('familia', mapaSelecionado, q)) + '</b> · ' +
-                   '🔀 Combo: <b>' + formatarReais(calcularValorPlano('combo', 'ambos', q)) + '</b>' +
-                   '<br>Veículos cadastrados na empresa: <b>' + veiculosCadastrados + '</b> · valores por 30 dias';
+    el.innerHTML = '🚚 Frota: <b>' + formatarReais(calcularValorPlano('frota', mapaSelecionado, q, radioMarcado())) + '</b> · ' +
+                   '👨‍👩‍👧 Família: <b>' + formatarReais(calcularValorPlano('familia', mapaSelecionado, q, radioMarcado())) + '</b> · ' +
+                   '🔀 Combo: <b>' + formatarReais(calcularValorPlano('combo', 'ambos', q, radioMarcado())) + '</b>' +
+                   '<br>📻 Rádio avulso: <b>R$ 3,90</b> por aparelho · incluído no plano: ' + (radioMarcado() ? '<b>SIM</b>' : 'não') + '<br>Veículos cadastrados na empresa: <b>' + veiculosCadastrados + '</b> · valores por 30 dias';
 }
 function atualizarSelecaoMapa() {
     document.querySelectorAll('.mapa-opcao').forEach(function(el){ el.classList.remove('ativa'); });
@@ -352,7 +367,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
     id = sanitizarChavePath(id);
     empresaIdAtual = id;
     var base = 'empresas/' + id + '/';
-    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm', 'mapasContratados', 'mapa', 'mapas', 'planoContratado', 'plano', 'mapaPermitido', 'tipoMapa', 'planoDetalhe'];
+    var campos = ['nome', 'status', 'tipo', 'trialExpiraEm', 'assinaturaExpiraEm', 'mapasContratados', 'mapa', 'mapas', 'planoContratado', 'plano', 'mapaPermitido', 'tipoMapa', 'planoDetalhe', 'radio'];
     Promise.all(campos.map(function(campo) {
         return db.ref(base + campo).once('value')
             .then(function(snap) { return snap.val(); })
@@ -365,6 +380,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
             document.getElementById('boxPlanos').style.display = 'none';
             document.getElementById('boxMapasEscolha').style.display = 'none';
             document.getElementById('boxValorQtd').style.display = 'none';
+            document.getElementById('boxRadio').style.display = 'none';
             document.getElementById('boxReativar').style.display = 'none';
             document.getElementById('boxTipoSozinho').style.display = 'none';
             document.getElementById('boxSuspender').style.display = 'none';
@@ -408,6 +424,11 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
             selectReativar.value = tipoLimpo;
         }
         document.getElementById('boxInfo').style.display = 'block';
+        var radioOn = dados.radio === true;
+        var bR = document.getElementById('badgeRadioAtual');
+        bR.textContent = radioOn ? 'LIBERADO' : 'NÃO CONTRATADO';
+        bR.className = radioOn ? 'badge badge-ativo' : 'badge badge-nenhum';
+        document.getElementById('chkRadio').checked = radioOn;
         // Preenche valor e quantidade já salvos (se houver)
         var det = dados.planoDetalhe || {};
         var chaveDet = (dados.planoContratado || dados.plano || tipoLimpo);
@@ -424,6 +445,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         }).catch(function() {});
         document.getElementById('boxMapasEscolha').style.display = 'block';
         document.getElementById('boxValorQtd').style.display = 'block';
+        document.getElementById('boxRadio').style.display = 'block';
         document.getElementById('boxPlanos').style.display = 'block';
         document.getElementById('boxReativar').style.display = 'block';
         document.getElementById('boxTipoSozinho').style.display = 'block';
@@ -442,7 +464,7 @@ function lerValorQtd(tipo, mapa){
         v = parseFloat(String(document.getElementById('valorPlano').value || '').replace(/\./g,'').replace(',', '.'));
         if (isNaN(v) || v < 0) v = 0;
     } else {
-        v = calcularValorPlano(tipo, (tipo === 'combo' ? 'ambos' : mapa), q);
+        v = calcularValorPlano(tipo, (tipo === 'combo' ? 'ambos' : mapa), q, radioMarcado());
     }
     return { valor: v, quantidade: q };
 }
@@ -517,6 +539,38 @@ function alterarSemMexerNaData(id, tipo, mapa){
         return db.ref().update(extras).catch(function(){});
     }).then(function(){ return tipoComMapa; });
 }
+
+// Rádio: gravado separado do plano (se a regra do Firebase ainda não estiver publicada, o plano salva e avisa)
+function gravarRadioSeguro(id){
+    var u = {}; u['empresas/' + id + '/radio'] = radioMarcado();
+    return db.ref().update(u).catch(function(e){
+        alert("⚠️ O plano foi salvo, mas o rádio NÃO: " + e.message + "\nPublique as regras novas do Firebase (regras-firebase.json).");
+    });
+}
+var _salvarComBloqueio = salvarComBloqueio;
+salvarComBloqueio = function(id, tipoBase, mapaFinal, dias){
+    return _salvarComBloqueio(id, tipoBase, mapaFinal, dias).then(function(expira){
+        return gravarRadioSeguro(id).then(function(){ return expira; });
+    });
+};
+var _alterarSemMexerNaData = alterarSemMexerNaData;
+alterarSemMexerNaData = function(id, tipo, mapa){
+    return _alterarSemMexerNaData(id, tipo, mapa).then(function(t){
+        return gravarRadioSeguro(id).then(function(){ return t; });
+    });
+};
+document.getElementById('chkRadio').addEventListener('change', atualizarPreviewPrecos);
+document.getElementById('btnSoRadio').addEventListener('click', function(){
+    if (!empresaIdAtual) return;
+    var ligado = radioMarcado();
+    if (!confirm((ligado ? "LIBERAR" : "TIRAR") + " o rádio de '" + empresaIdAtual + "' sem mexer em plano, status ou data?")) return;
+    db.ref('empresas/' + empresaIdAtual + '/radio').set(ligado).then(function(){
+        mostrarMsg(ligado ? "✅ Rádio liberado." : "✅ Rádio removido.", "ok");
+        document.getElementById('btnBuscar').click();
+    }).catch(function(e){
+        mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro");
+    });
+});
 
 // NOVO: modal que pergunta se é renovação (prazo novo) ou só alteração
 function perguntarModo(resumoHtml, textoRenovar, aoRenovar, aoAlterar){
