@@ -834,7 +834,11 @@ var WHATSAPP_SUPORTE = "5551985803243";
 var PLANOS_ASSINATURA = [
     { id: 'frota', nome: 'Frota', descPreco: 'a partir de R$ 16,90 por veículo/mês', desc: 'Só a empresa e os veículos.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 0, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' },
     { id: 'familia', nome: 'Família', descPreco: 'R$ 4,90 por pessoa/mês', desc: 'Só o modo Família.', pedeQuantidade: true, precoUnitario: 4.90, precoAdicional: 0, unidadeLabel: 'pessoa', perguntaQuantidade: 'Quantas pessoas vão usar o app?', labelQuantidade: 'Quantidade de pessoas' },
-    { id: 'combo', nome: 'Combo — Frota + Família', descPreco: 'R$ 21,80 por veículo/mês (16,90 + 4,90)', desc: 'Os dois juntos, no mesmo app.', pedeQuantidade: true, precoUnitario: 16.90, precoAdicional: 4.90, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' }
+    { id: 'combo', nome: 'Combo — Frota + Família', descPreco: 'R$ 18,00 por veículo/mês', desc: 'Os dois juntos, no mesmo app.', pedeQuantidade: true, precoUnitario: 18.00, precoAdicional: 0, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' },
+    { id: 'radio', nome: 'Rádio (chat de voz)', descPreco: 'R$ 3,90 por aparelho/mês', desc: 'Só o rádio estilo Zello, entre os aparelhos da sua assinatura.', pedeQuantidade: true, precoUnitario: 3.90, precoAdicional: 0, unidadeLabel: 'aparelho', perguntaQuantidade: 'Quantos aparelhos vão usar o rádio?', labelQuantidade: 'Quantidade de aparelhos' },
+    { id: 'completo_empresa', nome: 'Completo Empresas — Frota + Rádio', descPreco: 'R$ 18,90 por veículo/mês', desc: 'Rastreio da frota + rádio de voz e chat.', pedeQuantidade: true, precoUnitario: 18.90, precoAdicional: 0, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' },
+    { id: 'completo_familia', nome: 'Completo Família — Família + Rádio', descPreco: 'R$ 6,90 por pessoa/mês', desc: 'Modo Família + rádio de voz e chat.', pedeQuantidade: true, precoUnitario: 6.90, precoAdicional: 0, unidadeLabel: 'pessoa', perguntaQuantidade: 'Quantas pessoas vão usar o app?', labelQuantidade: 'Quantidade de pessoas' },
+    { id: 'completo_tudo', nome: 'Completo Tudo — Frota + Família + Rádio', descPreco: 'R$ 20,90 por veículo/mês', desc: 'Todos os recursos, para empresa e família juntas.', pedeQuantidade: true, precoUnitario: 20.90, precoAdicional: 0, unidadeLabel: 'veículo', perguntaQuantidade: 'Quantos veículos vão ser rastreados?', labelQuantidade: 'Quantidade de veículos' }
 ];
 
 function formatarPrecoReais(v) {
@@ -2386,5 +2390,296 @@ setInterval(function() {
      variáveis e funções (db, auth, map, EMPRESA_ID, listaVeiculos, etc.) que só
      existem depois que esse script principal termina de rodar. -->
 <script src="modo-familia.js"></script>
+<!-- chat-radio.js (rádio/chat estilo Zello) também vem DEPOIS do script principal. -->
+<script>
+/* =====================================================================
+   chat-radio.js — Rádio / Chat da empresa (estilo Zello) para o Everton GPS
+   Embutido no index.html, logo DEPOIS do script principal.
+   Usa as variáveis do app: db, auth, EMPRESA_ID, listaVeiculos, DEVICE_ID,
+   appSuspenso, sanitizarChavePath e enviarAtualizacoesFirebase.
+   Só funciona entre aparelhos da MESMA empresa (mesmo ID de empresa) e só
+   aparece se empresas/{id}/recursos/chat == true no Firebase.
+   ===================================================================== */
+(function () {
+    'use strict';
+    // Se o app principal não carregou (Firebase/Leaflet bloqueados), o rádio nem tenta iniciar.
+    if (typeof db === 'undefined' || typeof auth === 'undefined') return;
+
+    // Áudio vai em base64 dentro do Firebase: limites menores evitam baixar vários MB a cada abertura do app.
+    var MAX_SEGUNDOS_AUDIO = 20;
+    var BITS_AUDIO = 16000;
+    var MAX_MENSAGENS = 20;
+    var VALIDADE_MS = 24 * 3600 * 1000;      // mensagens com mais de 24h são apagadas
+    var INTERVALO_VERIFICACAO_MS = 4000;
+
+    var empresaAtual = null, refRecurso = null, refMsgs = null;
+    var recursoLiberado = false, carregandoHistorico = true;
+    var painelAberto = false, naoLidas = 0, idsVistos = {};
+    var filaAudio = [], tocando = false;
+    var gravador = null, pedacos = [], stream = null, timerGrav = null;
+    var inicioGrav = 0, gravando = false, segurando = false;
+
+    // ---------- estilos ----------
+    var css = document.createElement('style');
+    css.textContent =
+        '#rdBotao{position:fixed;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;border:none;z-index:900;' +
+        'background:linear-gradient(145deg,var(--brand),#0091c8);color:#04120e;font-size:1.5em;box-shadow:0 6px 20px rgba(0,0,0,.5);display:none;padding:0;}' +
+        '#rdBadge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--danger);color:#fff;' +
+        'font-size:.5em;font-family:var(--font-display);display:none;align-items:center;justify-content:center;padding:0 5px;}' +
+        '#rdPainel{position:fixed;left:0;right:0;bottom:0;height:72vh;background:var(--bg-panel);border-top:1px solid var(--border-strong);' +
+        'border-radius:18px 18px 0 0;z-index:901;display:none;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.6);}' +
+        '#rdTopo{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);}' +
+        '#rdTopo b{font-family:var(--font-display);flex:1;}' +
+        '#rdNome{width:110px;flex:none;padding:7px 9px;font-size:.8em;}' +
+        '#rdFechar{background:none;color:var(--text-dim);font-size:1.3em;padding:0 6px;}' +
+        '#rdLista{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}' +
+        '.rdMsg{max-width:85%;padding:9px 12px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);font-size:.88em;word-break:break-word;}' +
+        '.rdMsg.eu{align-self:flex-end;background:rgba(0,224,168,.12);border-color:rgba(0,224,168,.3);}' +
+        '.rdMsg .rdDe{font-size:.72em;color:var(--text-dim);font-family:var(--font-display);margin-bottom:3px;}' +
+        '.rdMsg audio{width:200px;height:34px;margin-top:2px;}' +
+        '#rdRodape{padding:10px 14px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;}' +
+        '#rdPtt{width:100%;padding:18px;font-size:1em;background:linear-gradient(135deg,var(--accent),#1b8fe0);color:#04141f;' +
+        'touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}' +
+        '#rdPtt.gravando{background:linear-gradient(135deg,var(--danger),#a91c3e);color:#fff;}' +
+        '#rdStatus{font-size:.75em;color:var(--text-dim);text-align:center;min-height:1.2em;}';
+    document.head.appendChild(css);
+
+    // ---------- elementos ----------
+    var botao = document.createElement('button');
+    botao.id = 'rdBotao'; botao.type = 'button'; botao.innerHTML = '🎙️<span id="rdBadge"></span>';
+    document.body.appendChild(botao);
+
+    var painel = document.createElement('div');
+    painel.id = 'rdPainel';
+    painel.innerHTML =
+        '<div id="rdTopo"><b>🎙️ Rádio da empresa</b>' +
+        '<input type="text" id="rdNome" maxlength="20" placeholder="Seu nome">' +
+        '<button id="rdFechar" type="button">✕</button></div>' +
+        '<div id="rdLista"></div>' +
+        '<div id="rdRodape">' +
+        '<div class="row"><input type="text" id="rdTexto" placeholder="Digite uma mensagem..." maxlength="300">' +
+        '<button id="rdEnviar" type="button">Enviar</button></div>' +
+        '<button id="rdPtt" type="button">🎙️ SEGURE PARA FALAR</button>' +
+        '<div id="rdStatus"></div></div>';
+    document.body.appendChild(painel);
+
+    var elLista = document.getElementById('rdLista');
+    var elStatus = document.getElementById('rdStatus');
+    var elPtt = document.getElementById('rdPtt');
+    var elNome = document.getElementById('rdNome');
+    var elBadge = document.getElementById('rdBadge');
+
+    function status(txt) { elStatus.textContent = txt || ''; }
+
+    function nomeUsuario() {
+        var salvo = '';
+        try { salvo = (localStorage.getItem('chat_nome') || '').trim(); } catch (e) {}
+        if (salvo) return salvo;
+        if (typeof listaVeiculos !== 'undefined' && listaVeiculos.length) return listaVeiculos[0];
+        if (auth.currentUser && auth.currentUser.email) return auth.currentUser.email.split('@')[0];
+        return 'Motorista';
+    }
+    elNome.value = nomeUsuario();
+    elNome.addEventListener('change', function () {
+        try { localStorage.setItem('chat_nome', elNome.value.trim()); } catch (e) {}
+    });
+
+    function caminhoMsgs() {
+        return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/mensagens';
+    }
+
+    // ---------- abrir / fechar ----------
+    function atualizarBadge() {
+        elBadge.style.display = naoLidas > 0 ? 'flex' : 'none';
+        elBadge.textContent = naoLidas > 99 ? '99+' : String(naoLidas);
+    }
+    botao.addEventListener('click', function () {
+        painelAberto = true; naoLidas = 0; atualizarBadge();
+        elNome.value = nomeUsuario();
+        painel.style.display = 'flex';
+        elLista.scrollTop = elLista.scrollHeight;
+        if (window.evManterAppAtivo) window.evManterAppAtivo();
+    });
+    document.getElementById('rdFechar').addEventListener('click', function () {
+        painelAberto = false; painel.style.display = 'none';
+    });
+
+    // ---------- mensagens ----------
+    function enfileirarAudio(src) { filaAudio.push(src); tocarProximo(); }
+    function tocarProximo() {
+        if (tocando || filaAudio.length === 0) return;
+        if (gravando) { setTimeout(tocarProximo, 600); return; }   // não toca enquanto você fala (evita eco)
+        tocando = true;
+        var a = new Audio(filaAudio.shift());
+        var fim = function () { tocando = false; tocarProximo(); };
+        a.onended = fim; a.onerror = fim;
+        var p = a.play();
+        if (p && p.catch) p.catch(fim);
+    }
+
+    function renderizar(key, m, local) {
+        if (!m || idsVistos[key]) return;
+        idsVistos[key] = true;
+
+        if (m.ts && Date.now() - m.ts > VALIDADE_MS) {         // limpeza de mensagens velhas
+            var u = {}; u[caminhoMsgs() + '/' + key] = null;
+            try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
+            return;
+        }
+
+        var meu = m.deId === DEVICE_ID;
+        var div = document.createElement('div');
+        div.className = 'rdMsg' + (meu ? ' eu' : '');
+        var de = document.createElement('div');
+        de.className = 'rdDe';
+        var hora = m.ts ? new Date(m.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        de.textContent = (meu ? 'Você' : (m.de || 'Alguém')) + ' · ' + hora;
+        div.appendChild(de);
+
+        if (m.tipo === 'audio' && m.audio) {
+            var au = document.createElement('audio');
+            au.controls = true; au.preload = 'none'; au.src = m.audio;
+            div.appendChild(au);
+        } else {
+            var t = document.createElement('div');
+            t.textContent = m.texto || '';
+            div.appendChild(t);
+        }
+        elLista.appendChild(div);
+        elLista.scrollTop = elLista.scrollHeight;
+
+        // "nova" = chegou depois do histórico inicial (não depende do relógio do outro aparelho)
+        var nova = !local && !meu && !carregandoHistorico;
+        if (nova) {
+            if (m.tipo === 'audio' && m.audio) enfileirarAudio(m.audio);   // toca sozinho, como no Zello
+            if (!painelAberto) { naoLidas++; atualizarBadge(); }
+        }
+    }
+
+    function enviar(extra) {
+        if (!EMPRESA_ID || !recursoLiberado) return Promise.reject(new Error('Rádio não liberado para esta empresa.'));
+        var path = caminhoMsgs();
+        var key = db.ref(path).push().key;
+        var msg = Object.assign({ de: nomeUsuario(), deId: DEVICE_ID, ts: Date.now() }, extra);
+        var upd = {}; upd[path + '/' + key] = msg;
+        renderizar(key, msg, true);
+        return enviarAtualizacoesFirebase(upd);
+    }
+
+    function enviarTexto() {
+        var inp = document.getElementById('rdTexto');
+        var txt = inp.value.trim();
+        if (!txt) return;
+        inp.value = '';
+        enviar({ tipo: 'texto', texto: txt }).catch(function (e) { status('⚠️ Falha ao enviar: ' + (e && e.message ? e.message : e)); });
+    }
+    document.getElementById('rdEnviar').addEventListener('click', enviarTexto);
+    document.getElementById('rdTexto').addEventListener('keydown', function (e) { if (e.key === 'Enter') enviarTexto(); });
+
+    // ---------- push-to-talk ----------
+    function escolherMime() {
+        var opcoes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+        for (var i = 0; i < opcoes.length; i++) {
+            try { if (MediaRecorder.isTypeSupported(opcoes[i])) return opcoes[i]; } catch (e) {}
+        }
+        return '';
+    }
+
+    function comecarGravacao() {
+        if (gravando || segurando) return;
+        if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            status('⚠️ Este aparelho não suporta gravação de voz.'); return;
+        }
+        segurando = true; status('Liberando microfone...');
+        navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (s) {
+            if (!segurando) { s.getTracks().forEach(function (t) { t.stop(); }); status(''); return; }
+            stream = s; pedacos = [];
+            var mime = escolherMime();
+            var opc = { audioBitsPerSecond: BITS_AUDIO };
+            if (mime) opc.mimeType = mime;
+            gravador = new MediaRecorder(s, opc);
+            gravador.ondataavailable = function (ev) { if (ev.data && ev.data.size) pedacos.push(ev.data); };
+            gravador.onstop = finalizarGravacao;
+            gravador.start();
+            gravando = true; inicioGrav = Date.now();
+            elPtt.classList.add('gravando'); elPtt.textContent = '🔴 FALANDO... solte para enviar';
+            status('Gravando (máx. ' + MAX_SEGUNDOS_AUDIO + 's)');
+            timerGrav = setTimeout(pararGravacao, MAX_SEGUNDOS_AUDIO * 1000);
+        }).catch(function (e) {
+            segurando = false;
+            status('⚠️ Sem acesso ao microfone: ' + (e && e.message ? e.message : e));
+        });
+    }
+
+    function pararGravacao() {
+        segurando = false;
+        if (!gravando) return;
+        gravando = false; clearTimeout(timerGrav);
+        elPtt.classList.remove('gravando'); elPtt.textContent = '🎙️ SEGURE PARA FALAR';
+        try { gravador.stop(); } catch (e) { status('⚠️ Erro ao parar gravação.'); }
+    }
+
+    function finalizarGravacao() {
+        if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+        var dur = (Date.now() - inicioGrav) / 1000;
+        if (dur < 0.6 || pedacos.length === 0) { status('Áudio muito curto — segure o botão para falar.'); return; }
+        var blob = new Blob(pedacos, { type: (gravador && gravador.mimeType) || 'audio/webm' });
+        var leitor = new FileReader();
+        leitor.onloadend = function () {
+            status('Enviando...');
+            enviar({ tipo: 'audio', audio: leitor.result, dur: Math.round(dur) })
+                .then(function () { status('✅ Enviado'); })
+                .catch(function (e) { status('⚠️ Falha ao enviar: ' + (e && e.message ? e.message : e)); });
+        };
+        leitor.readAsDataURL(blob);
+    }
+
+    elPtt.addEventListener('pointerdown', function (e) { e.preventDefault(); try { elPtt.setPointerCapture(e.pointerId); } catch (x) {} comecarGravacao(); });
+    elPtt.addEventListener('pointerup', pararGravacao);
+    elPtt.addEventListener('pointercancel', pararGravacao);
+    elPtt.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+    // ---------- ligação com a empresa / assinatura ----------
+    function pararMensagens() {
+        if (refMsgs) { try { refMsgs.off(); } catch (e) {} refMsgs = null; }
+    }
+    function ouvirMensagens() {
+        if (refMsgs) return;
+        carregandoHistorico = true;
+        refMsgs = db.ref(caminhoMsgs()).limitToLast(MAX_MENSAGENS);
+        refMsgs.on('child_added', function (snap) { renderizar(snap.key, snap.val(), false); }, function () {});
+        // os child_added do histórico chegam antes deste "value": depois dele, tudo é mensagem nova
+        refMsgs.once('value', function () { carregandoHistorico = false; }, function () { carregandoHistorico = false; });
+    }
+    function desligar() {
+        if (refRecurso) { try { refRecurso.off(); } catch (e) {} refRecurso = null; }
+        pararMensagens();
+        recursoLiberado = false; empresaAtual = null; idsVistos = {};
+        elLista.innerHTML = ''; naoLidas = 0; atualizarBadge();
+        atualizarVisibilidade();
+    }
+    function iniciar() {
+        empresaAtual = EMPRESA_ID;
+        refRecurso = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/recursos/chat');
+        refRecurso.on('value', function (s) {
+            recursoLiberado = (s.val() === true);
+            if (recursoLiberado) ouvirMensagens(); else pararMensagens();
+            atualizarVisibilidade();
+        }, function () { recursoLiberado = false; pararMensagens(); atualizarVisibilidade(); });
+    }
+    function atualizarVisibilidade() {
+        var pode = recursoLiberado && !!auth.currentUser && !!EMPRESA_ID && !appSuspenso;
+        botao.style.display = pode ? 'block' : 'none';
+        if (!pode && painelAberto) { painelAberto = false; painel.style.display = 'none'; }
+    }
+
+    setInterval(function () {
+        if (!auth.currentUser || !EMPRESA_ID) { if (empresaAtual) desligar(); else atualizarVisibilidade(); return; }
+        if (empresaAtual !== EMPRESA_ID) { desligar(); iniciar(); }
+        atualizarVisibilidade();
+    }, INTERVALO_VERIFICACAO_MS);
+})();
+
+</script>
 </body>
-            </html>
+    </html>
