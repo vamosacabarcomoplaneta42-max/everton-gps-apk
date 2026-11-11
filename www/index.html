@@ -2495,8 +2495,13 @@ setInterval(function() {
         registrarPresenca();
     });
 
+    // Um canal por grupo: Frota usa o caminho de sempre; Família tem o seu próprio (uma não enxerga a outra)
+    function grupoRadio() { return window.EVERTON_MODO === 'familia' ? 'familia' : 'frota'; }
+    var grupoAtivo = grupoRadio();
+    function baseChat(g) { return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat' + ((g || grupoAtivo) === 'familia' ? '/familia' : ''); }
+    function rotuloGrupo() { return grupoAtivo === 'familia' ? 'da família' : (window.EVERTON_MODO === 'frota' ? 'da frota' : 'da empresa'); }
     function caminhoMsgs() {
-        return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/mensagens';
+        return baseChat() + '/mensagens';
     }
 
     // ---------- abrir / fechar ----------
@@ -2692,7 +2697,7 @@ setInterval(function() {
     elPtt.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
     // ---------- contatos (quem está no canal da empresa) ----------
-    function caminhoContatos() { return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/contatos'; }
+    function caminhoContatos(g) { return baseChat(g) + '/contatos'; }
     function registrarPresenca() {
         if (!EMPRESA_ID || !recursoLiberado || !auth.currentUser) return;
         var u = {};
@@ -2718,7 +2723,7 @@ setInterval(function() {
         lista.sort(function (a, b) { return ((b.online ? 1 : 0) - (a.online ? 1 : 0)) || a.nome.localeCompare(b.nome); });
         var contagem = {}; lista.forEach(function (c) { contagem[c.nome] = (contagem[c.nome] || 0) + 1; });
         elPara.innerHTML = '';
-        var todos = document.createElement('option'); todos.value = ''; todos.textContent = '👥 Todos da empresa'; elPara.appendChild(todos);
+        var todos = document.createElement('option'); todos.value = ''; todos.textContent = '👥 Todos ' + rotuloGrupo(); elPara.appendChild(todos);
         lista.forEach(function (c) {
             var o = document.createElement('option'); o.value = c.id;
             o.textContent = (c.online ? '🟢 ' : '⚪ ') + c.nome + (contagem[c.nome] > 1 ? ' (' + c.id.slice(-4) + ')' : '');
@@ -2737,7 +2742,7 @@ setInterval(function() {
     }
 
     // ---------- recibos: ✓ enviada, ✓✓ chegou no aparelho, ✓✓ azul = ouviu/viu ----------
-    function caminhoRecibos() { return 'empresas/' + sanitizarChavePath(EMPRESA_ID) + '/chat/recibos'; }
+    function caminhoRecibos() { return baseChat() + '/recibos'; }
     function nivelDe(id, dev) { return ((recibos[id] || {})[dev]) || 0; }
     function confirmar(id, nivel) {
         if (!id) return;
@@ -2817,6 +2822,27 @@ setInterval(function() {
         // os child_added do histórico chegam antes deste "value": depois dele, tudo é mensagem nova
         refMsgs.once('value', function () { carregandoHistorico = false; }, function () { carregandoHistorico = false; });
     }
+    function atualizarTitulo() {
+        var t = document.querySelector('#rdTopo b'), txt = '🎙️ Rádio ' + rotuloGrupo();
+        if (t && t.textContent !== txt) t.textContent = txt;
+    }
+    function atualizarRotulos() { atualizarTitulo(); preencherContatos(); }
+    function trocarCanal() {
+        var novo = grupoRadio();
+        if (novo === grupoAtivo) return;
+        var antigo = grupoAtivo;
+        // sai do canal antigo (some da lista de contatos de lá)
+        try { if (EMPRESA_ID && recursoLiberado && auth.currentUser) { var u = {}; u[caminhoContatos(antigo) + '/' + DEVICE_ID] = null; enviarAtualizacoesFirebase(u).catch(function () {}); } } catch (e) {}
+        pararMensagens();
+        grupoAtivo = novo;
+        idsVistos = {}; minhasMsgs = {}; textosNaoLidos = []; filaAudio.length = 0;
+        try { reprodutor.pause(); } catch (e) {}
+        elLista.innerHTML = ''; naoLidas = 0; atualizarBadge();
+        elPara.value = '';
+        atualizarRotulos();
+        if (recursoLiberado) ouvirMensagens();
+    }
+    window.addEventListener('ev-modo', trocarCanal);
     function desligar() {
         if (refRecurso) { try { refRecurso.off(); } catch (e) {} refRecurso = null; }
         pararMensagens();
@@ -2862,6 +2888,8 @@ setInterval(function() {
     setInterval(function () {
         if (!auth.currentUser || !EMPRESA_ID) { if (empresaAtual) desligar(); else atualizarVisibilidade(); return; }
         if (empresaAtual !== EMPRESA_ID) { desligar(); iniciar(); }
+        trocarCanal();
+        atualizarTitulo();
         atualizarVisibilidade();
     }, INTERVALO_VERIFICACAO_MS);
 
