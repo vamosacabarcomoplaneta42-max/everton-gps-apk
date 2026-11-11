@@ -136,7 +136,7 @@ button {
             <input type="text" id="valorPlano" inputmode="decimal" placeholder="automático">
         </div>
         <div style="flex:1;">
-            <label>Qtd. de veículos / pessoas / aparelhos</label>
+            <label>Qtd. (vazio/automática = conforme o plano)</label>
             <input type="number" id="qtdPlano" min="1" step="1" value="1">
         </div>
     </div>
@@ -293,6 +293,34 @@ var RADIO_ADICIONAL = { frota: 2.00, familia: 2.00, combo: 2.90 };
 var RADIO_AVULSO = 3.90;
 function radioMarcado(){ var c = document.getElementById('chkRadio'); return !!(c && c.checked); }
 var veiculosCadastrados = 1;
+// Contagem separada: veículos/motoristas (frota) e pessoas (família). Vem da marca "grupo" que o app grava.
+var contagem = { frota: 0, familia: 0, total: 0 };
+var qtdManual = false;
+function qtdParaTipo(tipo){
+    var n = tipo === 'familia' ? contagem.familia : (tipo === 'radio' ? contagem.total : contagem.frota);
+    return Math.max(1, n);
+}
+function contarGrupos(id, tipoConta){
+    var padrao = String(tipoConta || '').indexOf('familia') === 0 ? 'familia' : 'frota';
+    var url = firebaseConfig.databaseURL + '/empresas/' + id + '/veiculos.json?shallow=true';
+    var obterNomes = auth.currentUser.getIdToken().then(function(tk){
+        return fetch(url + '&auth=' + tk).then(function(r){ return r.json(); });
+    }).then(function(o){ return Object.keys(o || {}); }).catch(function(){
+        return db.ref('empresas/' + id + '/veiculos').once('value').then(function(sn){
+            var a = []; sn.forEach(function(c){ a.push(c.key); }); return a;
+        });
+    });
+    return obterNomes.then(function(nomes){
+        return Promise.all(nomes.map(function(n){
+            return db.ref('empresas/' + id + '/veiculos/' + n + '/atual/grupo').once('value')
+                .then(function(g){ return g.val() || padrao; }).catch(function(){ return padrao; });
+        }));
+    }).then(function(grupos){
+        var c = { frota: 0, familia: 0, total: grupos.length };
+        grupos.forEach(function(g){ if (g === 'familia') c.familia++; else c.frota++; });
+        return c;
+    });
+}
 var valorDigitadoManual = false;
 
 function formatarReais(n){
@@ -311,13 +339,15 @@ function calcularValorPlano(tipo, mapa, qtd, comRadio){
     return Math.round(total * 100) / 100;
 }
 function atualizarPreviewPrecos(){
-    var q = parseInt(document.getElementById('qtdPlano').value, 10) || 1;
     var el = document.getElementById('previewPrecos');
     if (!el) return;
-    el.innerHTML = '🚚 Frota: <b>' + formatarReais(calcularValorPlano('frota', mapaSelecionado, q, radioMarcado())) + '</b> · ' +
-                   '👨‍👩‍👧 Família: <b>' + formatarReais(calcularValorPlano('familia', mapaSelecionado, q, radioMarcado())) + '</b> · ' +
-                   '🔀 Combo: <b>' + formatarReais(calcularValorPlano('combo', 'ambos', q, radioMarcado())) + '</b>' +
-                   '<br>📻 Rádio avulso: <b>R$ 3,90</b> por aparelho · incluído no plano: ' + (radioMarcado() ? '<b>SIM</b>' : 'não') + '<br>Veículos cadastrados na empresa: <b>' + veiculosCadastrados + '</b> · valores por 30 dias';
+    function qd(t){ return qtdManual ? (parseInt(document.getElementById('qtdPlano').value, 10) || 1) : qtdParaTipo(t); }
+    el.innerHTML = '🚚 Frota (' + qd('frota') + '): <b>' + formatarReais(calcularValorPlano('frota', mapaSelecionado, qd('frota'), radioMarcado())) + '</b> · ' +
+                   '👨‍👩‍👧 Família (' + qd('familia') + '): <b>' + formatarReais(calcularValorPlano('familia', mapaSelecionado, qd('familia'), radioMarcado())) + '</b> · ' +
+                   '🔀 Combo (' + qd('combo') + '): <b>' + formatarReais(calcularValorPlano('combo', 'ambos', qd('combo'), radioMarcado())) + '</b>' +
+                   '<br>📻 Rádio avulso: <b>R$ 3,90</b> por aparelho · incluído no plano: ' + (radioMarcado() ? '<b>SIM</b>' : 'não') +
+                   '<br>Cadastrados na empresa: <b>' + contagem.frota + '</b> veículo(s)/motorista(s) da frota · <b>' + contagem.familia + '</b> pessoa(s) da família' +
+                   '<br>' + (qtdManual ? 'Quantidade digitada por você vale para todos os planos.' : 'Quantidade automática: Frota e Combo = veículos · Família = pessoas · Rádio = todos os aparelhos.') + ' Valores por 30 dias.';
 }
 function atualizarSelecaoMapa() {
     document.querySelectorAll('.mapa-opcao').forEach(function(el){ el.classList.remove('ativa'); });
@@ -455,9 +485,11 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
         document.getElementById('valorPlano').value = '';
         document.getElementById('qtdPlano').value = (detAtual && detAtual.quantidade) ? detAtual.quantidade : 1;
         atualizarPreviewPrecos();
-        db.ref(base + 'veiculos').once('value').then(function(snapV) {
-            veiculosCadastrados = snapV.exists() ? snapV.numChildren() : 0;
-            document.getElementById('qtdPlano').value = Math.max(1, veiculosCadastrados);
+        qtdManual = false;
+        contarGrupos(id, dados.tipo).then(function(c) {
+            contagem = c;
+            veiculosCadastrados = c.total;
+            document.getElementById('qtdPlano').value = Math.max(1, c.frota);
             atualizarPreviewPrecos();
         }).catch(function() {});
         document.getElementById('boxMapasEscolha').style.display = 'block';
@@ -475,7 +507,7 @@ document.getElementById('btnBuscar').addEventListener('click', function() {
 // NOVO: lê valor (R$) e quantidade digitados
 // Valor: se você digitou, usa o digitado; senão calcula tabela do plano x quantidade
 function lerValorQtd(tipo, mapa){
-    var q = parseInt(document.getElementById('qtdPlano').value, 10);
+    var q = qtdManual ? parseInt(document.getElementById('qtdPlano').value, 10) : qtdParaTipo(tipo);
     if (!q || q < 1) q = 1;
     var v;
     if (valorDigitadoManual) {
@@ -489,7 +521,7 @@ function lerValorQtd(tipo, mapa){
 document.getElementById('valorPlano').addEventListener('input', function(){
     valorDigitadoManual = String(this.value).trim() !== '';
 });
-document.getElementById('qtdPlano').addEventListener('input', atualizarPreviewPrecos);
+document.getElementById('qtdPlano').addEventListener('input', function(){ qtdManual = true; atualizarPreviewPrecos(); });
 
 function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
     var agora = new Date();
@@ -523,6 +555,8 @@ function salvarComBloqueio(id, tipoBase, mapaFinal, dias){
             tipoMapa: mapaFinal,
             tipoComMapa: tipoComMapa,
             valor: vq.valor,
+            quantidadeFrota: contagem.frota,
+            quantidadeFamilia: contagem.familia,
             dataAprovacao: agora.toISOString(),
             aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin'
         };
@@ -597,21 +631,38 @@ document.querySelectorAll('.btn-plano[data-completo]').forEach(function(btn){
         if (!empresaIdAtual) return;
         var tipo = btn.getAttribute('data-completo');
         if (tipo === 'radio') {
-            var q = parseInt(document.getElementById('qtdPlano').value, 10) || 1;
+            var q = qtdManual ? (parseInt(document.getElementById('qtdPlano').value, 10) || 1) : qtdParaTipo('radio');
             var valor = Math.round(q * RADIO_AVULSO * 100) / 100;
-            if (!confirm("Liberar o RÁDIO AVULSO para '" + empresaIdAtual + "'?\n" + q + " aparelho(s) · " + formatarReais(valor) + "\nNão mexe em plano, status nem data.")) return;
-            var u = {};
-            u['empresas/' + empresaIdAtual + '/radio'] = true;
-            db.ref().update(u).then(function(){
-                var d = {};
-                d['empresas/' + empresaIdAtual + '/planoDetalhe/radio'] = { quantidade: q, valor: valor, dataAprovacao: new Date().toISOString(), aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin' };
-                return db.ref().update(d).catch(function(){});
-            }).then(function(){
-                mostrarMsg("✅ Rádio avulso liberado (" + formatarReais(valor) + ").", "ok");
-                document.getElementById('btnBuscar').click();
-            }).catch(function(e){
-                mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro");
-            });
+            var idEmp = empresaIdAtual;
+            var gravarRadio = function(extra){
+                var u = extra || {};
+                u['empresas/' + idEmp + '/radio'] = true;
+                return db.ref().update(u).then(function(){
+                    var d = {};
+                    d['empresas/' + idEmp + '/planoDetalhe/radio'] = { quantidade: q, valor: valor, dataAprovacao: new Date().toISOString(), aprovadoPor: auth.currentUser ? auth.currentUser.email : 'admin' };
+                    return db.ref().update(d).catch(function(){});
+                });
+            };
+            perguntarModo(
+                'Empresa: <b>' + idEmp + '</b><br>Rádio avulso · ' + q + ' aparelho(s) · <b>' + formatarReais(valor) + '</b>',
+                '🔄 Renovar por 30 dias (cliente só de rádio)',
+                function(){
+                    var exp = new Date(Date.now() + 30 * 86400000);
+                    var x = {};
+                    x['empresas/' + idEmp + '/status'] = 'ativo';
+                    x['empresas/' + idEmp + '/assinaturaExpiraEm'] = exp.toISOString();
+                    gravarRadio(x).then(function(){
+                        mostrarMsg("✅ Rádio avulso ativo até " + exp.toLocaleDateString('pt-BR') + " (" + formatarReais(valor) + ").", "ok");
+                        document.getElementById('btnBuscar').click();
+                    }).catch(function(e){ mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro"); });
+                },
+                function(){
+                    gravarRadio().then(function(){
+                        mostrarMsg("✅ Rádio liberado. Plano, status e data não foram mexidos.", "ok");
+                        document.getElementById('btnBuscar').click();
+                    }).catch(function(e){ mostrarMsg("Erro ao salvar o rádio: " + e.message + " (publique as regras novas)", "erro"); });
+                }
+            );
             return;
         }
         document.getElementById('chkRadio').checked = true;
