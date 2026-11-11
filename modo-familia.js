@@ -78,10 +78,22 @@
 
   /* ---------- envio: no modo Família, só envia com autorização ---------- */
   var enviarOrig = (typeof enviarAtualizacoesFirebase === 'function') ? enviarAtualizacoesFirebase : null;
+  /* Marca cada posição com o grupo (frota ou familia) do aparelho que enviou.
+     O painel admin e a tela da Família usam isso para separar motoristas de família. */
+  function marcarGrupo(updates) {
+    try {
+      var add = {}, achou = false;
+      Object.keys(updates || {}).forEach(function (k) {
+        var m = /^(.*\/veiculos\/[^\/]+\/atual\/)[^\/]+$/.exec(k);
+        if (m) { add[m[1] + 'grupo'] = modo; achou = true; }
+      });
+      return achou ? Object.assign({}, updates, add) : updates;
+    } catch (e) { return updates; }
+  }
   if (enviarOrig) {
     window.enviarAtualizacoesFirebase = function (updates) {
       if (bloqueado()) return Promise.resolve({});
-      return enviarOrig(updates);
+      return enviarOrig(marcarGrupo(updates));
     };
   }
   function escreverAtual(campo, valor) {
@@ -90,6 +102,7 @@
     var up = {};
     nomes.forEach(function (n) {
       up['empresas/' + san(EMPRESA_ID) + '/veiculos/' + san(n) + '/atual/' + campo] = valor;
+      up['empresas/' + san(EMPRESA_ID) + '/veiculos/' + san(n) + '/atual/grupo'] = modo;
     });
     var enviar = enviarOrig || function (u) { return db.ref().update(u); };
     return enviar(up);
@@ -428,7 +441,14 @@
     proprios().forEach(function (n) { meus[san(n)] = true; });
     var vistos = {};
     var sosAtivos = [];
-    var chaves = Object.keys(fam.dados).filter(function (k) { return fam.dados[k]; }).sort();
+    /* só aparece quem é da família: motoristas (grupo "frota") ficam de fora.
+       Registro antigo, sem grupo: só vale como família se a conta for só Família. */
+    var chaves = Object.keys(fam.dados).filter(function (k) {
+      var d = fam.dados[k];
+      if (!d) return false;
+      if (meus[k]) return true;
+      return d.grupo ? d.grupo === 'familia' : tipoEfetivo() === 'familia';
+    }).sort();
 
     chaves.forEach(function (k) {
       var d = fam.dados[k];
