@@ -73,6 +73,30 @@
   }
 
   var modo = LS.get(K_MODO) === 'familia' ? 'familia' : 'frota';
+  /* ---------- cada modo tem a sua própria lista de nomes neste aparelho ----------
+     Frota: veículos/motoristas. Família: pessoas. Ao trocar de modo, a lista troca junto. */
+  var K_LISTA = { frota: 'ev_lista_frota', familia: 'ev_lista_familia' };
+  function lerLista(m) { try { return JSON.parse(LS.get(K_LISTA[m]) || 'null'); } catch (e) { return null; } }
+  function guardarLista(m) { LS.set(K_LISTA[m], JSON.stringify(proprios())); }
+  function carregarLista(m) {
+    var nova = lerLista(m) || [];
+    if (typeof listaVeiculos === 'undefined') return;
+    listaVeiculos.length = 0;
+    nova.forEach(function (n) { listaVeiculos.push(n); });
+    try { salvarTudo(); } catch (e) {}
+    try { observarSuspensos(); } catch (e) {}
+    try { renderizarFrotaLocal(); } catch (e) {}
+    try { atualizarInterfaceEstado(); } catch (e) {}
+  }
+  /* primeira vez com esta versão: a lista que já existe fica no modo atual; o outro modo começa vazio */
+  if (lerLista(modo) === null) guardarLista(modo);
+  if (lerLista(modo === 'familia' ? 'frota' : 'familia') === null) LS.set(K_LISTA[modo === 'familia' ? 'frota' : 'familia'], '[]');
+  /* tudo que o app salvar (adicionar/remover nome) vale para a lista do modo atual */
+  if (typeof salvarTudo === 'function') {
+    var salvarTudoOrig = salvarTudo;
+    window.salvarTudo = function () { var r = salvarTudoOrig.apply(this, arguments); guardarLista(modo); return r; };
+  }
+
   function consentido() { return LS.get(K_CONSENT) === '1'; }
   function bloqueado() { return modo === 'familia' && !consentido(); }
 
@@ -313,8 +337,11 @@
     var alvo = (m === 'familia') ? 'familia' : 'frota';
     var t = tipoEfetivo();
     if ((t === 'frota' && alvo === 'familia') || (t === 'familia' && alvo === 'frota')) return;  /* fora do plano da conta */
+    if (alvo !== modo) guardarLista(modo);
+    var trocou = (alvo !== modo);
     modo = alvo;
     LS.set(K_MODO, modo);
+    if (trocou) carregarLista(modo);
     aplicarModo();
     if (modo === 'familia' && !consentido()) mostrarConsentimento();
   }
