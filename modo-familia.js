@@ -75,6 +75,7 @@
   var modo = LS.get(K_MODO) === 'familia' ? 'familia' : 'frota';
   /* ---------- cada modo tem a sua própria lista de nomes neste aparelho ----------
      Frota: veículos/motoristas. Família: pessoas. Ao trocar de modo, a lista troca junto. */
+  window.EVERTON_MODO = modo;   /* o rádio usa isso para separar o canal da Frota do canal da Família */
   var K_LISTA = { frota: 'ev_lista_frota', familia: 'ev_lista_familia' };
   function lerLista(m) { try { return JSON.parse(LS.get(K_LISTA[m]) || 'null'); } catch (e) { return null; } }
   function guardarLista(m) { LS.set(K_LISTA[m], JSON.stringify(proprios())); }
@@ -341,9 +342,11 @@
     var trocou = (alvo !== modo);
     modo = alvo;
     LS.set(K_MODO, modo);
+    window.EVERTON_MODO = modo;
     if (trocou) carregarLista(modo);
     aplicarModo();
     if (modo === 'familia' && !consentido()) mostrarConsentimento();
+    try { window.dispatchEvent(new Event('ev-modo')); } catch (e) {}
   }
 
   /* ---------- autorização (consentimento) ---------- */
