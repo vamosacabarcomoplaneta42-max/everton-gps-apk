@@ -467,6 +467,44 @@
     });
   }
 
+  /* ---------- sirene do SOS (toca também com o app em segundo plano / tela apagada) ---------- */
+  var sirene = { audio: null, timer: null, url: null };
+  function criarSireneUrl() {
+    if (sirene.url) return sirene.url;
+    var sr = 16000, dur = 2, n = sr * dur, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    function str(o, t) { for (var i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); }
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, n * 2, true);
+    var fase = 0;
+    for (var i = 0; i < n; i++) {
+      var t = (i / sr) % 1;                         /* sobe e desce a cada 1 s, como sirene */
+      var f = 700 + 800 * (t < .5 ? t * 2 : (1 - t) * 2);
+      fase += 2 * Math.PI * f / sr;
+      var x = Math.sin(fase) > 0 ? 1 : -1;          /* onda quadrada: bem alta e estridente */
+      v.setInt16(44 + i * 2, x * 30000, true);
+    }
+    sirene.url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    return sirene.url;
+  }
+  function pararSirene() {
+    if (sirene.timer) { clearTimeout(sirene.timer); sirene.timer = null; }
+    if (sirene.audio) { try { sirene.audio.pause(); } catch (e) {} sirene.audio = null; }
+  }
+  function tocarSirene() {
+    try {
+      if (sirene.audio) return;
+      if (typeof window.evManterAppAtivo === 'function') { try { window.evManterAppAtivo(); } catch (e) {} }
+      var a = new Audio(criarSireneUrl());
+      a.loop = true; a.volume = 1;
+      sirene.audio = a;
+      var p = a.play();
+      if (p && p.catch) p.catch(function () { setTimeout(function () { try { if (sirene.audio) sirene.audio.play(); } catch (e) {} }, 1000); });
+      sirene.timer = setTimeout(pararSirene, 60000);   /* para sozinha em 1 minuto */
+    } catch (e) {}
+  }
+
   function renderFamilia() {
     if (!$('evLista')) return;
     var lista = $('evLista');
@@ -532,14 +570,18 @@
       el.className = 'ev-alerta';
       el.setAttribute('role', 'alert');
       el.innerHTML = '<span>🆘 SOS de ' + esc(nome) + ', há ' + esc(tempo(Date.now() - a.sos.ts)) + '</span>' +
-        '<button type="button" data-a="ver">Ver no mapa</button>' + (meu ? '<button type="button" data-a="cancelar">Cancelar SOS</button>' : '');
+        '<button type="button" data-a="ver">Ver no mapa</button>' + (!meu ? '<button type="button" data-a="mudo">🔇 Silenciar</button>' : '') + (meu ? '<button type="button" data-a="cancelar">Cancelar SOS</button>' : '');
       el.querySelector('[data-a="ver"]').addEventListener('click', function () { focar(a.k); });
+      var bm = el.querySelector('[data-a="mudo"]');
+      if (bm) bm.addEventListener('click', pararSirene);
       var bc = el.querySelector('[data-a="cancelar"]');
       if (bc) bc.addEventListener('click', function () {
         escreverAtual('sos', null).catch(function (e) { alert('Não foi possível cancelar: ' + (e && e.message ? e.message : e)); });
       });
       box.appendChild(el);
     });
+    if (novoSos) tocarSirene();
+    if (!sosAtivos.some(function (a) { return !meus[a.k]; })) pararSirene();   /* o SOS acabou: silencia */
     if (novoSos && navigator.vibrate) { try { navigator.vibrate([400, 200, 400, 200, 400]); } catch (e) {} }
 
     /* avisos */
