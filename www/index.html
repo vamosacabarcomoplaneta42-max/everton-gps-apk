@@ -1185,6 +1185,32 @@ document.getElementById('ultimoErroSync').addEventListener('click', function() {
 
 // ===================== MAPA (fixo — não gira mais) =====================
 var map = L.map('map', { zoomControl: false }).setView([-29.6133, -52.1919], 13);
+
+// ---- Mapa em tela cheia (botão no canto do mapa) ----
+try { (function () {
+    var st = document.createElement('style');
+    st.textContent = 'body.ev-mapa-cheio{overflow:hidden}' +
+        'body.ev-mapa-cheio #map{position:fixed!important;top:0;left:0;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:8000}' +
+        '.ev-btn-cheia{width:44px;height:44px;border-radius:10px;border:2px solid rgba(0,0,0,.35);background:#fff;color:#111;font-size:22px;line-height:40px;text-align:center;cursor:pointer;padding:0}';
+    document.head.appendChild(st);
+    var Ctl = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function () {
+            var b = L.DomUtil.create('button', 'ev-btn-cheia');
+            b.type = 'button'; b.setAttribute('aria-label', 'Mapa em tela cheia'); b.textContent = '⛶';
+            L.DomEvent.disableClickPropagation(b);
+            L.DomEvent.on(b, 'click', function () {
+                var cheio = document.body.classList.toggle('ev-mapa-cheio');
+                b.textContent = cheio ? '✕' : '⛶';
+                b.setAttribute('aria-label', cheio ? 'Sair da tela cheia' : 'Mapa em tela cheia');
+                setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60);
+                setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 400);
+            });
+            return b;
+        }
+    });
+    new Ctl().addTo(map);
+})(); } catch (e) {}
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
 function criarIconeVeiculo(anguloGraus, cor) {
