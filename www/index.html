@@ -2701,15 +2701,31 @@ setInterval(function() {
     function registrarPresenca() {
         if (!EMPRESA_ID || !recursoLiberado || !auth.currentUser) return;
         var u = {};
-        u[caminhoContatos() + '/' + DEVICE_ID] = { nome: nomeUsuario(), ts: { '.sv': 'timestamp' } };
+        u[caminhoContatos() + '/' + DEVICE_ID] = { nome: nomeUsuario(), grupo: grupoAtivo, ts: { '.sv': 'timestamp' } };
         try { enviarAtualizacoesFirebase(u).catch(function () {}); } catch (e) {}
     }
     // Mesmo nome = mesmo aparelho (reinstalou o app gera outro ID): fica só o mais recente
+    // Contato sem marca de grupo (app antigo): descobre pelo cadastro do veículo/pessoa com o mesmo nome
+    var grupoPorNome = {};
+    function grupoDoContato(c) {
+        if (c.grupo) return c.grupo;
+        var k = String(c.nome || '').trim();
+        if (!k) return null;
+        if (k in grupoPorNome) return grupoPorNome[k];
+        grupoPorNome[k] = null;
+        try {
+            db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/veiculos/' + sanitizarChavePath(k) + '/atual/grupo').once('value')
+                .then(function (sn) { if (sn.val()) { grupoPorNome[k] = sn.val(); preencherContatos(); } }).catch(function () {});
+        } catch (e) {}
+        return null;
+    }
     function contatosUnicos() {
         var agora = Date.now(), porNome = {};
         Object.keys(contatos).forEach(function (id) {
             var c = contatos[id];
             if (id === DEVICE_ID || !c || !c.ts || agora - c.ts > 3 * 86400000) return;
+            var gc = grupoDoContato(c);
+            if (gc && gc !== grupoAtivo) return;   // só aparece quem é do grupo do canal atual
             var chave = String(c.nome || 'Sem nome').trim().toLowerCase();
             if (!porNome[chave] || c.ts > porNome[chave].c.ts) porNome[chave] = { id: id, c: c };
         });
