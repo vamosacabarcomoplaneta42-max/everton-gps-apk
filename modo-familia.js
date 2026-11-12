@@ -309,7 +309,10 @@
 
   function aplicarModo() {
     var f = modo === 'familia';
-    $('evFamilia').hidden = !f;
+    $('evFamilia').hidden = false;   /* a lista aparece nos dois modos: Frota = só motoristas, Família = só família */
+    var cab = document.querySelector('#evFamilia .ev-head span');
+    if (cab) cab.textContent = f ? '👨‍👩‍👧 Família agora' : '🚚 Frota agora';
+    var bRed = $('evReduzir'); if (bRed) bRed.style.display = f ? '' : 'none';
     document.querySelectorAll('.ev-seg button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-modo') === modo);
     });
@@ -327,7 +330,7 @@
       restaurarTextos();
     }
     atualizarSOS();
-    if (f) { garantirFamilia(); renderFamilia(); } else { pararFamilia(); }
+    pararFamilia(); garantirFamilia(); renderFamilia();   /* recomeça a lista do modo escolhido */
   }
 
   function atualizarSOS() {
@@ -403,7 +406,8 @@
 
   /* Lista só os nomes (shallow), para não baixar o histórico inteiro de cada pessoa. */
   function atualizarNomes() {
-    if (!auth.currentUser || !EMPRESA_ID || modo !== 'familia') return;
+    if (!auth.currentUser || !EMPRESA_ID) return;
+    var modoAntes = modo;
     var empresa = EMPRESA_ID;
     var chaves = {};
     proprios().forEach(function (n) { chaves[san(n)] = true; });
@@ -421,7 +425,7 @@
     }).catch(function (e) {
       fam.erro = (e && e.message) ? e.message : String(e);
     }).then(function () {
-      if (empresa !== EMPRESA_ID || modo !== 'familia') return;
+      if (empresa !== EMPRESA_ID || modo !== modoAntes) return;
       Object.keys(chaves).forEach(function (k) {
         if (fam.refs[k]) return;
         var ref = db.ref('empresas/' + san(empresa) + '/veiculos/' + k + '/atual');
@@ -464,20 +468,20 @@
   }
 
   function renderFamilia() {
-    if (modo !== 'familia' || !$('evLista')) return;
+    if (!$('evLista')) return;
     var lista = $('evLista');
     lista.innerHTML = '';
     var meus = {};
     proprios().forEach(function (n) { meus[san(n)] = true; });
     var vistos = {};
     var sosAtivos = [];
-    /* só aparece quem é da família: motoristas (grupo "frota") ficam de fora.
+    /* só aparece quem é do modo atual (Frota = motoristas, Família = pessoas).
        Registro antigo, sem grupo: só vale como família se a conta for só Família. */
     var chaves = Object.keys(fam.dados).filter(function (k) {
       var d = fam.dados[k];
       if (!d) return false;
       if (meus[k]) return true;
-      return d.grupo ? d.grupo === 'familia' : tipoEfetivo() === 'familia';
+      return d.grupo ? d.grupo === modo : modo === (tipoEfetivo() === 'familia' ? 'familia' : 'frota');
     }).sort();
 
     chaves.forEach(function (k) {
@@ -542,9 +546,9 @@
     var av = $('evAviso');
     var msgs = [];
     av.className = 'ev-aviso';
-    if (!proprios().length) msgs.push('Cadastre o nome de quem usa este aparelho (ex.: MÃE) para começar a compartilhar.');
+    if (!proprios().length && modo === 'familia') msgs.push('Cadastre o nome de quem usa este aparelho (ex.: MÃE) para começar a compartilhar.');
     if (fam.erro) { msgs.push('Não foi possível ler os outros aparelhos (' + fam.erro + '). Confira as regras do banco de dados.'); av.className = 'ev-aviso ev-erro'; }
-    if (!chaves.length && !fam.erro && proprios().length) msgs.push('Aguardando a primeira posição da família...');
+    if (!chaves.length && !fam.erro && proprios().length) msgs.push(modo === 'familia' ? 'Aguardando a primeira posição da família...' : 'Nenhum outro motorista com posição ainda.');
     av.textContent = msgs.join(' ');
     atualizarSOS();
   }
@@ -762,8 +766,8 @@
     LS.del(K_TIPO_PEND);   /* o tipo não é mais escolhido no cadastro */
     observarTipo();
     aplicarTipoConta();
+    garantirFamilia();
     if (modo === 'familia') {
-      garantirFamilia();
       atualizarSOS();
       verificarRemocaoRemota();
     }
