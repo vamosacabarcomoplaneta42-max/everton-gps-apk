@@ -198,7 +198,14 @@
 
         <div id="painelCadastro" style="display:none;">
             <div class="beneficio-trial" style="background: rgba(0,255,166,.08); border: 1px solid rgba(0,255,166,.3); border-radius: 10px; padding: 10px 12px; font-size: .8em; color: var(--text-dim); margin-bottom: 14px; line-height: 1.5;">
-                <b style="color:var(--brand);">7 dias grátis</b> pra testar com sua frota. Sem cartão de crédito agora.
+                <b style="color:var(--brand);">7 dias grátis</b> com tudo liberado: mapa, rádio e SOS. Sem cartão de crédito agora.
+            </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">O que você quer testar?</label>
+                <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;cursor:pointer;"><input type="radio" name="cadTeste" value="familia"  style="margin-top:3px;width:auto;"><span style="font-size:.85em;line-height:1.4;"><b>👨‍👩‍👧 Só Família</b><br><span style="color:var(--text-dim);font-size:.9em;">Mapa, SOS, rádio e histórico das pessoas da família.</span></span></label>
+                <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;cursor:pointer;"><input type="radio" name="cadTeste" value="frota"  style="margin-top:3px;width:auto;"><span style="font-size:.85em;line-height:1.4;"><b>🚚 Só Frota</b><br><span style="color:var(--text-dim);font-size:.9em;">Mapa, rádio e histórico dos veículos e motoristas.</span></span></label>
+                <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;cursor:pointer;"><input type="radio" name="cadTeste" value="combo" checked style="margin-top:3px;width:auto;"><span style="font-size:.85em;line-height:1.4;"><b>🔀 Tudo (Frota + Família)</b><br><span style="color:var(--text-dim);font-size:.9em;">Os dois modos liberados. Os dois ficam separados no app.</span></span></label>
+                <div style="font-size:.72em;color:var(--text-dim);margin:-2px 0 8px;">Você pode trocar isso depois, durante o teste.</div>
             </div>
             <div>
                 <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Nome da empresa</label>
@@ -1526,6 +1533,8 @@ document.getElementById('btnConfirmarCadastro').addEventListener('click', functi
         dadosEmpresa['empresas/' + idParaTentar + '/criadoEm'] = agora.toISOString();
         dadosEmpresa['empresas/' + idParaTentar + '/trialExpiraEm'] = trialExpira.toISOString();
         if (telefone) dadosEmpresa['empresas/' + idParaTentar + '/telefone'] = telefone;
+        var escolhaTeste = document.querySelector('input[name="cadTeste"]:checked');
+        dadosEmpresa['empresas/' + idParaTentar + '/testeTipo'] = escolhaTeste ? escolhaTeste.value : 'combo';
 
         return db.ref().update(dadosEmpresa).then(function() {
             return db.ref('mapaUsuarioEmpresa/' + uidCriado).set(idParaTentar);
@@ -2238,6 +2247,7 @@ function enviarDadosFila() {
         });
         enviarAtualizacoesFirebase(updates).then(() => {
             filaPendentes.splice(0, lote.length); falhasConsecutivasLote = 0; firebaseOnlineConfirmado = true; salvarTudo();
+            if (avisoTravadoNaTela) { avisoTravadoNaTela = false; var bx = document.getElementById('ultimoErroSync'); if (bx) bx.style.display = 'none'; }   // voltou ao normal: some o aviso
         }).catch(e => {
             falhasConsecutivasLote++; if (falhasConsecutivasLote >= 20) { filaPendentes.shift(); falhasConsecutivasLote = 0; salvarTudo(); }
             var agora = Date.now();
@@ -2259,13 +2269,21 @@ function enviarDadosFila() {
     } catch (e) { filaPendentes.shift(); enviando = false; ultimaVezQueComecouEnvio = null; atualizarInterfaceEstado(); }
 }
 
+var travadosRecentes = [], avisoTravadoNaTela = false;
 setInterval(function() {
     if (enviando && ultimaVezQueComecouEnvio && (Date.now() - ultimaVezQueComecouEnvio) > 25000) {
         console.warn("Envio da fila travado há mais de 25s — destravando e tentando de novo.");
         enviando = false;
         ultimaVezQueComecouEnvio = null;
         forcarReconexaoFirebaseSeTravado();
-        mostrarErroSyncPersistente("⏱️ Envio ficou travado por mais de 25s (comum quando a tela fica muito tempo apagada) — destravado automaticamente e tentando de novo.");
+        // Recuperação automática: só avisa na tela se travar várias vezes seguidas (senão assusta à toa)
+        var agoraTr = Date.now();
+        travadosRecentes = travadosRecentes.filter(function(t) { return agoraTr - t < 600000; });
+        travadosRecentes.push(agoraTr);
+        if (travadosRecentes.length >= 3) {
+            mostrarErroSyncPersistente("⏱️ A conexão está instável: o envio travou " + travadosRecentes.length + " vezes nos últimos 10 min. O app continua tentando sozinho.");
+            avisoTravadoNaTela = true;
+        }
         enviarDadosFila();
     }
 }, 10000);
@@ -2904,17 +2922,29 @@ setInterval(function() {
         if (bloq) status('🔒 Rádio disponível só para quem contratou um plano com Rádio.');
         else status('');
     }
+    // Rádio liberado se o super admin ativou (radio=true) OU se a empresa está no teste grátis vigente
+    var radioFlag = false;
+    function testeGratisAtivo() {
+        var e = estadoEmpresaAtual;
+        return !!(e && e.status === 'trial' && e.trialExpiraEm && new Date(e.trialExpiraEm).getTime() > Date.now());
+    }
+    function reavaliarRecurso() {
+        var novo = radioFlag || testeGratisAtivo();
+        if (novo === recursoLiberado) { return; }
+        recursoLiberado = novo;
+        if (recursoLiberado) ouvirMensagens(); else pararMensagens();
+        aplicarBloqueio();
+        atualizarVisibilidade();
+    }
     function iniciar() {
         empresaAtual = EMPRESA_ID;
-        recursoLiberado = false;
+        recursoLiberado = false; radioFlag = false;
         aplicarBloqueio();
         refRecurso = db.ref('empresas/' + sanitizarChavePath(EMPRESA_ID) + '/radio');
         refRecurso.on('value', function (s) {
-            recursoLiberado = (s.val() === true);
-            if (recursoLiberado) ouvirMensagens(); else pararMensagens();
-            aplicarBloqueio();
-            atualizarVisibilidade();
-        }, function () { recursoLiberado = false; pararMensagens(); aplicarBloqueio(); atualizarVisibilidade(); });
+            radioFlag = (s.val() === true);
+            reavaliarRecurso();
+        }, function () { radioFlag = false; reavaliarRecurso(); });
     }
     document.getElementById('rdVerPlanos').addEventListener('click', function () {
         painelAberto = false; painel.style.display = 'none';
@@ -2931,6 +2961,7 @@ setInterval(function() {
         if (!auth.currentUser || !EMPRESA_ID) { if (empresaAtual) desligar(); else atualizarVisibilidade(); return; }
         if (empresaAtual !== EMPRESA_ID) { desligar(); iniciar(); }
         trocarCanal();
+        reavaliarRecurso();
         atualizarTitulo();
         atualizarVisibilidade();
     }, INTERVALO_VERIFICACAO_MS);
