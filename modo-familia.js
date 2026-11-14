@@ -713,16 +713,32 @@
   }
 
   /* ---------- SOS ---------- */
+  /* teste rápido de rede: 401 = chegou no servidor (rede OK); erro = celular sem acesso ao servidor */
+  function diagnosticoRede() {
+    var url = (typeof firebaseConfig !== 'undefined' && firebaseConfig.databaseURL) ? firebaseConfig.databaseURL + '/.json?shallow=true' : null;
+    var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    if (ctl) setTimeout(function () { ctl.abort(); }, 6000);
+    if (!url) return Promise.resolve('sem URL do banco');
+    return fetch(url, ctl ? { signal: ctl.signal } : undefined).then(function (r) { return 'servidor respondeu HTTP ' + r.status + ' (rede OK)'; })
+      .catch(function (e) { return 'NÃO alcançou o servidor: ' + (e && e.message ? e.message : e); })
+      .then(function (t) { return t + ' | navigator.onLine=' + navigator.onLine + ' | login=' + (typeof auth !== 'undefined' && auth.currentUser ? 'ok' : 'NÃO'); });
+  }
   function enviarSOS() {
     if (!consentido()) return;
-    if (!confirm('Enviar alerta de SOS para a família? Todos que estiverem com o app aberto vão receber o aviso.')) return;
+    if (!confirm('Enviar alerta de SOS para a família? Todos os aparelhos da família vão receber o aviso com sirene.')) return;
     var pos = (typeof ultimaLeituraCompleta !== 'undefined' && ultimaLeituraCompleta) ? ultimaLeituraCompleta : null;
     var valor = { ts: firebase.database.ServerValue.TIMESTAMP };
     if (pos) { valor.lat = pos.lat; valor.lon = pos.lon; }
+    var confirmado = false;
+    setTimeout(function () {   /* sem confirmação em 10 s = sem conexão com o servidor: avisa em vez de ficar calado */
+      if (!confirmado) diagnosticoRede().then(function (d) { if (!confirmado) alert('⚠️ O SOS ainda NÃO chegou ao servidor. Ele fica na fila e sai quando a internet voltar. Se for urgente, ligue para alguém.\n\nDiagnóstico: ' + d); });
+    }, 10000);
     escreverAtual('sos', valor).then(function () {
+      confirmado = true;
       if (typeof mostrarAvisoGps === 'function') mostrarAvisoGps('🆘 SOS enviado para a família.');
     }).catch(function (e) {
-      alert('Não foi possível enviar o SOS: ' + (e && e.message ? e.message : e) + '\nConfira a internet e as regras do banco de dados.');
+      confirmado = true;
+      diagnosticoRede().then(function (d) { alert('Não foi possível enviar o SOS: ' + (e && e.message ? e.message : e) + '\n\nDiagnóstico: ' + d); });
     });
   }
 
