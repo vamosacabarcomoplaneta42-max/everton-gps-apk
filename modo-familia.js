@@ -747,6 +747,7 @@
      (teste grátis = tudo liberado; plano ativo = só o que foi contratado).
      Se esse arquivo não estiver carregado, vale o comportamento antigo. */
   var tipoRemoto = null, refTipo = null, empresaTipo = null, verificandoPend = false;
+  var testeRemoto = null, refTeste = null;   /* o que o cliente escolheu testar no teste grátis */
 
   function tipoEfetivo() {
     var a = window.EVERTON_ACESSO;
@@ -757,6 +758,7 @@
       return 'combo';
     }
     if (tipoRemoto) return tipoRemoto;
+    if (testeRemoto && typeof estadoEmpresaAtual !== 'undefined' && estadoEmpresaAtual.status === 'trial') return testeRemoto;
     var local = LS.get(K_TIPO_CONTA);
     if (local && LS.get(K_TIPO_EMP) === EMPRESA_ID && TIPOS.indexOf(local) !== -1) return local;
     return 'combo';
@@ -788,6 +790,86 @@
       tipoRemoto = (TIPOS.indexOf(v) !== -1) ? v : null;
       aplicarTipoConta();
     }, function () { /* sem permissão para ler: vale o que está salvo neste aparelho */ });
+    if (refTeste) { try { refTeste.off(); } catch (e) {} }
+    testeRemoto = null;
+    refTeste = db.ref('empresas/' + san(EMPRESA_ID) + '/testeTipo');
+    refTeste.on('value', function (s) {
+      var v = String(s.val() || '');
+      testeRemoto = (TIPOS.indexOf(v) !== -1) ? v : null;
+      aplicarTipoConta(); renderPassos();
+    }, function () {});
+  }
+
+  /* ---------- primeiros passos do teste grátis ---------- */
+  var ROTULO_TESTE = { familia: '👨‍👩‍👧 Família', frota: '🚚 Frota', combo: '🔀 Frota + Família' };
+  var LIBERADO_TESTE = {
+    familia: 'mapa, SOS com sirene, rádio e histórico',
+    frota: 'mapa, rádio, histórico e alerta de velocidade',
+    combo: 'tudo: mapa, rádio, SOS e histórico dos dois modos'
+  };
+  function passosDoTeste(t) {
+    var tem = proprios().length > 0;
+    if (t === 'familia') return [
+      ['Neste celular, no campo <b>Quem usa este aparelho</b>, digite seu nome (ex.: MÃE) e adicione.', tem],
+      ['Nos outros celulares da família: instale o app e entre com o <b>mesmo e-mail</b> e a mesma empresa.', null],
+      ['Teste o <b>SOS</b> (botão vermelho) e o <b>rádio</b> (botão do microfone).', null]
+    ];
+    if (t === 'frota') return [
+      ['Neste celular, em <b>Cadastrar Novo Veículo na Lista</b>, digite a placa ou o nome do motorista e adicione.', tem],
+      ['Em cada veículo ou celular: instale o app e entre com o <b>mesmo e-mail</b> e a mesma empresa.', null],
+      ['Acompanhe no mapa e teste o <b>rádio</b> (botão do microfone).', null]
+    ];
+    return [
+      ['Escolha primeiro um modo, <b>Frota ou Família</b>, pela engrenagem ⚙. Comece por um só.', null],
+      ['Cadastre o nome neste celular nesse modo (veículo/motorista na Frota, pessoa na Família).', tem],
+      ['Nos outros celulares: instale o app e entre com o <b>mesmo e-mail</b>. Depois troque o modo no ⚙ e repita.', null],
+      ['Frota e Família ficam separados: cada modo só mostra as suas pessoas, mapa e rádio.', null]
+    ];
+  }
+  function renderPassos() {
+    var el = $('evPassos');
+    if (!auth.currentUser || !EMPRESA_ID || typeof estadoEmpresaAtual === 'undefined' || estadoEmpresaAtual.status !== 'trial' || LS.get('ev_passos_off_' + EMPRESA_ID)) {
+      if (el) el.remove();
+      return;
+    }
+    var t = testeRemoto || 'combo';
+    var chave = t + '|' + proprios().length + '|' + modo;
+    if (el && el.getAttribute('data-k') === chave && !el.hasAttribute('data-trocando')) return;
+    if (!el) {
+      el = document.createElement('div'); el.id = 'evPassos'; el.className = 'ev-card';
+      el.style.marginBottom = '12px';
+      var cont = document.querySelector('.container');
+      cont.insertBefore(el, cont.firstChild);
+    }
+    el.removeAttribute('data-trocando');
+    el.setAttribute('data-k', chave);
+    var li = passosDoTeste(t).map(function (p, i) {
+      return '<div style="display:flex;gap:8px;margin:7px 0;font-size:.85em;line-height:1.4"><span style="min-width:22px;font-weight:700">' +
+        (p[1] ? '✅' : (i + 1) + '.') + '</span><span>' + p[0] + '</span></div>';
+    }).join('');
+    el.innerHTML =
+      '<div class="ev-head"><span>🎁 Teste grátis — primeiros passos</span></div>' +
+      '<div style="font-size:.85em;margin:6px 0">Você está testando: <b>' + ROTULO_TESTE[t] + '</b><br><span style="color:var(--text-dim)">Liberado: ' + LIBERADO_TESTE[t] + '.</span></div>' +
+      li +
+      '<div id="evTrocaTeste" style="display:none;margin-top:8px"></div>' +
+      '<button id="evTrocar" class="ev-btn ev-sec ev-full" type="button">Trocar o que estou testando</button>' +
+      '<button id="evPassosOk" class="ev-btn ev-sec ev-full" type="button" style="margin-top:6px">Entendi, ocultar</button>';
+    $('evPassosOk').addEventListener('click', function () { LS.set('ev_passos_off_' + EMPRESA_ID, '1'); renderPassos(); });
+    $('evTrocar').addEventListener('click', function () {
+      var box = $('evTrocaTeste'); el.setAttribute('data-trocando', '1');
+      box.style.display = 'block';
+      box.innerHTML = ['familia', 'frota', 'combo'].map(function (k) {
+        return '<button type="button" class="ev-btn ev-sec ev-full" data-t="' + k + '" style="margin-bottom:6px">' + ROTULO_TESTE[k] + (k === t ? ' (atual)' : '') + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) {
+        b.addEventListener('click', function () {
+          var novo = b.getAttribute('data-t');
+          db.ref('empresas/' + san(EMPRESA_ID) + '/testeTipo').set(novo).then(function () {
+            testeRemoto = novo; aplicarTipoConta(); renderPassos();
+          }).catch(function (e) { alert('Não foi possível trocar agora: ' + (e && e.message ? e.message : e)); });
+        });
+      });
+    });
   }
 
   /* ---------- remoção remota ---------- */
@@ -824,6 +906,7 @@
     LS.del(K_TIPO_PEND);   /* o tipo não é mais escolhido no cadastro */
     observarTipo();
     aplicarTipoConta();
+    renderPassos();
     garantirFamilia();
     if (modo === 'familia') {
       atualizarSOS();
@@ -841,7 +924,7 @@
   setInterval(verificar, 3000);
   setInterval(renderFamilia, 10000);
   auth.onAuthStateChanged(function (u) {
-    if (!u) { empresaTipo = null; tipoRemoto = null; modoDesbloqueadoNestaSessao = false; }
+    if (!u) { empresaTipo = null; tipoRemoto = null; testeRemoto = null; modoDesbloqueadoNestaSessao = false; renderPassos(); }
     verificar();
   });
 })();
