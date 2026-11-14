@@ -778,6 +778,7 @@
     try { console.log('[EVERTON GPS] acesso:', JSON.stringify(a), '-> engrenagem:', mostrar ? 'MOSTRAR' : 'ESCONDER'); } catch (e) {}
     if (t === 'frota' && modo !== 'frota') definirModo('frota');
     else if (t === 'familia' && modo !== 'familia') definirModo('familia');
+    else if (t === 'combo' && testeRemoto === 'combo' && !LS.get(K_MODO)) definirModo('familia');   /* teste de tudo: começa pela Família */
   }
 
   function observarTipo() {
@@ -807,6 +808,7 @@
     frota: 'mapa, rádio, histórico e alerta de velocidade',
     combo: 'tudo: mapa, rádio, SOS e histórico dos dois modos'
   };
+  function temNomes(m) { return m === modo ? proprios().length > 0 : !!(lerLista(m) || []).length; }
   function passosDoTeste(t) {
     var tem = proprios().length > 0;
     if (t === 'familia') return [
@@ -820,9 +822,9 @@
       ['Acompanhe no mapa e teste o <b>rádio</b> (botão do microfone).', null]
     ];
     return [
-      ['Escolha primeiro um modo, <b>Frota ou Família</b>, pela engrenagem ⚙. Comece por um só.', null],
-      ['Cadastre o nome neste celular nesse modo (veículo/motorista na Frota, pessoa na Família).', tem],
-      ['Nos outros celulares: instale o app e entre com o <b>mesmo e-mail</b>. Depois troque o modo no ⚙ e repita.', null],
+      ['<b>1º Família:</b> o app já abre no modo Família. No campo <b>Quem usa este aparelho</b>, digite seu nome (ex.: MÃE) e adicione.', temNomes('familia')],
+      ['<b>2º Frota:</b> toque na engrenagem ⚙, escolha <b>Frota</b> e, em <b>Cadastrar Novo Veículo na Lista</b>, adicione o veículo ou motorista.', temNomes('frota')],
+      ['Nos outros celulares: instale o app, entre com o <b>mesmo e-mail</b> e escolha o modo de cada um no ⚙.', null],
       ['Frota e Família ficam separados: cada modo só mostra as suas pessoas, mapa e rádio.', null]
     ];
   }
@@ -833,7 +835,7 @@
       return;
     }
     var t = testeRemoto || 'combo';
-    var chave = t + '|' + proprios().length + '|' + modo;
+    var chave = t + '|' + temNomes('familia') + '|' + temNomes('frota') + '|' + modo;
     if (el && el.getAttribute('data-k') === chave && !el.hasAttribute('data-trocando')) return;
     if (!el) {
       el = document.createElement('div'); el.id = 'evPassos'; el.className = 'ev-card';
