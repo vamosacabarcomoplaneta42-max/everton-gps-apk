@@ -208,7 +208,7 @@
                 <div style="font-size:.72em;color:var(--text-dim);margin:-2px 0 8px;">Você pode trocar isso depois, durante o teste.</div>
             </div>
             <div>
-                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;">Nome da empresa</label>
+                <label style="font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing:.5px; font-weight: 600; font-family: var(--font-display); display: block; margin-bottom: 6px;" id="cadNomeRotulo">Nome da empresa</label>
                 <input type="text" id="cadNomeEmpresa" placeholder="Ex: Transportes Silva Ltda" autocomplete="off" style="width: 100%; box-sizing: border-box;">
             </div>
             <div>
@@ -1490,13 +1490,25 @@ function notificarNovoCadastroTelegram(nome, email, telefone, idEmpresa) {
     fetch(url).catch(function(e) { console.warn("Falha ao notificar Telegram:", e); });
 }
 
+// O nome pedido muda conforme o que o cliente quer testar: Família = nome da família; Frota = nome da empresa
+function ajustarRotuloNome() {
+    var sel = document.querySelector('input[name="cadTeste"]:checked'), v = sel ? sel.value : 'combo';
+    var rot = document.getElementById('cadNomeRotulo'), inp = document.getElementById('cadNomeEmpresa');
+    if (!rot || !inp) return;
+    if (v === 'familia') { rot.textContent = 'Nome da família'; inp.placeholder = 'Ex: Família Silva'; }
+    else if (v === 'frota') { rot.textContent = 'Nome da empresa'; inp.placeholder = 'Ex: Transportes Silva Ltda'; }
+    else { rot.textContent = 'Nome da família (ou da empresa)'; inp.placeholder = 'Ex: Família Silva'; }
+}
+Array.prototype.forEach.call(document.querySelectorAll('input[name="cadTeste"]'), function(r) { r.addEventListener('change', ajustarRotuloNome); });
+ajustarRotuloNome();
+
 document.getElementById('btnConfirmarCadastro').addEventListener('click', function() {
     var nome = document.getElementById('cadNomeEmpresa').value.trim();
     var email = document.getElementById('cadEmail').value.trim();
     var senha = document.getElementById('cadSenha').value;
     var telefone = document.getElementById('cadTelefone').value.trim();
 
-    if (!nome || !email || !senha) return mostrarErroAuth("Preencha nome da empresa, e-mail e senha.");
+    if (!nome || !email || !senha) return mostrarErroAuth("Preencha o nome, o e-mail e a senha.");
     if (senha.length < 6) return mostrarErroAuth("A senha precisa ter pelo menos 6 caracteres.");
 
     var idEmpresa = sanitizarChavePath(nome.toLowerCase()
