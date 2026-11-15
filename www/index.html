@@ -145,10 +145,10 @@
         .linha-passo-rota.ativo { background: rgba(0,224,168,0.1); border-left: 3px solid var(--brand); }
         .fila-info { font-size: 0.73em; color: var(--text-faint); text-align: center; }
 
-        .auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(4,6,10,0.92); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 10000; display: none; }
+        .auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(4,6,10,0.92); backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: center; z-index: 10000; display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 0; box-sizing: border-box; }
         .auth-card {
             background: var(--bg-panel); border: 1px solid var(--border-strong); padding: 28px 24px; border-radius: 18px;
-            width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; position: relative;
+            width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; position: relative; margin: auto; flex-shrink: 0;
             box-shadow: 0 20px 60px rgba(0,0,0,.5);
         }
         .auth-card .auth-logo {
@@ -190,6 +190,9 @@
                 <input type="password" id="authSenha" placeholder="******" autocomplete="new-password" style="width: 100%; box-sizing: border-box;">
             </div>
             <button id="btnConfirmarLogin" style="background: var(--accent); color:#04141f; width: 100%; padding:14px; font-size:.95em;">Entrar e liberar o app</button>
+            <div style="text-align:center;margin-top:12px;font-size:0.82em;">
+                <a href="#" id="linkEsqueciSenha" style="color:var(--brand);font-weight:bold;text-decoration:none;">Esqueci minha senha</a>
+            </div>
             <div style="text-align:center;margin-top:14px;font-size:0.82em;">
                 <span style="color:var(--text-dim);">Ainda não tem conta?</span>
                 <a href="#" id="linkIrParaCadastro" style="color:var(--brand);font-weight:bold;text-decoration:none;"> Criar conta — 7 dias grátis</a>
@@ -1460,6 +1463,23 @@ function mostrarPainelCadastro() {
 document.getElementById('linkIrParaCadastro').addEventListener('click', function(e) { e.preventDefault(); mostrarPainelCadastro(); });
 document.getElementById('linkIrParaLogin').addEventListener('click', function(e) { e.preventDefault(); mostrarPainelLogin(); });
 
+// Esqueci a senha: o Firebase manda um e-mail com o link para criar uma nova
+document.getElementById('linkEsqueciSenha').addEventListener('click', function(ev) {
+    ev.preventDefault();
+    var email = document.getElementById('authEmail').value.trim();
+    if (!email) return mostrarErroAuth("Digite seu e-mail no campo acima e toque em \"Esqueci minha senha\" de novo.");
+    auth.sendPasswordResetEmail(email).then(function() {
+        var el = document.getElementById('authErro');
+        el.textContent = "✅ Enviamos um e-mail para " + email + " com o link para criar uma nova senha. Olhe também a caixa de spam.";
+        el.style.display = 'block';
+    }).catch(function(e) {
+        var m = e.message || String(e);
+        if (e.code === 'auth/invalid-email') m = "E-mail inválido.";
+        if (e.code === 'auth/user-not-found') m = "Não existe conta com esse e-mail.";
+        mostrarErroAuth(m);
+    });
+});
+
 function mostrarErroAuth(msg) {
     var el = document.getElementById('authErro');
     el.textContent = "⚠️ " + msg;
@@ -1577,9 +1597,34 @@ auth.onAuthStateChanged(user => {
         document.getElementById('avisoSuspenso').style.display = 'none';
         abrirModalLogin(function() {});
     } else {
-        observarStatusEmpresa();
+        alinharEmpresaDoLogin(user).then(function() { observarStatusEmpresa(); });
     }
 });
+
+// A empresa de quem entrou manda: se o aparelho tinha guardada outra empresa (de um teste anterior),
+// troca para a empresa deste e-mail, limpa os nomes antigos e recarrega o app.
+function alinharEmpresaDoLogin(user) {
+    return db.ref('mapaUsuarioEmpresa/' + user.uid).once('value').then(function(snap) {
+        var id = String(snap.val() || '').trim().toLowerCase();
+        if (!id || id === EMPRESA_ID) return;
+        var tinhaOutra = !!EMPRESA_ID;
+        localStorage.setItem('empresa_id', id);
+        if (!tinhaOutra) {
+            EMPRESA_ID = id;
+            var inp = document.getElementById('empresaIdInput'); if (inp) inp.value = id;
+            atualizarInfoEmpresaSalva();
+            return;
+        }
+        try {
+            filaPendentes.length = 0;
+            listaVeiculos.length = 0;
+            salvarTudo();
+            ['ev_lista_frota', 'ev_lista_familia', 'ev_modo', 'ev_consent_familia'].forEach(function(k) { localStorage.removeItem(k); });
+        } catch (e) {}
+        location.reload();
+        return new Promise(function() {});   // não segue: a página recarrega já com a empresa certa
+    }).catch(function() {});
+}
 
 function renderizarFrotaLocal() {
     var container = document.getElementById('listaFrotaLocal'); container.innerHTML = "";
@@ -2998,4 +3043,4 @@ setInterval(function() {
 
 </script>
 </body>
-    </html>
+            </html>
