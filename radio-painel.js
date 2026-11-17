@@ -59,7 +59,17 @@
     '#rpSosCx{background:#101722;border:2px solid #ff5470;border-radius:16px;padding:20px;max-width:380px;width:100%;color:#eef2f6}' +
     '#rpSosCx h3{margin:0 0 8px;color:#ff5470}#rpSosCx select{width:100%;padding:10px;border-radius:8px;background:#0b111a;color:#eef2f6;border:1px solid #2a3647;margin:8px 0}' +
     '#rpSosCx p{font-size:.84em;color:#9fb0cf;margin:6px 0}' +
-    '#rpSosCx .l{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}#rpSosCx button{flex:1;padding:12px;border-radius:10px;border:none;font-weight:800;cursor:pointer}';
+    '#rpSosCx .l{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}#rpSosCx button{flex:1;padding:12px;border-radius:10px;border:none;font-weight:800;cursor:pointer}' +
+    /* blindagem: o painel tem estilos globais de input/button que deformavam a caixa de texto */
+    '#rpPainel input,#rpPainel select,#rpPainel button{box-sizing:border-box;margin:0;font-family:inherit}' +
+    '#rpPainel #rpTopo{flex-wrap:nowrap}#rpPainel #rpTopo b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '#rpPainel #rpFechar{width:auto!important;flex:none;padding:0 6px!important;height:auto}' +
+    '#rpPainel #rpCanais button{width:auto!important;flex:1;height:auto}' +
+    '#rpPainel #rpPara{width:auto!important;flex:1;min-width:0}' +
+    '#rpPainel #rpTxtLinha{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap}' +
+    '#rpPainel #rpTxt{flex:1 1 auto;min-width:0;width:auto!important;height:46px;padding:0 12px!important}' +
+    '#rpPainel #rpEnv{flex:0 0 54px;width:54px!important;height:46px;padding:0!important;font-size:1.1em}' +
+    '#rpPainel #rpPtt{width:100%!important}';
   document.head.appendChild(css);
 
   var btns = document.createElement('div');
@@ -187,8 +197,24 @@
     if (!meu) { confirmar(key, 1); if (m.tipo !== 'audio' && aberto) confirmar(key, 2); }
     if (!local && !meu && !carregando) {
       if (m.tipo === 'audio' && m.audio) { filaAudio.push({ src: m.audio, id: key, de: m.de }); tocarProximo(); }
+      else somAviso();
       if (!aberto) { naoLidas++; badge(); }
     }
+  }
+  /* som curto de aviso para mensagem de TEXTO (a de voz já toca sozinha) */
+  var ctxSom = null;
+  function prepararSom() { try { if (!ctxSom) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctxSom = new AC(); } if (ctxSom && ctxSom.state === 'suspended') ctxSom.resume(); } catch (e) {} }
+  function somAviso() {
+    try {
+      prepararSom(); if (!ctxSom) return;
+      var t0 = ctxSom.currentTime;
+      [[880, 0], [1320, 0.13]].forEach(function (n) {
+        var o = ctxSom.createOscillator(), g = ctxSom.createGain();
+        o.type = 'sine'; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t0 + n[1]); g.gain.exponentialRampToValueAtTime(0.25, t0 + n[1] + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + 0.22);
+        o.connect(g); g.connect(ctxSom.destination); o.start(t0 + n[1]); o.stop(t0 + n[1] + 0.25);
+      });
+    } catch (e) {}
   }
   function badge() { var b = $('rpBadge'); b.style.display = naoLidas > 0 ? 'flex' : 'none'; b.textContent = naoLidas > 99 ? '99+' : naoLidas; }
   function tocarProximo() {
@@ -339,7 +365,7 @@
   $('rpSosEnviar').onclick = enviarSos;
   $('rpSosCancelar').onclick = cancelarSos;
   $('rpSosFechar').onclick = function () { modal.style.display = 'none'; };
-  document.addEventListener('click', function () { try { reprodutor.play().catch(function () {}); reprodutor.pause(); } catch (e) {} }, { once: true });
+  document.addEventListener('click', function () { prepararSom(); try { reprodutor.play().catch(function () {}); reprodutor.pause(); } catch (e) {} }, { once: true });
 
   /* ---------- início: espera o login e a empresa do painel ---------- */
   var tent = 0, espera = setInterval(function () {
