@@ -63,7 +63,7 @@
     /* blindagem: o painel tem estilos globais de input/button que deformavam a caixa de texto */
     '#rpPainel input,#rpPainel select,#rpPainel button{box-sizing:border-box;margin:0;font-family:inherit}' +
     '#rpPainel #rpTopo{flex-wrap:nowrap}#rpPainel #rpTopo b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-    '#rpPainel #rpFechar{width:auto!important;flex:none;padding:0 6px!important;height:auto}' +
+    '#rpPainel #rpFechar,#rpPainel #rpSom{width:auto!important;flex:none;padding:0 6px!important;height:auto}' +
     '#rpPainel #rpCanais button{width:auto!important;flex:1;height:auto}' +
     '#rpPainel #rpPara{width:auto!important;flex:1;min-width:0}' +
     '#rpPainel #rpTxtLinha{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap}' +
@@ -80,7 +80,7 @@
   var painel = document.createElement('div');
   painel.id = 'rpPainel';
   painel.innerHTML =
-    '<div id="rpTopo"><b id="rpTitulo">🎙️ Rádio</b><button id="rpFechar" type="button">✕</button></div>' +
+    '<div id="rpTopo"><b id="rpTitulo">🎙️ Rádio</b><button id="rpSom" type="button" title="Som de aviso de mensagem">🔔</button><button id="rpFechar" type="button">✕</button></div>' +
     '<div id="rpCanais"><button id="rpCFrota" type="button">🚚 Frota</button><button id="rpCFam" type="button">👨‍👩‍👧 Família</button></div>' +
     '<div id="rpParaLinha"><span>Para:</span><select id="rpPara"><option value="">👥 Todos</option></select></div>' +
     '<div id="rpLista"></div>' +
@@ -204,14 +204,38 @@
   /* som curto de aviso para mensagem de TEXTO (a de voz já toca sozinha) */
   var ctxSom = null;
   function prepararSom() { try { if (!ctxSom) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctxSom = new AC(); } if (ctxSom && ctxSom.state === 'suspended') ctxSom.resume(); } catch (e) {} }
-  function somAviso() {
+  var somLigado = true, urlPlim = null, elPlim = null;
+  try { if (localStorage.getItem('painel_som') === '0') somLigado = false; } catch (e) {}
+  function criarPlim() {
+    if (urlPlim) return urlPlim;
+    var sr = 22050, n = Math.floor(sr * 0.5), buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    function w(o, t) { for (var i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); }
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    for (var i = 0; i < n; i++) {
+      var t = i / sr, f = t < 0.2 ? 880 : 1320, ini = t < 0.2 ? 0 : 0.2, env = Math.exp(-(t - ini) * 14) * Math.min(1, (t - ini) * 200);
+      v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * f * t) * env * 0.6 * 32767), true);
+    }
+    urlPlim = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    return urlPlim;
+  }
+  function somAviso(forcar) {
+    if (!somLigado && !forcar) return;
+    try {
+      if (!elPlim) { elPlim = new Audio(criarPlim()); elPlim.volume = 1; }
+      elPlim.currentTime = 0;
+      var p = elPlim.play();
+      if (p && p.catch) p.catch(function () { somWebAudio(); });
+    } catch (e) { somWebAudio(); }
+  }
+  function somWebAudio() {
     try {
       prepararSom(); if (!ctxSom) return;
       var t0 = ctxSom.currentTime;
       [[880, 0], [1320, 0.13]].forEach(function (n) {
         var o = ctxSom.createOscillator(), g = ctxSom.createGain();
         o.type = 'sine'; o.frequency.value = n[0];
-        g.gain.setValueAtTime(0.0001, t0 + n[1]); g.gain.exponentialRampToValueAtTime(0.25, t0 + n[1] + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + 0.22);
+        g.gain.setValueAtTime(0.0001, t0 + n[1]); g.gain.exponentialRampToValueAtTime(0.4, t0 + n[1] + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + 0.22);
         o.connect(g); g.connect(ctxSom.destination); o.start(t0 + n[1]); o.stop(t0 + n[1] + 0.25);
       });
     } catch (e) {}
@@ -351,6 +375,13 @@
     Object.keys(minhas); // nada
     try { reprodutor.muted = false; } catch (e) {}
   };
+  function marcarSom() { $('rpSom').textContent = somLigado ? '🔔' : '🔕'; }
+  $('rpSom').onclick = function () {
+    somLigado = !somLigado; try { localStorage.setItem('painel_som', somLigado ? '1' : '0'); } catch (e) {}
+    marcarSom(); if (somLigado) somAviso(true);     // ao ligar toca um exemplo (e libera o som no navegador)
+    status(somLigado ? 'Som de aviso ligado.' : 'Som de aviso desligado.');
+  };
+  marcarSom();
   $('rpFechar').onclick = function () { aberto = false; painel.style.display = 'none'; };
   $('rpCFrota').onclick = function () { trocarCanal('frota'); };
   $('rpCFam').onclick = function () { trocarCanal('familia'); };
@@ -365,7 +396,7 @@
   $('rpSosEnviar').onclick = enviarSos;
   $('rpSosCancelar').onclick = cancelarSos;
   $('rpSosFechar').onclick = function () { modal.style.display = 'none'; };
-  document.addEventListener('click', function () { prepararSom(); try { reprodutor.play().catch(function () {}); reprodutor.pause(); } catch (e) {} }, { once: true });
+  document.addEventListener('click', function () { prepararSom(); try { if (!elPlim) { elPlim = new Audio(criarPlim()); } elPlim.muted = true; elPlim.play().then(function () { elPlim.pause(); elPlim.muted = false; elPlim.currentTime = 0; }).catch(function () { elPlim.muted = false; }); } catch (e) {} try { reprodutor.play().catch(function () {}); reprodutor.pause(); } catch (e) {} }, { once: true });
 
   /* ---------- início: espera o login e a empresa do painel ---------- */
   var tent = 0, espera = setInterval(function () {
