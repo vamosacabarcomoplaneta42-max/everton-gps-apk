@@ -96,6 +96,8 @@ button {
 <h2>💳 Aprovar Plano - Com Mapas</h2>
 <div class="sub">Busque a empresa e aprove escolhendo <b>plano + mapas liberados</b>. O que não liberar fica bloqueado automaticamente no app. Bloqueia assinatura + mapas.</div>
 
+<div id="quemSou" style="font-size:.8em;margin:-8px 0 14px;padding:8px 10px;border-radius:6px;background:#1a212b;border:1px solid var(--border);display:none;line-height:1.5;"></div>
+
 <div class="box">
     <label>ID da empresa</label>
     <input type="text" id="empresaIdInput" placeholder="ex: transportadora_silva_ltda" autocapitalize="off" autocorrect="off" spellcheck="false" value="transportadora_geromel">
@@ -268,14 +270,30 @@ document.getElementById('btnEntrar').addEventListener('click', function() {
         document.getElementById('erroLogin').style.display = 'block';
     });
 });
+var souSuperAdmin = null;
 auth.onAuthStateChanged(function(user) {
     document.getElementById('authOverlay').style.display = user ? 'none' : 'flex';
+    var q = document.getElementById('quemSou');
+    if (!user) { q.style.display = 'none'; return; }
+    q.style.display = 'block'; q.textContent = 'Verificando permissão de ' + user.email + '...';
+    db.ref('superAdmins/' + user.uid).once('value').then(function(sn){
+        souSuperAdmin = sn.exists();
+        q.innerHTML = 'Conta: <b>' + user.email + '</b><br>' + (souSuperAdmin
+            ? '<span style="color:var(--brand)">✅ superAdmin: pode aprovar planos.</span>'
+            : '<span style="color:var(--danger)">❌ NÃO é superAdmin: o Firebase vai recusar salvar plano/status/data. Entre com a conta que está em <b>superAdmins</b>.</span><br><span style="color:var(--text-dim)">UID: ' + user.uid + '</span>');
+    }).catch(function(e){
+        souSuperAdmin = false;
+        q.innerHTML = 'Conta: <b>' + user.email + '</b><br><span style="color:var(--danger)">❌ Não consegui confirmar o superAdmin (' + e.message + ').</span><br><span style="color:var(--text-dim)">UID: ' + user.uid + '</span>';
+    });
 });
 function mostrarMsg(texto, tipo) {
     var el = document.getElementById('msg');
-    el.textContent = texto;
+    var dica = '';
+    if (tipo === 'erro' && /permission_denied|permiss/i.test(String(texto))) dica = '\n\n👉 Esta conta não tem permissão de superAdmin (ou as regras do Firebase não estão publicadas). Nada foi salvo.';
+    el.style.whiteSpace = 'pre-wrap';
+    el.textContent = texto + dica;
     el.className = tipo;
-    setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 6000);
+    if (tipo !== 'erro') setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 6000);   // erro fica na tela até o próximo clique
 }
 var empresaIdAtual = null;
 var mapaSelecionado = 'ruas';
