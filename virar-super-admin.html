@@ -50,10 +50,8 @@ button { width: 100%; padding: 14px; border-radius: 8px; border: none; font-weig
 </div>
 
 <h2>👑 Virar Super Admin</h2>
-<div class="aviso">
-    ⚠️ Só use esta página com a regra de <code>superAdmins</code> temporariamente afrouxada
-    (ver instruções). Depois de usar, <b>volte a regra pro <code>.write: false</code> original</b>
-    — deixá-la aberta é um risco de segurança.
+<div class="aviso" style="border-color:var(--brand);color:var(--brand);background:rgba(0,255,166,.08);">
+    Só a conta do dono (luissilva0238472@gmail.com) consegue se registrar aqui. Entre, toque em <b>Virar super admin</b> e pronto.
 </div>
 
 <div class="box">
@@ -110,7 +108,7 @@ auth.onAuthStateChanged(function(user) {
     db.ref('superAdmins/' + user.uid).once('value').then(function(snap) {
         document.getElementById('txtJaEh').textContent = snap.exists() ? "Sim ✅" : "Não";
     }).catch(function() {
-        document.getElementById('txtJaEh').textContent = "não consegui checar (normal se a regra ainda não foi afrouxada)";
+        document.getElementById('txtJaEh').textContent = "não consegui checar";
     });
 });
 
@@ -120,10 +118,10 @@ document.getElementById('btnVirar').addEventListener('click', function() {
     if (!confirm("Registrar " + user.email + " (UID " + user.uid + ") como super admin?")) return;
 
     db.ref('superAdmins/' + user.uid).set(true).then(function() {
-        mostrarMsg("✅ Pronto! Agora volte a regra de 'superAdmins' pro .write: false original.", "ok");
+        mostrarMsg("✅ Pronto! Você já é super admin. Pode abrir o Aprovar Plano.", "ok");
         document.getElementById('txtJaEh').textContent = "Sim ✅";
     }).catch(function(e) {
-        mostrarMsg("Erro: " + e.message + " — confira se a regra foi afrouxada e publicada.", "erro");
+        mostrarMsg("Erro: " + e.message + " — confira se as regras novas foram publicadas e se você entrou com luissilva0238472@gmail.com.", "erro");
     });
 });
 </script>
